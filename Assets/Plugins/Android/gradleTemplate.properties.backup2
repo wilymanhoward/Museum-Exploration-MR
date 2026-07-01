@@ -1,0 +1,5 @@
+org.gradle.jvmargs=-Xmx4096m
+org.gradle.parallel=true
+org.gradle.workers.max=4
+android.useAndroidX=true
+android.enableJetifier=true

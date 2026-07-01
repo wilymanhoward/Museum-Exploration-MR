@@ -1,0 +1,5 @@
+org.gradle.jvmargs=**JVM_ARGS**
+org.gradle.parallel=**PARALLEL_BUILD**
+org.gradle.workers.max=4
+android.useAndroidX=**USE_ANDROID_X**
+android.enableJetifier=**ENABLE_JETIFIER**
