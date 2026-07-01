@@ -263,15 +263,6 @@ public class MuseumManager : MonoBehaviour
     {
         Debug.Log($"Scanned Artifact QR: {artifact.artifactName}");
 
-        // Update scanned state dictionary
-        scannedArtifacts[artifact.artifactId] = true;
-
-        // Update HUD list if text is present
-        if (hudListItemTexts.TryGetValue(artifact.artifactId, out TextMeshProUGUI textComp))
-        {
-            UpdateListItemVisual(textComp, artifact, true);
-        }
-
         // Check if there is an active panel already open
         if (activePanelInstance != null)
         {
@@ -280,7 +271,7 @@ public class MuseumManager : MonoBehaviour
             {
                 // REUSE the existing panel instead of instantiating a new one!
                 // This updates the text fields, swaps the 3D model, and anchors the distance check to the new scan position.
-                existingInteraction.Setup(artifact, playerTransform, pose.position, () => {
+                existingInteraction.Setup(artifact, playerTransform, pose, () => {
                     activePanelInstance = null;
                 });
                 return;
@@ -303,7 +294,7 @@ public class MuseumManager : MonoBehaviour
             
             if (interaction != null)
             {
-                interaction.Setup(artifact, playerTransform, pose.position, () => {
+                interaction.Setup(artifact, playerTransform, pose, () => {
                     activePanelInstance = null;
                 });
                 
@@ -312,6 +303,28 @@ public class MuseumManager : MonoBehaviour
             else
             {
                 Debug.LogWarning("Spawned artifact panel prefab does not have ArtifactInteraction script attached.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Marks an artifact as completed (interacted) and updates the HUD checklist visual.
+    /// </summary>
+    public void MarkArtifactInteracted(string artifactId)
+    {
+        if (string.IsNullOrEmpty(artifactId)) return;
+
+        // Mark as completed in progress tracking
+        scannedArtifacts[artifactId] = true;
+
+        // Update HUD list if the item is in the current room list
+        if (hudListItemTexts.TryGetValue(artifactId, out TextMeshProUGUI textComp))
+        {
+            ArtifactData artifact = currentRoom.artifacts.Find(a => a.artifactId == artifactId);
+            if (artifact != null)
+            {
+                UpdateListItemVisual(textComp, artifact, true);
+                SetScanStatus($"Completed: {artifact.artifactName}", new Color(0f, 0.8f, 0.4f));
             }
         }
     }
