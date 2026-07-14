@@ -50,6 +50,22 @@ public class GlanceableHUD : MonoBehaviour
 
     private void Update()
     {
+        if (cameraTransform == null)
+        {
+            if (Camera.main != null)
+            {
+                cameraTransform = Camera.main.transform;
+            }
+            else
+            {
+                Camera cam = FindObjectOfType<Camera>();
+                if (cam != null)
+                {
+                    cameraTransform = cam.transform;
+                }
+            }
+        }
+
         if (cameraTransform == null) return;
 
         // Calculate where the HUD *should* ideally be in world space

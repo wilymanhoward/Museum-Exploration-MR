@@ -136,6 +136,22 @@ public class ArtifactInteraction : MonoBehaviour
 
     private void Update()
     {
+        if (player == null)
+        {
+            if (Camera.main != null)
+            {
+                player = Camera.main.transform;
+            }
+            else
+            {
+                Camera cam = FindObjectOfType<Camera>();
+                if (cam != null)
+                {
+                    player = cam.transform;
+                }
+            }
+        }
+
         if (player == null) return;
 
         // 1. Rotate the spawned 3D model (only if not currently grabbed/inspected)
@@ -185,6 +201,16 @@ public class ArtifactInteraction : MonoBehaviour
         if (isClosing && Vector3.Distance(transform.localScale, Vector3.zero) < 0.01f)
         {
             Destroy(gameObject);
+        }
+
+        // 5. Smoothly rotate the panel to face the player (billboard around vertical Y-axis)
+        Vector3 directionToPlayer = player.position - transform.position;
+        directionToPlayer.y = 0; // Keep the panel upright (no vertical tilt)
+        if (directionToPlayer != Vector3.zero)
+        {
+            // Canvas elements face their -Z direction, so we align the +Z (forward) to point away from the player
+            Quaternion targetRotation = Quaternion.LookRotation(-directionToPlayer);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * transitionSpeed);
         }
     }
 

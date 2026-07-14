@@ -263,6 +263,23 @@ public class MuseumManager : MonoBehaviour
     {
         Debug.Log($"Scanned Artifact QR: {artifact.artifactName}");
 
+        // Ensure we have a valid player transform reference (in case it was null at Start())
+        if (playerTransform == null)
+        {
+            if (Camera.main != null)
+            {
+                playerTransform = Camera.main.transform;
+            }
+            else
+            {
+                Camera cam = FindObjectOfType<Camera>();
+                if (cam != null)
+                {
+                    playerTransform = cam.transform;
+                }
+            }
+        }
+
         // Check if there is an active panel already open
         if (activePanelInstance != null)
         {
