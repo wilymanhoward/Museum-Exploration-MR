@@ -33,6 +33,6 @@ Material:
     - _BorderWidth: 0.008
     - _CornerRadius: 0.06
     m_Colors:
-    - _BorderColor: {r: 0.82, g: 0.82, b: 0.86, a: 0.85}
-    - _Color: {r: 0.96, g: 0.96, b: 0.98, a: 0.92}
+    - _BorderColor: {r: 0.82, g: 0.82, b: 0.86, a: 0.6}
+    - _Color: {r: 0.96, g: 0.96, b: 0.98, a: 0.6}
   m_BuildTextureStacks: []
