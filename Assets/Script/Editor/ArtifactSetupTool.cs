@@ -38,7 +38,7 @@ public class ArtifactSetupTool : Editor
                 modelPath = "Assets/Artifact/Batu/Batu.fbx",
                 baseTexPath = "Assets/Artifact/Batu/RockTexture/RockArtifact_Base_color_1001.png",
                 normalTexPath = "Assets/Artifact/Batu/RockTexture/RockArtifact_Normal_1001.png",
-                targetSize = 1.6f
+                targetSize = 0.3f
             },
             new ArtifactConfig()
             {
@@ -83,7 +83,7 @@ public class ArtifactSetupTool : Editor
                 description = "A hand-woven fabric featuring gold and silver threads. Originating from Sumatra, it is traditionally worn during ceremonial occasions and signifies wealth and prestige.",
                 modelPath = "Assets/Artifact/Songket/Songket.fbx",
                 baseTexPath = "Assets/Artifact/Songket/Textures/DSC_3387.JPG",
-                targetSize = 1.9f
+                targetSize = 0.3f
             },
             new ArtifactConfig()
             {

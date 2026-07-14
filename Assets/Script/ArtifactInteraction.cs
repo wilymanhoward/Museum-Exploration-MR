@@ -233,7 +233,8 @@ public class ArtifactInteraction : MonoBehaviour
             spawnedModel.transform.localRotation = Quaternion.identity;
 
             // Compensate for parent canvas scale so the model is rendered at its true physical size (1:1 with prefab scale)
-            Vector3 parentScale = modelSpawnAnchor.lossyScale;
+            // We use the panel's target initialScale (instead of the current zero scale) to ensure it scales up in sync with the panel.
+            Vector3 parentScale = initialScale;
             Vector3 prefabScale = artifactData.modelPrefab.transform.localScale;
             spawnedModel.transform.localScale = new Vector3(
                 parentScale.x != 0 ? prefabScale.x / parentScale.x : prefabScale.x,
