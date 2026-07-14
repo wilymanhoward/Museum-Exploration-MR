@@ -20,45 +20,18 @@ public class WayfindingSystem : MonoBehaviour
     private void Awake()
     {
         lineRenderer = GetComponent<LineRenderer>();
-        
-        // Ensure the line renderer does not use world space for position calculation if we manually set positions
-        lineRenderer.useWorldSpace = true;
-        
-        // Grab material to scroll texture offset
-        if (lineRenderer.material != null)
+        if (lineRenderer != null)
         {
-            lineMaterial = lineRenderer.material;
+            lineRenderer.enabled = false; // Disable the renderer
         }
     }
 
     private void Start()
     {
-        // Fallback for player transform
-        if (playerTransform == null && Camera.main != null)
-        {
-            playerTransform = Camera.main.transform;
-        }
     }
 
     private void Update()
     {
-        // 1. Update the line's starting point to follow the player
-        if (pathWaypoints != null && pathWaypoints.Length > 0 && playerTransform != null)
-        {
-            // Project player position onto the waypoints' Y-axis (floor height)
-            Vector3 playerFloorPos = playerTransform.position;
-            playerFloorPos.y = pathWaypoints[0].y + floorOffset;
-
-            lineRenderer.SetPosition(0, playerFloorPos);
-        }
-
-        // 2. Animate texture offset to create a moving/guiding effect (e.g. scrolling arrows)
-        if (lineMaterial != null && scrollSpeed != 0)
-        {
-            float offset = Time.time * scrollSpeed;
-            // Scroll along the U direction
-            lineMaterial.SetTextureOffset("_MainTex", new Vector2(-offset, 0));
-        }
     }
 
     /// <summary>
@@ -66,29 +39,12 @@ public class WayfindingSystem : MonoBehaviour
     /// </summary>
     public void SetPath(Vector3[] waypoints)
     {
-        if (waypoints == null || waypoints.Length == 0)
+        // Wayfinding floor lines have been disabled by user request
+        if (lineRenderer != null)
         {
-            pathWaypoints = null;
-            lineRenderer.positionCount = 0;
-            gameObject.SetActive(false);
-            return;
+            lineRenderer.enabled = false;
         }
-
-        gameObject.SetActive(true);
-        pathWaypoints = waypoints;
-
-        // Total positions = Player position (index 0) + all waypoints
-        lineRenderer.positionCount = waypoints.Length + 1;
-
-        // Populate waypoints starting from index 1 (index 0 is reserved for player in Update)
-        for (int i = 0; i < waypoints.Length; i++)
-        {
-            Vector3 offsetPoint = waypoints[i];
-            offsetPoint.y += floorOffset; // Prevent z-fighting with the floor
-            lineRenderer.SetPosition(i + 1, offsetPoint);
-        }
-
-        Debug.Log($"Wayfinding path updated with {waypoints.Length} room waypoints.");
+        gameObject.SetActive(false);
     }
 
     /// <summary>
@@ -96,8 +52,10 @@ public class WayfindingSystem : MonoBehaviour
     /// </summary>
     public void ClearPath()
     {
-        pathWaypoints = null;
-        lineRenderer.positionCount = 0;
+        if (lineRenderer != null)
+        {
+            lineRenderer.enabled = false;
+        }
         gameObject.SetActive(false);
     }
 }
