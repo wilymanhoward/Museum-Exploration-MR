@@ -132,6 +132,9 @@ public class ArtifactInteraction : MonoBehaviour
         }
 
         Debug.Log($"Setup detail panel next to QR code for: {data.artifactName} at position: {transform.position}");
+
+        // Automatically spawn the 3D model upon scanning the QR code
+        OnSpawnModelClicked();
     }
 
     private void Update()
@@ -229,6 +232,15 @@ public class ArtifactInteraction : MonoBehaviour
             spawnedModel.transform.localPosition = Vector3.zero;
             spawnedModel.transform.localRotation = Quaternion.identity;
 
+            // Compensate for parent canvas scale so the model is rendered at its true physical size (1:1 with prefab scale)
+            Vector3 parentScale = modelSpawnAnchor.lossyScale;
+            Vector3 prefabScale = artifactData.modelPrefab.transform.localScale;
+            spawnedModel.transform.localScale = new Vector3(
+                parentScale.x != 0 ? prefabScale.x / parentScale.x : prefabScale.x,
+                parentScale.y != 0 ? prefabScale.y / parentScale.y : prefabScale.y,
+                parentScale.z != 0 ? prefabScale.z / parentScale.z : prefabScale.z
+            );
+
             // Make it grabby and inspectable
             SetupInteractableModel(spawnedModel);
 
@@ -287,7 +299,7 @@ public class ArtifactInteraction : MonoBehaviour
         }
 
         grabInteractable.movementType = XRBaseInteractable.MovementType.VelocityTracking;
-        grabInteractable.trackPosition = true;
+        grabInteractable.trackPosition = false;
         grabInteractable.trackRotation = true;
 
         // Hook into grab event

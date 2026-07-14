@@ -15,6 +15,13 @@ public class QRCodeGeneratorEditor : EditorWindow
         GetWindow<QRCodeGeneratorEditor>("MR QR Generator");
     }
 
+    [MenuItem("Tools/Museum MR/Generate All QR Codes")]
+    public static void TriggerGenerateAll()
+    {
+        var window = GetWindow<QRCodeGeneratorEditor>("MR QR Generator");
+        window.GenerateAllMuseumQRCodes();
+    }
+
     private void OnGUI()
     {
         GUILayout.Label("Museum MR QR Code Generator", EditorStyles.boldLabel);
