@@ -17,11 +17,6 @@ MonoBehaviour:
   artifacts:
   - {fileID: 11400000, guid: 60a514e6362225d4b9d6205a41e84129, type: 2}
   - {fileID: 11400000, guid: 2adbf819937a7ec4e95af91f4c16b5e4, type: 2}
-  - {fileID: 11400000, guid: 659cdf738fbc2dc478901e47480b3817, type: 2}
-  - {fileID: 11400000, guid: 11c3c026caaab554491b3cf737947bd8, type: 2}
-  - {fileID: 11400000, guid: ede86ea51c3bb30429e0ba286c2d5027, type: 2}
-  - {fileID: 11400000, guid: b9102c4182c681c439d462ef8bcac64c, type: 2}
-  - {fileID: 11400000, guid: e9535fcb4ca1b22468718c7f974afb82, type: 2}
   waypoints:
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 3}
