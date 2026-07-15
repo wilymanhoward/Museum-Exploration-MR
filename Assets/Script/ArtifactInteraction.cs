@@ -29,8 +29,11 @@ public class ArtifactInteraction : MonoBehaviour
     public bool invertRotation = true;
 
     [Header("Proximity Dismissal")]
+    [Tooltip("If true, the panel will automatically close when the player walks too far away.")]
+    public bool enableProximityDismissal = false;
+
     [Tooltip("If the player walks further than this distance (in meters) from the panel, the timer starts.")]
-    public float maxInteractionDistance = 2.0f;
+    public float maxInteractionDistance = 5.0f;
 
     [Tooltip("Time in seconds the player must remain outside the interaction distance before the panel closes.")]
     public float closeDelay = 3.0f;
@@ -92,7 +95,15 @@ public class ArtifactInteraction : MonoBehaviour
 
         // Position the panel flat against the wall relative to the QR code
         Vector3 worldOffset = qrPose.rotation * panelOffset;
-        transform.position = qrPose.position + worldOffset;
+        Vector3 targetPos = qrPose.position + worldOffset;
+
+        // Always spawn at eye level with the user (matching the camera's height)
+        if (playerTransform != null)
+        {
+            targetPos.y = playerTransform.position.y;
+        }
+
+        transform.position = targetPos;
 
         // Rotate the panel to face the room/player (180 degrees from the wall direction if invertRotation is true)
         transform.rotation = qrPose.rotation * (invertRotation ? Quaternion.Euler(0f, 180f, 0f) : Quaternion.identity);
@@ -112,6 +123,7 @@ public class ArtifactInteraction : MonoBehaviour
         if (spawnedModel != null)
         {
             Destroy(spawnedModel);
+            spawnedModel = null;
         }
 
         // Reset the button interactability
@@ -168,32 +180,35 @@ public class ArtifactInteraction : MonoBehaviour
         }
 
         // 2. Proximity check with timer
-        float distanceToPanel = Vector3.Distance(player.position, transform.position);
-        if (distanceToPanel > maxInteractionDistance)
+        if (enableProximityDismissal)
         {
-            if (!isPlayerOutside)
+            float distanceToPanel = Vector3.Distance(player.position, transform.position);
+            if (distanceToPanel > maxInteractionDistance)
             {
-                isPlayerOutside = true;
-                outsideTimer = 0f;
-                Debug.Log($"Player moved outside interaction distance ({distanceToPanel:F2}m). Auto-close timer started.");
+                if (!isPlayerOutside)
+                {
+                    isPlayerOutside = true;
+                    outsideTimer = 0f;
+                    Debug.Log($"Player moved outside interaction distance ({distanceToPanel:F2}m). Auto-close timer started.");
+                }
+                else
+                {
+                    outsideTimer += Time.deltaTime;
+                    if (outsideTimer >= closeDelay && !isClosing)
+                    {
+                        Debug.Log($"Player outside for {closeDelay}s. Closing panel.");
+                        StartClose();
+                    }
+                }
             }
             else
             {
-                outsideTimer += Time.deltaTime;
-                if (outsideTimer >= closeDelay && !isClosing)
+                if (isPlayerOutside)
                 {
-                    Debug.Log($"Player outside for {closeDelay}s. Closing panel.");
-                    StartClose();
+                    isPlayerOutside = false;
+                    outsideTimer = 0f;
+                    Debug.Log("Player returned inside range. Timer reset.");
                 }
-            }
-        }
-        else
-        {
-            if (isPlayerOutside)
-            {
-                isPlayerOutside = false;
-                outsideTimer = 0f;
-                Debug.Log("Player returned inside range. Timer reset.");
             }
         }
 
