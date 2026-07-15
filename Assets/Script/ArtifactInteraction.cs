@@ -228,7 +228,7 @@ public class ArtifactInteraction : MonoBehaviour
         {
             // Canvas elements face their -Z direction, so we align the +Z (forward) to point away from the player
             Quaternion targetRotation = Quaternion.LookRotation(-directionToPlayer);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * transitionSpeed);
+            transform.rotation = targetRotation;
         }
     }
 

@@ -173,8 +173,8 @@ public class MuseumSceneSetupEditor : EditorWindow
         panelObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
         
         RectTransform rect = panelObj.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(400, 300);
-        panelObj.transform.localScale = Vector3.one * 0.003f; // Float nicely in VR
+        rect.sizeDelta = new Vector2(240, 320);
+        panelObj.transform.localScale = Vector3.one * 0.0022f; // Float nicely in VR
 
         // Background Image (Glassmorphism Minimalist Light Gray/White + Round corners)
         GameObject bgObj = new GameObject("Background");
@@ -187,7 +187,7 @@ public class MuseumSceneSetupEditor : EditorWindow
             new Color(0.82f, 0.82f, 0.86f, 0.85f), // Border: Soft silver-gray
             0.008f, // Border Width
             0.06f,  // Corner Radius
-            400f / 300f // Aspect Ratio (width/height)
+            240f / 320f // Aspect Ratio (width/height)
         );
         bgImg.material = panelMat;
 
@@ -205,7 +205,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         titleText.characterSpacing = 10f; // Elegant letter spacing
         titleText.color = new Color(0.1f, 0.1f, 0.15f);
         RectTransform titleRect = titleObj.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.05f, 0.8f);
+        titleRect.anchorMin = new Vector2(0.05f, 0.85f);
         titleRect.anchorMax = new Vector2(0.95f, 0.95f);
         titleRect.sizeDelta = Vector2.zero;
 
@@ -217,8 +217,8 @@ public class MuseumSceneSetupEditor : EditorWindow
         subText.fontStyle = FontStyles.Italic;
         subText.color = new Color(0.4f, 0.4f, 0.48f);
         RectTransform subRect = subObj.GetComponent<RectTransform>();
-        subRect.anchorMin = new Vector2(0.05f, 0.7f);
-        subRect.anchorMax = new Vector2(0.95f, 0.8f);
+        subRect.anchorMin = new Vector2(0.05f, 0.77f);
+        subRect.anchorMax = new Vector2(0.95f, 0.85f);
         subRect.sizeDelta = Vector2.zero;
 
         // Description text (Charcoal Dark + Line Spacing)
@@ -231,13 +231,13 @@ public class MuseumSceneSetupEditor : EditorWindow
         descText.enableWordWrapping = true;
         RectTransform descRect = descObj.GetComponent<RectTransform>();
         descRect.anchorMin = new Vector2(0.05f, 0.15f);
-        descRect.anchorMax = new Vector2(0.95f, 0.65f);
+        descRect.anchorMax = new Vector2(0.95f, 0.75f);
         descRect.sizeDelta = Vector2.zero;
 
-        // Model Spawn Anchor (Offset 0.7m to the right side of the canvas)
+        // Model Spawn Anchor (Offset to the right side of the canvas)
         GameObject anchorObj = new GameObject("ModelSpawnAnchor");
         anchorObj.transform.SetParent(panelObj.transform, false);
-        anchorObj.transform.localPosition = new Vector3(250f, 0f, -50f);
+        anchorObj.transform.localPosition = new Vector3(170f, 0f, -50f);
 
         // Attach ArtifactInteraction
         ArtifactInteraction interaction = panelObj.AddComponent<ArtifactInteraction>();
@@ -613,8 +613,15 @@ public class MuseumSceneSetupEditor : EditorWindow
         canvasObj = new GameObject("RoomHUDCanvas");
         float cameraY = Camera.main != null ? Camera.main.transform.position.y : 1.6f;
         // Place it slightly to the left, angled towards the player
-        canvasObj.transform.position = new Vector3(-0.7f, cameraY, 1.2f);
-        canvasObj.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
+        canvasObj.transform.position = new Vector3(-0.4f, cameraY + 0.2f, 1.2f);
+        canvasObj.transform.rotation = Quaternion.identity;
+
+        // Attach GlanceableHUD to make the Room HUD Canvas follow the player and face them
+        GlanceableHUD glanceableHUD = canvasObj.AddComponent<GlanceableHUD>();
+        glanceableHUD.positionOffset = new Vector3(-0.4f, 0.2f, 1.2f); // Float top-left
+        glanceableHUD.useDeadzone = true;
+        glanceableHUD.distanceThreshold = 0.15f;
+        glanceableHUD.angleThreshold = 15.0f;
 
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
@@ -622,7 +629,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         canvasObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
         RectTransform rect = canvasObj.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(250, 300);
-        canvasObj.transform.localScale = Vector3.one * 0.003f;
+        canvasObj.transform.localScale = Vector3.one * 0.002f;
 
         // Background (Translucent light white + rounded corners)
         GameObject panel = new GameObject("Background");
