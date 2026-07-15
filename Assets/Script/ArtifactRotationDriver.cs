@@ -2,10 +2,8 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 
 /// <summary>
-/// Handles intuitive rotation of a pinned artifact via XR interaction.
-/// Hand moving right → artifact rotates right (from viewer's perspective).
-/// Hand moving up → artifact tilts upward.
-/// This replaces XRGrabInteractable's built-in trackRotation which has inverted behavior.
+/// Handles intuitive rotation of a pinned artifact via XR interaction when grabbed with one hand,
+/// and translation/scaling/rotation when grabbed with both hands.
 /// </summary>
 [RequireComponent(typeof(XRGrabInteractable))]
 public class ArtifactRotationDriver : MonoBehaviour
@@ -14,13 +12,22 @@ public class ArtifactRotationDriver : MonoBehaviour
     public float rotationSensitivity = 350f;
 
     private XRGrabInteractable grabInteractable;
-    private IXRSelectInteractor activeInteractor;
-    private Vector3 lastInteractorPos;
     private Camera mainCamera;
+
+    // Track states across frames
+    private int activeInteractorsCount = 0;
+    private Vector3 lastSingleInteractorPos;
+    private Vector3 lastMidpoint;
+    private float lastDistance;
+    private Vector3 lastDir;
 
     private void Awake()
     {
         grabInteractable = GetComponent<XRGrabInteractable>();
+        
+        // Allow both hands to grab the artifact simultaneously
+        grabInteractable.selectMode = InteractableSelectMode.Multiple;
+        
         grabInteractable.selectEntered.AddListener(OnGrabbed);
         grabInteractable.selectExited.AddListener(OnReleased);
     }
@@ -36,53 +43,117 @@ public class ArtifactRotationDriver : MonoBehaviour
 
     private void OnGrabbed(SelectEnterEventArgs args)
     {
-        activeInteractor = args.interactorObject;
-        lastInteractorPos = GetInteractorPos();
-
         // Resolve the camera reference
-        mainCamera = Camera.main;
         if (mainCamera == null)
         {
-            Camera cam = FindObjectOfType<Camera>();
-            if (cam != null) mainCamera = cam;
+            mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                Camera cam = FindObjectOfType<Camera>();
+                if (cam != null) mainCamera = cam;
+            }
         }
+        
+        // Reset tracking on grab state change
+        activeInteractorsCount = 0;
     }
 
     private void OnReleased(SelectExitEventArgs args)
     {
-        activeInteractor = null;
+        // Reset tracking on grab state change
+        activeInteractorsCount = 0;
     }
 
     private void Update()
     {
-        if (activeInteractor == null || mainCamera == null) return;
+        if (grabInteractable == null || mainCamera == null) return;
 
-        Vector3 currentPos  = GetInteractorPos();
-        Vector3 delta       = currentPos - lastInteractorPos;
-        lastInteractorPos   = currentPos;
+        int grabCount = grabInteractable.interactorsSelecting.Count;
+        if (grabCount == 0)
+        {
+            activeInteractorsCount = 0;
+            return;
+        }
 
-        if (delta.sqrMagnitude < 0.000001f) return;
+        if (grabCount == 1)
+        {
+            IXRSelectInteractor interactor = grabInteractable.interactorsSelecting[0];
+            Vector3 currentPos = GetInteractorPos(interactor);
 
-        // Project the hand-movement delta into the viewer's camera-relative directions:
-        //   Horizontal component → spin around world-up axis (Y)
-        //   Vertical component   → tilt around the camera's right axis
-        Vector3 camRight    = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up).normalized;
-        Vector3 camUp       = mainCamera.transform.up;
+            if (activeInteractorsCount != 1)
+            {
+                lastSingleInteractorPos = currentPos;
+                activeInteractorsCount = 1;
+                return;
+            }
 
-        float horizontal    = Vector3.Dot(delta, camRight);
-        float vertical      = Vector3.Dot(delta, camUp);
+            Vector3 delta = currentPos - lastSingleInteractorPos;
+            lastSingleInteractorPos = currentPos;
 
-        // Hand moves right  → positive Y rotation (artifact face turns right) ✅
-        // Hand moves left   → negative Y rotation (artifact face turns left)  ✅
-        transform.Rotate(Vector3.up, horizontal * rotationSensitivity, Space.World);
+            if (delta.sqrMagnitude < 0.000001f) return;
 
-        // Hand moves up     → artifact tilts upward  ✅
-        // Hand moves down   → artifact tilts downward ✅
-        transform.Rotate(camRight, -vertical * rotationSensitivity, Space.World);
+            // Project the hand-movement delta into the viewer's camera-relative directions:
+            Vector3 camRight = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up).normalized;
+            Vector3 camUp = mainCamera.transform.up;
+
+            float horizontal = Vector3.Dot(delta, camRight);
+            float vertical = Vector3.Dot(delta, camUp);
+
+            // Hand moves right  → positive Y rotation (artifact face turns right)
+            // Hand moves left   → negative Y rotation (artifact face turns left)
+            transform.Rotate(Vector3.up, -horizontal * rotationSensitivity, Space.World);
+
+            // Hand moves up     → artifact tilts upward
+            // Hand moves down   → artifact tilts downward
+            transform.Rotate(camRight, vertical * rotationSensitivity, Space.World);
+        }
+        else if (grabCount >= 2)
+        {
+            IXRSelectInteractor interactor1 = grabInteractable.interactorsSelecting[0];
+            IXRSelectInteractor interactor2 = grabInteractable.interactorsSelecting[1];
+
+            Vector3 pos1 = GetInteractorPos(interactor1);
+            Vector3 pos2 = GetInteractorPos(interactor2);
+
+            Vector3 currentMidpoint = (pos1 + pos2) * 0.5f;
+            float currentDistance = Vector3.Distance(pos1, pos2);
+            Vector3 currentDir = (pos2 - pos1).normalized;
+
+            if (activeInteractorsCount != 2)
+            {
+                lastMidpoint = currentMidpoint;
+                lastDistance = currentDistance;
+                lastDir = currentDir;
+                activeInteractorsCount = 2;
+                return;
+            }
+
+            // Translate (move) the artifact along with the midpoint of the hands
+            Vector3 translationDelta = currentMidpoint - lastMidpoint;
+            transform.position += translationDelta;
+
+            // Scale (zoom) the artifact based on distance between hands
+            if (lastDistance > 0.001f && currentDistance > 0.001f)
+            {
+                float scaleRatio = currentDistance / lastDistance;
+                transform.localScale *= scaleRatio;
+            }
+
+            // Rotate based on direction change between the two hands
+            if (lastDir.sqrMagnitude > 0.001f && currentDir.sqrMagnitude > 0.001f)
+            {
+                Quaternion handRotation = Quaternion.FromToRotation(lastDir, currentDir);
+                transform.rotation = handRotation * transform.rotation;
+            }
+
+            lastMidpoint = currentMidpoint;
+            lastDistance = currentDistance;
+            lastDir = currentDir;
+        }
     }
 
-    private Vector3 GetInteractorPos()
+    private Vector3 GetInteractorPos(IXRSelectInteractor interactor)
     {
-        return activeInteractor.GetAttachTransform(grabInteractable).position;
+        return interactor.GetAttachTransform(grabInteractable).position;
     }
 }
