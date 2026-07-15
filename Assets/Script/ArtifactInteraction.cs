@@ -38,7 +38,7 @@ public class ArtifactInteraction : MonoBehaviour
     [Tooltip("Speed of scale animations during pop-in and fade-out.")]
     public float transitionSpeed = 6.0f;
 
-    private ArtifactData artifactData;
+    [HideInInspector] public ArtifactData artifactData;
     private Transform player;
     private Action onCloseCallback;
     private GameObject spawnedModel;
@@ -300,10 +300,24 @@ public class ArtifactInteraction : MonoBehaviour
         }
 
         grabInteractable.movementType = XRBaseInteractable.MovementType.VelocityTracking;
-        grabInteractable.trackPosition = false;
-        grabInteractable.trackRotation = true;
+        grabInteractable.trackPosition = false;   // object stays anchored — does NOT move
+        grabInteractable.trackRotation = false;   // disable XRI's built-in rotation (it is inverted)
+                                                  // ArtifactRotationDriver handles rotation correctly
 
-        // Hook into grab event
+        // useDynamicAttach snaps the ray line endpoint to the surface hit point
+        grabInteractable.useDynamicAttach = true;
+        grabInteractable.matchAttachPosition = true;
+        grabInteractable.matchAttachRotation = true;
+
+        // Add the custom rotation driver that maps hand movement direction directly:
+        // hand right → artifact right, hand up → artifact up (correct, intuitive direction)
+        // with configurable sensitivity so small wrist movements produce noticeable spin.
+        if (model.GetComponent<ArtifactRotationDriver>() == null)
+        {
+            model.AddComponent<ArtifactRotationDriver>();
+        }
+
+        // Hook into grab event for HUD checklist notification
         grabInteractable.selectEntered.AddListener(OnModelGrabbed);
     }
 

@@ -286,8 +286,14 @@ public class MuseumManager : MonoBehaviour
             ArtifactInteraction existingInteraction = activePanelInstance.GetComponent<ArtifactInteraction>();
             if (existingInteraction != null)
             {
-                // REUSE the existing panel instead of instantiating a new one!
-                // This updates the text fields, swaps the 3D model, and anchors the distance check to the new scan position.
+                // If the SAME artifact QR code is scanned again, do nothing — panel is already showing it.
+                if (existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == artifact.artifactId)
+                {
+                    Debug.Log($"QR code for '{artifact.artifactName}' scanned again — already displayed. Ignoring.");
+                    return;
+                }
+
+                // REUSE the existing panel for a DIFFERENT artifact instead of instantiating a new one.
                 existingInteraction.Setup(artifact, playerTransform, pose, () => {
                     activePanelInstance = null;
                 });
