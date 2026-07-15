@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc55c5d32fd5a2c4cae7404cd20bacc0, type: 3}
+  m_Name: artifact_sutera_Sutera
+  m_EditorClassIdentifier: 
+  artifactId: artifact_sutera
+  artifactName: Sutera
+  artist: Traditional Weaver
+  year: Historical
+  description: Fine traditional silk fabric known for its smooth texture, elegance,
+    and traditional craftsmanship.
+  modelPrefab: {fileID: 5196442200998902219, guid: 3ff9d37d77147734797827a2c63630b5,
+    type: 3}

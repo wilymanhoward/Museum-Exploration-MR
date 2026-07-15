@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc55c5d32fd5a2c4cae7404cd20bacc0, type: 3}
+  m_Name: artifact_batu_BatuBersurat
+  m_EditorClassIdentifier: 
+  artifactId: artifact_batu
+  artifactName: Batu Bersurat
+  artist: Ancient Carver
+  year: 1303 CE
+  description: The Terengganu Inscribed Stone, a monumental historical artifact documenting
+    early Islamic law and Jawi writing.
+  modelPrefab: {fileID: 1545559299509646815, guid: f1e2ec57f61f2e04b8c2450d67c603e8,
+    type: 3}

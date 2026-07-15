@@ -389,6 +389,14 @@ public class MuseumSceneSetupEditor : EditorWindow
             scannerObj.AddComponent<QRCodeScanner>();
         }
 
+        // Create MiniGameManager
+        GameObject gameManagerObj = GameObject.Find("MiniGameManager");
+        if (gameManagerObj == null)
+        {
+            gameManagerObj = new GameObject("MiniGameManager");
+            gameManagerObj.AddComponent<MiniGameManager>();
+        }
+
         // Create Floor Wayfinding Line Renderer
         GameObject wayfindingObj = GameObject.Find("WayfindingSystem");
         WayfindingSystem wayfinding = null;

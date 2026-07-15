@@ -222,6 +222,17 @@ public class MuseumManager : MonoBehaviour
     /// </summary>
     private void HandleQRCodeScanned(string payload, Pose pose)
     {
+        // 0. Check if the payload matches a mini-game QR
+        if (payload.StartsWith("game_"))
+        {
+            SetScanStatus("Scanned Mini-Game!", new Color(0.9f, 0.45f, 0.05f));
+            if (MiniGameManager.Instance != null)
+            {
+                MiniGameManager.Instance.StartGame(payload, pose);
+            }
+            return;
+        }
+
         // 1. Check if the payload matches a room transition QR
         RoomData roomMatch = rooms.Find(r => r.roomId == payload);
         if (roomMatch != null)

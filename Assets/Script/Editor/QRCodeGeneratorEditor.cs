@@ -149,6 +149,14 @@ public class QRCodeGeneratorEditor : EditorWindow
             }
         }
 
+        // Generate Game QR Codes
+        DownloadAndSaveQR("game_1", "Game_Guess_The_Artifact_game_1");
+        generatedCount++;
+        DownloadAndSaveQR("game_2", "Game_Batik_Process_game_2");
+        generatedCount++;
+        DownloadAndSaveQR("game_3", "Game_Assemble_Batu_game_3");
+        generatedCount++;
+
         statusMessage = $"Successfully initiated download for {generatedCount} QR codes.\nCheck 'Assets/QRCodes/' folder in a few seconds.";
         Repaint();
     }
