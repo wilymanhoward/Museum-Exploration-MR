@@ -20,18 +20,19 @@ public class MainMenuManager : MonoBehaviour
         Transform camTransform = Camera.main != null ? Camera.main.transform : null;
         if (targetMenu != null && camTransform != null)
         {
-            Vector3 pos = targetMenu.transform.position;
-            pos.y = camTransform.position.y;
+            // Spawn exactly 1.4 meters in front of the player's headset gaze direction at eye level
+            Vector3 pos = camTransform.position + camTransform.forward * 1.4f;
+            pos.y = camTransform.position.y; 
             targetMenu.transform.position = pos;
-
-            // Rotate Main Menu to face the player's initial gaze direction
+ 
+            // Rotate Main Menu to face the player camera
             Vector3 directionToPlayer = camTransform.position - targetMenu.transform.position;
             directionToPlayer.y = 0; // Keep the menu upright
             if (directionToPlayer != Vector3.zero)
             {
                 targetMenu.transform.rotation = Quaternion.LookRotation(-directionToPlayer);
             }
-            Debug.Log($"Main Menu aligned to active Camera height: {pos.y}m and oriented to face player.");
+            Debug.Log($"Main Menu positioned in front of player gaze at height: {pos.y}m and oriented to face player.");
         }
     }
 

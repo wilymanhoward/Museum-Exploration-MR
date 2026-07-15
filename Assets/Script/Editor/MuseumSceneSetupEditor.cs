@@ -283,6 +283,13 @@ public class MuseumSceneSetupEditor : EditorWindow
             DestroyImmediate(obj);
         }
 
+        while (true)
+        {
+            GameObject obj = GameObject.Find("Canvas");
+            if (obj == null) break;
+            DestroyImmediate(obj);
+        }
+
         foreach (var cam in GameObject.FindGameObjectsWithTag("MainCamera"))
         {
             DestroyImmediate(cam);
@@ -514,14 +521,14 @@ public class MuseumSceneSetupEditor : EditorWindow
         title.transform.SetParent(canvasObj.transform, false);
         TextMeshProUGUI text = title.AddComponent<TextMeshProUGUI>();
         text.text = "MUSEUM EXPLORATION";
-        text.fontSize = 18;
+        text.fontSize = 24;
         text.fontStyle = FontStyles.Bold;
         text.characterSpacing = 12f; // Modern wide spacing
         text.alignment = TextAlignmentOptions.Center;
         text.color = new Color(0.1f, 0.1f, 0.15f);
         RectTransform titleRect = title.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0, 0.7f);
-        titleRect.anchorMax = new Vector2(1, 0.95f);
+        titleRect.anchorMin = new Vector2(0.05f, 0.70f);
+        titleRect.anchorMax = new Vector2(0.95f, 0.95f);
         titleRect.sizeDelta = Vector2.zero;
 
         // Shared Button Material (Rounded pill + border)
@@ -530,7 +537,7 @@ public class MuseumSceneSetupEditor : EditorWindow
             new Color(0.72f, 0.72f, 0.78f, 0.9f), // Visible border
             0.035f, // Thicker border
             0.22f, // Rounded pill corners
-            210f / 40f // Button Aspect
+            240f / 48f // Button Aspect
         );
 
         // Start button
@@ -540,15 +547,15 @@ public class MuseumSceneSetupEditor : EditorWindow
         startImg.material = buttonMat;
         
         RectTransform startRect = startBtn.GetComponent<RectTransform>();
-        startRect.anchorMin = new Vector2(0.15f, 0.35f);
-        startRect.anchorMax = new Vector2(0.85f, 0.55f);
+        startRect.anchorMin = new Vector2(0.1f, 0.38f);
+        startRect.anchorMax = new Vector2(0.9f, 0.62f);
         startRect.sizeDelta = Vector2.zero;
 
         GameObject startTxt = new GameObject("Text");
         startTxt.transform.SetParent(startBtn.transform, false);
         TextMeshProUGUI startTextComp = startTxt.AddComponent<TextMeshProUGUI>();
         startTextComp.text = "Start Exploration";
-        startTextComp.fontSize = 14;
+        startTextComp.fontSize = 18;
         startTextComp.alignment = TextAlignmentOptions.Center;
         startTextComp.color = new Color(0.1f, 0.1f, 0.15f);
         RectTransform startTextRect = startTxt.GetComponent<RectTransform>();
@@ -563,15 +570,15 @@ public class MuseumSceneSetupEditor : EditorWindow
         settingsImg.material = buttonMat;
         
         RectTransform settingsRect = settingsBtn.GetComponent<RectTransform>();
-        settingsRect.anchorMin = new Vector2(0.15f, 0.1f);
-        settingsRect.anchorMax = new Vector2(0.85f, 0.3f);
+        settingsRect.anchorMin = new Vector2(0.1f, 0.10f);
+        settingsRect.anchorMax = new Vector2(0.9f, 0.34f);
         settingsRect.sizeDelta = Vector2.zero;
 
         GameObject settingsTxt = new GameObject("Text");
         settingsTxt.transform.SetParent(settingsBtn.transform, false);
         TextMeshProUGUI settingsTextComp = settingsTxt.AddComponent<TextMeshProUGUI>();
         settingsTextComp.text = "Settings";
-        settingsTextComp.fontSize = 14;
+        settingsTextComp.fontSize = 18;
         settingsTextComp.alignment = TextAlignmentOptions.Center;
         settingsTextComp.color = new Color(0.1f, 0.1f, 0.15f);
         RectTransform settingsTextRect = settingsTxt.GetComponent<RectTransform>();
@@ -586,7 +593,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         
         // Add BoxCollider for XRI physics raycasting and physical finger poking (touching)
         BoxCollider startCollider = startBtn.AddComponent<BoxCollider>();
-        startCollider.size = new Vector3(210f, 40f, 15f);
+        startCollider.size = new Vector3(240f, 48f, 15f);
         startCollider.isTrigger = true;
         
         // Link StartButton click programmatically to menuMgr.StartExploration
@@ -599,7 +606,7 @@ public class MuseumSceneSetupEditor : EditorWindow
 
         // Add BoxCollider for XRI physics raycasting and physical finger poking (touching)
         BoxCollider settingsCollider = settingsBtn.AddComponent<BoxCollider>();
-        settingsCollider.size = new Vector3(210f, 40f, 15f);
+        settingsCollider.size = new Vector3(240f, 48f, 15f);
         settingsCollider.isTrigger = true;
 
         return canvasObj;

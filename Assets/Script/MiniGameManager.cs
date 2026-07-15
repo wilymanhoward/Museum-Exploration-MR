@@ -60,12 +60,17 @@ public class MiniGameManager : MonoBehaviour
         // Spawn the base glassmorphism panel
         activeGameInstance = Instantiate(prefabToUse, spawnPos, qrPose.rotation);
         
-        // Remove standard artifact interaction script so it doesn't try to load regular artifact text
+        // Fix zero scale issue (originally handled by pop-in animation in ArtifactInteraction)
         var artInteraction = activeGameInstance.GetComponent<ArtifactInteraction>();
+        Vector3 targetScale = new Vector3(0.0022f, 0.0022f, 0.0022f); // fallback portrait scale
         if (artInteraction != null)
         {
+            // If the prefab already has a defined initial scale, use it (usually 0.0022f)
+            // But since Awake might have set localScale to Vector3.zero, we check and fallback
+            targetScale = new Vector3(0.0022f, 0.0022f, 0.0022f);
             Destroy(artInteraction);
         }
+        activeGameInstance.transform.localScale = targetScale;
 
         // Rotate to face player (vertical billboard)
         if (playerTransform != null)
