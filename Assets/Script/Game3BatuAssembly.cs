@@ -60,83 +60,94 @@ public class Game3BatuAssembly : MonoBehaviour
     {
         // Clean up previous
         CleanUpGame();
-
+ 
         if (modelAnchor == null) return;
-
+        
+        Vector3 canvasScale = transform.localScale;
+        float scaleX = canvasScale.x != 0 ? canvasScale.x : 1f;
+        float scaleY = canvasScale.y != 0 ? canvasScale.y : 1f;
+        float scaleZ = canvasScale.z != 0 ? canvasScale.z : 1f;
+ 
         // 1. Create Base Pedestal
         basePedestal = GameObject.CreatePrimitive(PrimitiveType.Cube);
         basePedestal.name = "Batu_Base_Pedestal";
         basePedestal.transform.SetParent(modelAnchor, false);
-        basePedestal.transform.localPosition = new Vector3(0, -0.25f, 0);
+        basePedestal.transform.localPosition = new Vector3(0, -0.25f / scaleY, 0);
         basePedestal.transform.localRotation = Quaternion.identity;
-        basePedestal.transform.localScale = new Vector3(0.3f, 0.05f, 0.3f);
+        basePedestal.transform.localScale = new Vector3(0.3f / scaleX, 0.05f / scaleY, 0.3f / scaleZ);
         
         Renderer pedestalRenderer = basePedestal.GetComponent<Renderer>();
         pedestalRenderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         pedestalRenderer.material.color = new Color(0.2f, 0.2f, 0.22f); // Dark slate stone
-
+ 
         // 2. Create the 3 Slabs representing sections (Top, Middle, Bottom)
         // Correct target offsets relative to the anchor
-        Vector3 targetBottom = new Vector3(0, -0.15f, 0);
-        Vector3 targetMiddle = new Vector3(0, -0.05f, 0);
-        Vector3 targetTop = new Vector3(0, 0.05f, 0);
-
+        Vector3 targetBottom = new Vector3(0, -0.15f / scaleY, 0);
+        Vector3 targetMiddle = new Vector3(0, -0.05f / scaleY, 0);
+        Vector3 targetTop = new Vector3(0, 0.05f / scaleY, 0);
+ 
         // Spawn them scattered around the anchor in front of user
-        pieces.Add(CreatePiece(targetBottom, new Vector3(-0.15f, -0.1f, -0.1f), "Bahagian Bawah", new Color(0.5f, 0.45f, 0.4f)));
-        pieces.Add(CreatePiece(targetMiddle, new Vector3(0.15f, -0.1f, -0.15f), "Bahagian Tengah", new Color(0.55f, 0.5f, 0.45f)));
-        pieces.Add(CreatePiece(targetTop, new Vector3(0.0f, -0.1f, -0.2f), "Bahagian Atas", new Color(0.6f, 0.55f, 0.5f)));
+        pieces.Add(CreatePiece(targetBottom, new Vector3(-0.15f / scaleX, -0.1f / scaleY, -0.1f / scaleZ), "Bahagian Bawah", new Color(0.5f, 0.45f, 0.4f)));
+        pieces.Add(CreatePiece(targetMiddle, new Vector3(0.15f / scaleX, -0.1f / scaleY, -0.15f / scaleZ), "Bahagian Tengah", new Color(0.55f, 0.5f, 0.45f)));
+        pieces.Add(CreatePiece(targetTop, new Vector3(0.0f, -0.1f / scaleY, -0.2f / scaleZ), "Bahagian Atas", new Color(0.6f, 0.55f, 0.5f)));
     }
-
+ 
     private PuzzlePiece CreatePiece(Vector3 targetLocalPos, Vector3 spawnLocalPos, string sectionName, Color color)
     {
         GameObject pieceObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
         pieceObj.name = $"Batu_Piece_{sectionName.Replace(" ", "_")}";
         pieceObj.transform.SetParent(modelAnchor, false);
         pieceObj.transform.localPosition = spawnLocalPos;
-        pieceObj.transform.localScale = new Vector3(0.2f, 0.08f, 0.15f);
-
+        
+        // Scale compensated for canvas scale
+        Vector3 canvasScale = transform.localScale;
+        float scaleX = canvasScale.x != 0 ? canvasScale.x : 1f;
+        float scaleY = canvasScale.y != 0 ? canvasScale.y : 1f;
+        float scaleZ = canvasScale.z != 0 ? canvasScale.z : 1f;
+        pieceObj.transform.localScale = new Vector3(0.2f / scaleX, 0.08f / scaleY, 0.15f / scaleZ);
+ 
         // Set visual styling to match historic rock
         Renderer r = pieceObj.GetComponent<Renderer>();
         r.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         r.material.color = color;
         r.material.SetFloat("_Smoothness", 0.1f);
-
+ 
         // Rigidbody for physics/grab
         Rigidbody rb = pieceObj.AddComponent<Rigidbody>();
         rb.useGravity = false;
         rb.isKinematic = true;
-
+ 
         // XR Grab setup
         var grab = pieceObj.AddComponent<XRGrabInteractable>();
         grab.movementType = XRBaseInteractable.MovementType.VelocityTracking;
         grab.trackPosition = true; // Let them move it!
         grab.trackRotation = true;
         grab.useDynamicAttach = true;
-
+ 
         // Add our custom rotation driver too so they have smooth turning
         var rotationDriver = pieceObj.AddComponent<ArtifactRotationDriver>();
         rotationDriver.rotationSensitivity = 250f;
-
+ 
         return new PuzzlePiece(pieceObj, targetLocalPos, sectionName);
     }
-
+ 
     private void Update()
     {
         if (pieces.Count == 0) return;
-
+ 
         bool allSnapped = true;
-
+ 
         for (int i = 0; i < pieces.Count; i++)
         {
             var p = pieces[i];
             if (p.isSnapped) continue;
-
+ 
             allSnapped = false;
-
-            // Distance to its target position
-            float dist = Vector3.Distance(p.gameObject.transform.localPosition, p.targetLocalPosition);
-
-            // Snap Threshold (6cm)
+ 
+            // Distance to its target position in world space meters
+            float dist = Vector3.Distance(p.gameObject.transform.position, modelAnchor.TransformPoint(p.targetLocalPosition));
+ 
+            // Snap Threshold (6cm in real-world space)
             if (dist < 0.06f)
             {
                 SnapPiece(i);

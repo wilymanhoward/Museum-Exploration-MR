@@ -11,6 +11,7 @@ public class MiniGameManager : MonoBehaviour
     public GameObject panelTemplatePrefab;
 
     private GameObject activeGameInstance;
+    public string ActiveGamePayload { get; private set; } = "";
 
     private void Awake()
     {
@@ -31,9 +32,10 @@ public class MiniGameManager : MonoBehaviour
     public void StartGame(string payload, Pose qrPose)
     {
         Debug.Log($"MiniGameManager: Starting game for payload '{payload}'");
+        ActiveGamePayload = payload;
 
         // Clean up any active game first
-        CloseActiveGame();
+        CloseActiveGame(false);
 
         // Get player camera for eye-level spawning
         Transform playerTransform = Camera.main != null ? Camera.main.transform : null;
@@ -98,8 +100,12 @@ public class MiniGameManager : MonoBehaviour
         }
     }
 
-    public void CloseActiveGame()
+    public void CloseActiveGame(bool resetPayload = true)
     {
+        if (resetPayload)
+        {
+            ActiveGamePayload = "";
+        }
         if (activeGameInstance != null)
         {
             Destroy(activeGameInstance);

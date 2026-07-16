@@ -225,9 +225,14 @@ public class MuseumManager : MonoBehaviour
         // 0. Check if the payload matches a mini-game QR
         if (payload.StartsWith("game_"))
         {
-            SetScanStatus("Scanned Mini-Game!", new Color(0.9f, 0.45f, 0.05f));
             if (MiniGameManager.Instance != null)
             {
+                if (MiniGameManager.Instance.ActiveGamePayload == payload)
+                {
+                    // Already playing this game! Ignore repeat scan.
+                    return;
+                }
+                SetScanStatus("Scanned Mini-Game!", new Color(0.9f, 0.45f, 0.05f));
                 MiniGameManager.Instance.StartGame(payload, pose);
             }
             return;
@@ -237,6 +242,11 @@ public class MuseumManager : MonoBehaviour
         RoomData roomMatch = rooms.Find(r => r.roomId == payload);
         if (roomMatch != null)
         {
+            if (currentRoom != null && currentRoom.roomId == payload)
+            {
+                // Already in this room! Ignore repeat scan.
+                return;
+            }
             SetScanStatus($"Scanned Room: {roomMatch.roomName}", new Color(0f, 0.7f, 0.9f));
             ChangeRoom(roomMatch);
             return;
