@@ -1,4 +1,5 @@
 using UnityEngine;
+using TMPro;
 
 public class MainMenuManager : MonoBehaviour
 {
@@ -8,6 +9,9 @@ public class MainMenuManager : MonoBehaviour
     [Header("Exploration References")]
     public GameObject wayfindingSystem;
     public GameObject artifactsContainer;
+
+    private TouchScreenKeyboard keyboard;
+    private bool isEnteringName = false;
 
     void Start()
     {
@@ -36,12 +40,61 @@ public class MainMenuManager : MonoBehaviour
         }
     }
 
+    void Update()
+    {
+        if (isEnteringName && keyboard != null)
+        {
+            if (keyboard.status == TouchScreenKeyboard.Status.Done || keyboard.status == TouchScreenKeyboard.Status.Canceled || !keyboard.active)
+            {
+                string finalName = keyboard.text.Trim();
+                if (string.IsNullOrEmpty(finalName))
+                {
+                    finalName = "Pelawat";
+                }
+                PlayerPrefs.SetString("PlayerName", finalName);
+                PlayerPrefs.Save();
+                Debug.Log($"Player registered name: {finalName}");
+
+                isEnteringName = false;
+                keyboard = null;
+
+                // Reset button text
+                if (mainMenuCanvas != null)
+                {
+                    var startTextComp = mainMenuCanvas.transform.Find("StartButton/Text")?.GetComponent<TextMeshProUGUI>();
+                    if (startTextComp != null) startTextComp.text = "Start Exploration";
+                }
+
+                ProceedStartExploration();
+            }
+        }
+    }
+
     /// <summary>
     /// Invoked when the user taps/clicks the Start button.
     /// </summary>
     public void StartExploration()
     {
-        Debug.Log("Museum Exploration: Started!");
+        if (isEnteringName) return;
+
+        // Open the native system/VR overlay keyboard to ask for player's name
+        string defaultName = PlayerPrefs.GetString("PlayerName", "Pelawat");
+        keyboard = TouchScreenKeyboard.Open(defaultName, TouchScreenKeyboardType.Default, false, false, false, false, "Masukkan Nama Anda");
+        isEnteringName = true;
+
+        if (mainMenuCanvas != null)
+        {
+            var startTextComp = mainMenuCanvas.transform.Find("StartButton/Text")?.GetComponent<TextMeshProUGUI>();
+            if (startTextComp != null)
+            {
+                startTextComp.text = "Sila Taip Nama...";
+            }
+        }
+    }
+
+    private void ProceedStartExploration()
+    {
+        Debug.Log("Museum Exploration: Starting actual gameplay!");
 
         // Hide the Main Menu
         if (mainMenuCanvas != null)

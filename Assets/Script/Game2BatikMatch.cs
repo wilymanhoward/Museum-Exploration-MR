@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.Networking;
 using TMPro;
 
 public class Game2BatikMatch : MonoBehaviour
@@ -95,6 +96,15 @@ public class Game2BatikMatch : MonoBehaviour
         }
     }
 
+    private struct LeaderboardEntry
+    {
+        public string name;
+        public float time;
+    }
+
+    // Firebase configuration (Lightweight Realtime DB REST API)
+    private const string FirebaseUrl = "https://museum-mixed-reality-app-default-rtdb.asia-southeast1.firebasedatabase.app";
+
     private List<BatikStep> stepsData = new List<BatikStep>();
     private BatikBlock[] slots = new BatikBlock[4];
     private GameObject[] socketVisuals = new GameObject[4];
@@ -102,6 +112,7 @@ public class Game2BatikMatch : MonoBehaviour
 
     private TextMeshProUGUI titleText;
     private TextMeshProUGUI feedbackText;
+    private TextMeshProUGUI descText;
     private Material buttonMaterial;
     
     // Countdown state (30 seconds limit)
@@ -129,12 +140,12 @@ public class Game2BatikMatch : MonoBehaviour
         // 1. Setup Header Texts on Canvas
         titleText = transform.Find("TitleText")?.GetComponent<TextMeshProUGUI>();
         feedbackText = transform.Find("ArtistYearText")?.GetComponent<TextMeshProUGUI>();
-        var descText = transform.Find("DescriptionText")?.GetComponent<TextMeshProUGUI>();
+        descText = transform.Find("DescriptionText")?.GetComponent<TextMeshProUGUI>();
 
         if (titleText != null) titleText.text = "PROSES BATIK";
         if (feedbackText != null)
         {
-            feedbackText.text = "Heret bongkah mengikut susunan.";
+            feedbackText.text = "Masa: 0.0s | Picit & heret bongkah 3D.";
             feedbackText.fontStyle = FontStyles.Normal;
         }
         if (descText != null) descText.text = ""; // clear description text area
@@ -455,23 +466,20 @@ public class Game2BatikMatch : MonoBehaviour
                 feedbackText.text = $"<color=#00CC88>★ Selesai! Masa: {solveTime:F1}s! ★</color>";
             }
 
-            // Lock all blocks (remove grab interactability so they can't be dragged anymore)
-            for (int i = 0; i < 4; i++)
-            {
-                var grab = slots[i].gameObject.GetComponent<XRGrabInteractable>();
-                if (grab != null) Destroy(grab);
+            // Hide the circular timer when game is won
+            if (donutContainer != null) donutContainer.SetActive(false);
 
-                // Change block color to golden/glowing visual
-                Renderer r = slots[i].gameObject.GetComponent<Renderer>();
-                if (r != null)
-                {
-                    r.material.color = new Color(0.95f, 0.85f, 0.4f, 1f); // Shiny gold
-                }
-            }
+            // Hide the 3D blocks and sockets to make space for the Leaderboard
+            foreach (var b in slots) if (b != null) b.gameObject.SetActive(false);
+            foreach (var sv in socketVisuals) if (sv != null) sv.SetActive(false);
 
             // Celebration visual effects and audio
             SpawnConfetti();
             PlayCelebrationSound();
+
+            // Submit Score to Firebase & Fetch Leaderboard
+            string playerName = PlayerPrefs.GetString("PlayerName", "Pelawat");
+            StartCoroutine(PostScoreAndLoadLeaderboard(playerName, solveTime));
 
             // Mark Batik Fabric completed on checklist
             if (MuseumManager.Instance != null)
@@ -530,6 +538,12 @@ public class Game2BatikMatch : MonoBehaviour
         // Clean up previous blocks and sockets
         CleanUpGame();
 
+        // Show circular timer again
+        if (donutContainer != null) donutContainer.SetActive(true);
+
+        // Clear leaderboard display from description area
+        if (descText != null) descText.text = "";
+
         // Reset timer
         remainingTime = TotalGameTime;
         isGameOver = false;
@@ -539,6 +553,119 @@ public class Game2BatikMatch : MonoBehaviour
 
         // Restart area
         InitializeGameArea();
+    }
+
+    private System.Collections.IEnumerator PostScoreAndLoadLeaderboard(string name, float time)
+    {
+        if (descText != null)
+        {
+            descText.text = "<align=center><color=#00CC88>Menghantar skor ke Firebase...</color></align>";
+        }
+
+        // Generate unique entry key
+        string uniqueId = SystemInfo.deviceUniqueIdentifier + "_" + Random.Range(1000, 9999);
+        string url = $"{FirebaseUrl}/leaderboard/{uniqueId}.json";
+        
+        string json = $"{{\"name\":\"{name}\",\"time\":{time.ToString("F2")}}}";
+        
+        using (UnityWebRequest request = new UnityWebRequest(url, "PUT"))
+        {
+            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(json);
+            request.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            
+            yield return request.SendWebRequest();
+        }
+
+        // Fetch top scores
+        if (descText != null)
+        {
+            descText.text = "<align=center><color=#0099FF>Memuatkan Papan Pendahulu...</color></align>";
+        }
+
+        string fetchUrl = $"{FirebaseUrl}/leaderboard.json";
+        using (UnityWebRequest fetchRequest = UnityWebRequest.Get(fetchUrl))
+        {
+            yield return fetchRequest.SendWebRequest();
+
+            if (fetchRequest.result == UnityWebRequest.Result.Success)
+            {
+                string resultJson = fetchRequest.downloadHandler.text;
+                List<LeaderboardEntry> list = ParseLeaderboard(resultJson);
+                DisplayLeaderboard(list);
+            }
+            else
+            {
+                if (descText != null)
+                {
+                    descText.text = $"<align=center><color=#FF4444>Gagal memuatkan leaderboard:\n{fetchRequest.error}</color></align>";
+                }
+            }
+        }
+    }
+
+    private List<LeaderboardEntry> ParseLeaderboard(string json)
+    {
+        List<LeaderboardEntry> list = new List<LeaderboardEntry>();
+        if (string.IsNullOrEmpty(json) || json == "null" || json == "{}") return list;
+
+        // Custom lightweight JSON dictionary parser splits entries by '},"'
+        string[] entries = json.Split(new string[] { "},\"" }, System.StringSplitOptions.None);
+        foreach (string entry in entries)
+        {
+            string name = "";
+            int nameIndex = entry.IndexOf("\"name\":\"");
+            if (nameIndex != -1)
+            {
+                int start = nameIndex + 8;
+                int end = entry.IndexOf("\"", start);
+                if (end != -1) name = entry.Substring(start, end - start);
+            }
+
+            float time = 999f;
+            int timeIndex = entry.IndexOf("\"time\":");
+            if (timeIndex != -1)
+            {
+                int start = timeIndex + 7;
+                int end = entry.IndexOf(",", start);
+                if (end == -1) end = entry.IndexOf("}", start);
+                if (end == -1) end = entry.Length;
+                
+                string timeStr = entry.Substring(start, end - start).Trim().Replace("}", "");
+                float.TryParse(timeStr, out time);
+            }
+
+            if (!string.IsNullOrEmpty(name))
+            {
+                list.Add(new LeaderboardEntry { name = name, time = time });
+            }
+        }
+
+        // Sort by fastest completion time ascending
+        list.Sort((a, b) => a.time.CompareTo(b.time));
+        return list;
+    }
+
+    private void DisplayLeaderboard(List<LeaderboardEntry> list)
+    {
+        if (descText == null) return;
+
+        if (titleText != null) titleText.text = "PAPAN PENDAHULU";
+
+        string board = "<align=center>🏆 <b>TURUTAN TERPANTAS</b> 🏆\n\n";
+        for (int i = 0; i < list.Count && i < 5; i++)
+        {
+            string prefix = (i == 0) ? "🥇 " : (i == 1) ? "🥈 " : (i == 2) ? "🥉 " : $" {i + 1}. ";
+            board += $"<align=left>{prefix}{list[i].name} <line-height=0>\n<align=right>{list[i].time:F1}s<line-height=1em>\n";
+        }
+
+        if (list.Count == 0)
+        {
+            board += "\nTiada rekod lagi. Jadilah yang pertama!";
+        }
+
+        descText.text = board;
     }
 
     private Texture2D CreateRingTexture(int size, int thickness)
