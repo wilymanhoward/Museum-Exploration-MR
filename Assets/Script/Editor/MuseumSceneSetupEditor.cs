@@ -527,10 +527,10 @@ public class MuseumSceneSetupEditor : EditorWindow
         text.alignment = TextAlignmentOptions.Center;
         text.color = new Color(0.1f, 0.1f, 0.15f);
         RectTransform titleRect = title.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.05f, 0.70f);
+        titleRect.anchorMin = new Vector2(0.05f, 0.72f);
         titleRect.anchorMax = new Vector2(0.95f, 0.95f);
         titleRect.sizeDelta = Vector2.zero;
-
+ 
         // Shared Button Material (Rounded pill + border)
         Material buttonMat = GetOrCreateRoundedMaterial("Mat_Button", 
             new Color(0.9f, 0.9f, 0.93f, 0.8f), // Soft button fill
@@ -539,53 +539,67 @@ public class MuseumSceneSetupEditor : EditorWindow
             0.22f, // Rounded pill corners
             240f / 48f // Button Aspect
         );
-
-        // Start button
+ 
+        // Create NameButton (Middle)
+        GameObject nameBtn = new GameObject("NameButton");
+        nameBtn.transform.SetParent(canvasObj.transform, false);
+        Image nameImg = nameBtn.AddComponent<Image>();
+        nameImg.material = buttonMat;
+        nameImg.color = new Color(0.95f, 0.95f, 0.97f, 0.9f);
+        
+        RectTransform nameRect = nameBtn.GetComponent<RectTransform>();
+        nameRect.anchorMin = new Vector2(0.1f, 0.40f);
+        nameRect.anchorMax = new Vector2(0.9f, 0.64f);
+        nameRect.sizeDelta = Vector2.zero;
+ 
+        GameObject nameTxtObj = new GameObject("Text");
+        nameTxtObj.transform.SetParent(nameBtn.transform, false);
+        TextMeshProUGUI nameTextComp = nameTxtObj.AddComponent<TextMeshProUGUI>();
+        nameTextComp.text = "Nama: Pelawat";
+        nameTextComp.fontSize = 16;
+        nameTextComp.alignment = TextAlignmentOptions.Center;
+        nameTextComp.color = new Color(0.1f, 0.1f, 0.15f);
+        RectTransform nameTextRect = nameTxtObj.GetComponent<RectTransform>();
+        nameTextRect.anchorMin = Vector2.zero;
+        nameTextRect.anchorMax = Vector2.one;
+        nameTextRect.sizeDelta = Vector2.zero;
+ 
+        // Attach XR Button Selection to Name Button
+        XRButtonSelection nameSelection = nameBtn.AddComponent<XRButtonSelection>();
+        nameSelection.buttonImage = nameImg;
+        nameSelection.scaleTarget = nameBtn.transform;
+        
+        // Add BoxCollider for XRI physics raycasting and physical finger poking (touching)
+        BoxCollider nameCollider = nameBtn.AddComponent<BoxCollider>();
+        nameCollider.size = new Vector3(240f, 48f, 15f);
+        nameCollider.isTrigger = true;
+        
+        // Link NameButton click to menuMgr.StartEditingName
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(nameSelection.onClick, menuMgr.StartEditingName);
+ 
+        // Start button (Bottom)
         GameObject startBtn = new GameObject("StartButton");
         startBtn.transform.SetParent(canvasObj.transform, false);
         Image startImg = startBtn.AddComponent<Image>();
         startImg.material = buttonMat;
         
         RectTransform startRect = startBtn.GetComponent<RectTransform>();
-        startRect.anchorMin = new Vector2(0.1f, 0.38f);
-        startRect.anchorMax = new Vector2(0.9f, 0.62f);
+        startRect.anchorMin = new Vector2(0.1f, 0.12f);
+        startRect.anchorMax = new Vector2(0.9f, 0.36f);
         startRect.sizeDelta = Vector2.zero;
-
+ 
         GameObject startTxt = new GameObject("Text");
         startTxt.transform.SetParent(startBtn.transform, false);
         TextMeshProUGUI startTextComp = startTxt.AddComponent<TextMeshProUGUI>();
         startTextComp.text = "Start Exploration";
-        startTextComp.fontSize = 18;
+        startTextComp.fontSize = 16;
         startTextComp.alignment = TextAlignmentOptions.Center;
         startTextComp.color = new Color(0.1f, 0.1f, 0.15f);
         RectTransform startTextRect = startTxt.GetComponent<RectTransform>();
         startTextRect.anchorMin = Vector2.zero;
         startTextRect.anchorMax = Vector2.one;
         startTextRect.sizeDelta = Vector2.zero;
-
-        // Settings button
-        GameObject settingsBtn = new GameObject("SettingsButton");
-        settingsBtn.transform.SetParent(canvasObj.transform, false);
-        Image settingsImg = settingsBtn.AddComponent<Image>();
-        settingsImg.material = buttonMat;
-        
-        RectTransform settingsRect = settingsBtn.GetComponent<RectTransform>();
-        settingsRect.anchorMin = new Vector2(0.1f, 0.10f);
-        settingsRect.anchorMax = new Vector2(0.9f, 0.34f);
-        settingsRect.sizeDelta = Vector2.zero;
-
-        GameObject settingsTxt = new GameObject("Text");
-        settingsTxt.transform.SetParent(settingsBtn.transform, false);
-        TextMeshProUGUI settingsTextComp = settingsTxt.AddComponent<TextMeshProUGUI>();
-        settingsTextComp.text = "Settings";
-        settingsTextComp.fontSize = 18;
-        settingsTextComp.alignment = TextAlignmentOptions.Center;
-        settingsTextComp.color = new Color(0.1f, 0.1f, 0.15f);
-        RectTransform settingsTextRect = settingsTxt.GetComponent<RectTransform>();
-        settingsTextRect.anchorMin = Vector2.zero;
-        settingsTextRect.anchorMax = Vector2.one;
-        settingsTextRect.sizeDelta = Vector2.zero;
-
+ 
         // Attach XR Button Selection to Start Button and hook events
         XRButtonSelection startSelection = startBtn.AddComponent<XRButtonSelection>();
         startSelection.buttonImage = startImg;
@@ -598,17 +612,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         
         // Link StartButton click programmatically to menuMgr.StartExploration
         UnityEditor.Events.UnityEventTools.AddPersistentListener(startSelection.onClick, menuMgr.StartExploration);
-
-        // Attach XR Button Selection to Settings Button
-        XRButtonSelection settingsSelection = settingsBtn.AddComponent<XRButtonSelection>();
-        settingsSelection.buttonImage = settingsImg;
-        settingsSelection.scaleTarget = settingsBtn.transform;
-
-        // Add BoxCollider for XRI physics raycasting and physical finger poking (touching)
-        BoxCollider settingsCollider = settingsBtn.AddComponent<BoxCollider>();
-        settingsCollider.size = new Vector3(240f, 48f, 15f);
-        settingsCollider.isTrigger = true;
-
+ 
         return canvasObj;
     }
 
