@@ -102,8 +102,8 @@ public class Game2BatikMatch : MonoBehaviour
         public float time;
     }
 
-    // Firebase configuration (Lightweight Realtime DB REST API)
-    private const string FirebaseUrl = "https://museum-mixed-reality-app-default-rtdb.asia-southeast1.firebasedatabase.app";
+    // Firebase Firestore configuration (Lightweight REST API)
+    private const string FirestoreUrl = "https://firestore.googleapis.com/v1/projects/museum-mixed-reality-app/databases/(default)/documents";
 
     private List<BatikStep> stepsData = new List<BatikStep>();
     private BatikBlock[] slots = new BatikBlock[4];
@@ -559,16 +559,15 @@ public class Game2BatikMatch : MonoBehaviour
     {
         if (descText != null)
         {
-            descText.text = "<align=center><color=#00CC88>Menghantar skor ke Firebase...</color></align>";
+            descText.text = "<align=center><color=#00CC88>Menghantar skor ke Firestore...</color></align>";
         }
 
-        // Generate unique entry key
-        string uniqueId = SystemInfo.deviceUniqueIdentifier + "_" + Random.Range(1000, 9999);
-        string url = $"{FirebaseUrl}/leaderboard/{uniqueId}.json";
+        string postUrl = $"{FirestoreUrl}/leaderboard";
         
-        string json = $"{{\"name\":\"{name}\",\"time\":{time.ToString("F2")}}}";
+        // Firestore JSON document format: {"fields":{"name":{"stringValue":"..."},"time":{"doubleValue":...}}}
+        string json = $"{{\"fields\":{{\"name\":{{\"stringValue\":\"{name}\"}},\"time\":{{\"doubleValue\":{time.ToString("F2")}}}}}}}";
         
-        using (UnityWebRequest request = new UnityWebRequest(url, "PUT"))
+        using (UnityWebRequest request = new UnityWebRequest(postUrl, "POST"))
         {
             byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(json);
             request.uploadHandler = new UploadHandlerRaw(bodyRaw);
@@ -578,20 +577,27 @@ public class Game2BatikMatch : MonoBehaviour
             yield return request.SendWebRequest();
         }
 
-        // Fetch top scores
+        // Fetch top scores from Firestore using runQuery
         if (descText != null)
         {
             descText.text = "<align=center><color=#0099FF>Memuatkan Papan Pendahulu...</color></align>";
         }
 
-        string fetchUrl = $"{FirebaseUrl}/leaderboard.json";
-        using (UnityWebRequest fetchRequest = UnityWebRequest.Get(fetchUrl))
-        {
-            yield return fetchRequest.SendWebRequest();
+        string queryUrl = "https://firestore.googleapis.com/v1/projects/museum-mixed-reality-app/databases/(default)/documents:runQuery";
+        string queryJson = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"leaderboard\"}],\"orderBy\":[{\"field\":{\"fieldPath\":\"time\"},\"direction\":\"ASCENDING\"}],\"limit\":5}}";
 
-            if (fetchRequest.result == UnityWebRequest.Result.Success)
+        using (UnityWebRequest queryRequest = new UnityWebRequest(queryUrl, "POST"))
+        {
+            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(queryJson);
+            queryRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            queryRequest.downloadHandler = new DownloadHandlerBuffer();
+            queryRequest.SetRequestHeader("Content-Type", "application/json");
+
+            yield return queryRequest.SendWebRequest();
+
+            if (queryRequest.result == UnityWebRequest.Result.Success)
             {
-                string resultJson = fetchRequest.downloadHandler.text;
+                string resultJson = queryRequest.downloadHandler.text;
                 List<LeaderboardEntry> list = ParseLeaderboard(resultJson);
                 DisplayLeaderboard(list);
             }
@@ -599,7 +605,7 @@ public class Game2BatikMatch : MonoBehaviour
             {
                 if (descText != null)
                 {
-                    descText.text = $"<align=center><color=#FF4444>Gagal memuatkan leaderboard:\n{fetchRequest.error}</color></align>";
+                    descText.text = $"<align=center><color=#FF4444>Gagal memuatkan leaderboard:\n{queryRequest.error}</color></align>";
                 }
             }
         }
@@ -608,41 +614,42 @@ public class Game2BatikMatch : MonoBehaviour
     private List<LeaderboardEntry> ParseLeaderboard(string json)
     {
         List<LeaderboardEntry> list = new List<LeaderboardEntry>();
-        if (string.IsNullOrEmpty(json) || json == "null" || json == "{}") return list;
+        if (string.IsNullOrEmpty(json) || json == "null" || json == "[]") return list;
 
-        // Custom lightweight JSON dictionary parser splits entries by '},"'
-        string[] entries = json.Split(new string[] { "},\"" }, System.StringSplitOptions.None);
-        foreach (string entry in entries)
+        // Parse Firestore documents response by searching for document boundaries
+        string[] documents = json.Split(new string[] { "\"document\"" }, System.StringSplitOptions.None);
+        foreach (string doc in documents)
         {
             string name = "";
-            int nameIndex = entry.IndexOf("\"name\":\"");
+            int nameIndex = doc.IndexOf("\"stringValue\":\"");
             if (nameIndex != -1)
             {
-                int start = nameIndex + 8;
-                int end = entry.IndexOf("\"", start);
-                if (end != -1) name = entry.Substring(start, end - start);
+                int start = nameIndex + 15;
+                int end = doc.IndexOf("\"", start);
+                if (end != -1) name = doc.Substring(start, end - start);
             }
 
             float time = 999f;
-            int timeIndex = entry.IndexOf("\"time\":");
+            int timeIndex = doc.IndexOf("\"doubleValue\":");
             if (timeIndex != -1)
             {
-                int start = timeIndex + 7;
-                int end = entry.IndexOf(",", start);
-                if (end == -1) end = entry.IndexOf("}", start);
-                if (end == -1) end = entry.Length;
-                
-                string timeStr = entry.Substring(start, end - start).Trim().Replace("}", "");
-                float.TryParse(timeStr, out time);
+                int start = timeIndex + 14;
+                int end = doc.IndexOf("}");
+                if (end == -1) end = doc.IndexOf(",");
+                if (end != -1)
+                {
+                    string timeStr = doc.Substring(start, end - start).Trim().Replace("}", "");
+                    float.TryParse(timeStr, out time);
+                }
             }
 
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(name) && time < 990f)
             {
                 list.Add(new LeaderboardEntry { name = name, time = time });
             }
         }
 
-        // Sort by fastest completion time ascending
+        // Sort by time ascending (Firestore query does this, but we sort locally just to be robust!)
         list.Sort((a, b) => a.time.CompareTo(b.time));
         return list;
     }
