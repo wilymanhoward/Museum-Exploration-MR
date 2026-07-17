@@ -244,7 +244,8 @@ public class MuseumSceneSetupEditor : EditorWindow
         interaction.titleText = titleText;
         interaction.artistYearText = subText;
         interaction.descriptionText = descText;
-        interaction.modelSpawnAnchor = anchorObj.transform;
+        RotateArtifact rotator = anchorObj.AddComponent<RotateArtifact>();
+        interaction.modelSpawnAnchor = rotator;
         interaction.maxInteractionDistance = 2.5f;
 
         GameObject prefab = PrefabUtility.SaveAsPrefabAsset(panelObj, path);
@@ -437,32 +438,33 @@ public class MuseumSceneSetupEditor : EditorWindow
             wayfinding = wayfindingObj.GetComponent<WayfindingSystem>();
         }
 
-        // Create Museum Manager
+        // Create Room and Artifact Managers
         GameObject managerObj = GameObject.Find("MuseumManager");
-        MuseumManager museumManager = null;
         if (managerObj == null)
         {
             managerObj = new GameObject("MuseumManager");
-            museumManager = managerObj.AddComponent<MuseumManager>();
-        }
-        else
-        {
-            museumManager = managerObj.GetComponent<MuseumManager>();
         }
 
-        museumManager.rooms = rooms;
-        museumManager.startingRoom = rooms[0];
-        museumManager.wayfindingSystem = wayfinding;
-        museumManager.artifactPanelPrefab = panelPrefab;
-        museumManager.artifactListItemPrefab = listItemPrefab;
+        RoomManager roomManager = managerObj.GetComponent<RoomManager>();
+        if (roomManager == null) roomManager = managerObj.AddComponent<RoomManager>();
+
+        ArtifactManager artifactManager = managerObj.GetComponent<ArtifactManager>();
+        if (artifactManager == null) artifactManager = managerObj.AddComponent<ArtifactManager>();
+
+        roomManager.rooms = rooms;
+        roomManager.startingRoom = rooms[0];
+        roomManager.wayfindingSystem = wayfinding;
+        roomManager.artifactListItemPrefab = listItemPrefab;
+
+        artifactManager.artifactPanelPrefab = panelPrefab;
 
         // Set up World Space Main Menu
-        GameObject menuCanvas = BuildMainMenuUI(museumManager);
+        GameObject menuCanvas = BuildMainMenuUI();
         Canvas menuCanvasComp = menuCanvas.GetComponent<Canvas>();
         if (menuCanvasComp != null) menuCanvasComp.worldCamera = mainCam;
         
         // Set up World Space Room HUD
-        GameObject hudCanvas = BuildRoomHUDUI(museumManager);
+        GameObject hudCanvas = BuildRoomHUDUI(roomManager);
         Canvas hudCanvasComp = hudCanvas.GetComponent<Canvas>();
         if (hudCanvasComp != null) hudCanvasComp.worldCamera = mainCam;
 
@@ -476,7 +478,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
     }
 
-    private static GameObject BuildMainMenuUI(MuseumManager manager)
+    private static GameObject BuildMainMenuUI()
     {
         GameObject canvasObj = GameObject.Find("MainMenuCanvas");
         if (canvasObj != null) DestroyImmediate(canvasObj);
@@ -616,7 +618,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         return canvasObj;
     }
 
-    private static GameObject BuildRoomHUDUI(MuseumManager manager)
+    private static GameObject BuildRoomHUDUI(RoomManager manager)
     {
         GameObject canvasObj = GameObject.Find("RoomHUDCanvas");
         if (canvasObj != null) DestroyImmediate(canvasObj);

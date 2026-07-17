@@ -84,24 +84,24 @@ public class CustomMuseumRoomsSetup : EditorWindow
             new Vector3[] { new Vector3(0, 0, 0), new Vector3(3, 0, 0) });
         allRooms.Add(roomMandalika);
 
-        // 6. Assign to MuseumManager in the scene
-        MuseumManager museumManager = FindObjectOfType<MuseumManager>();
-        if (museumManager != null)
+        // 6. Assign to RoomManager in the scene
+        RoomManager roomManager = FindObjectOfType<RoomManager>();
+        if (roomManager != null)
         {
-            Undo.RecordObject(museumManager, "Update Museum Rooms");
-            museumManager.rooms = allRooms;
-            museumManager.startingRoom = allRooms[0];
-            EditorUtility.SetDirty(museumManager);
+            Undo.RecordObject(roomManager, "Update Museum Rooms");
+            roomManager.rooms = allRooms;
+            roomManager.startingRoom = allRooms[0];
+            EditorUtility.SetDirty(roomManager);
             
             // Mark scene dirty and save
             EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
             EditorSceneManager.SaveOpenScenes();
             
-            Debug.Log("Successfully assigned rooms to MuseumManager in the active scene!");
+            Debug.Log("Successfully assigned rooms to RoomManager in the active scene!");
         }
         else
         {
-            Debug.LogWarning("MuseumManager was not found in the active scene. Please open the correct scene and run this setup tool again.");
+            Debug.LogWarning("RoomManager was not found in the active scene. Please open the correct scene and run this setup tool again.");
         }
 
         AssetDatabase.SaveAssets();
