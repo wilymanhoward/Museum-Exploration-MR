@@ -14,7 +14,7 @@ public class Game2BatikMatch : MonoBehaviour
         public Vector3 targetLocalPosition;
         public bool isGrabbed;
 
-        private UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable;
+        private XRGrabInteractable grabInteractable;
         private Game2BatikMatch controller;
 
         public void Setup(Game2BatikMatch gameController, int stepIndex, int startSlot, Mesh blockMesh, Material blockMat)
@@ -40,8 +40,8 @@ public class Game2BatikMatch : MonoBehaviour
             rb.isKinematic = true;
 
             // 4. Setup XR Grab Interactable
-            grabInteractable = gameObject.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
-            grabInteractable.movementType = UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable.MovementType.Instantaneous;
+            grabInteractable = gameObject.AddComponent<XRGrabInteractable>();
+            grabInteractable.movementType = XRBaseInteractable.MovementType.Instantaneous;
             grabInteractable.trackPosition = true;
             grabInteractable.trackRotation = false; // Keep it upright so text is readable
             grabInteractable.useDynamicAttach = true;
@@ -503,7 +503,7 @@ public class Game2BatikMatch : MonoBehaviour
         // Lock blocks (remove grab interactability)
         for (int i = 0; i < 4; i++)
         {
-            var grab = slots[i].gameObject.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            var grab = slots[i].gameObject.GetComponent<XRGrabInteractable>();
             if (grab != null) Destroy(grab);
 
             Renderer r = slots[i].gameObject.GetComponent<Renderer>();
@@ -565,7 +565,11 @@ public class Game2BatikMatch : MonoBehaviour
         string postUrl = $"{FirestoreUrl}/leaderboard";
         
         // Firestore JSON document format: {"fields":{"name":{"stringValue":"..."},"time":{"doubleValue":...}}}
-        string json = $"{{\"fields\":{{\"name\":{{\"stringValue\":\"{name}\"}},\"time\":{{\"doubleValue\":{time.ToString("F2")}}}}}}}";
+        // Force invariant culture so the decimal separator is always '.' - a comma-locale
+        // headset would otherwise emit "12,34" and Firestore would reject the write as invalid JSON.
+        string timeValue = time.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+        string safeName = name.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        string json = $"{{\"fields\":{{\"name\":{{\"stringValue\":\"{safeName}\"}},\"time\":{{\"doubleValue\":{timeValue}}}}}}}";
         
         using (UnityWebRequest request = new UnityWebRequest(postUrl, "POST"))
         {
@@ -634,12 +638,19 @@ public class Game2BatikMatch : MonoBehaviour
             if (timeIndex != -1)
             {
                 int start = timeIndex + 14;
-                int end = doc.IndexOf("}");
-                if (end == -1) end = doc.IndexOf(",");
+                // Search for the closing brace/comma AFTER 'start'. Searching from index 0
+                // would find the '}' that closes the earlier "stringValue" object (which sits
+                // before "doubleValue"), giving a negative length and throwing in Substring -
+                // that silently aborted the whole leaderboard parse and left the board blank.
+                int end = doc.IndexOf("}", start);
+                if (end == -1) end = doc.IndexOf(",", start);
                 if (end != -1)
                 {
                     string timeStr = doc.Substring(start, end - start).Trim().Replace("}", "");
-                    float.TryParse(timeStr, out time);
+                    // Firestore always returns '.' as the decimal separator, so parse with the
+                    // invariant culture (a comma-locale headset would otherwise fail to parse).
+                    float.TryParse(timeStr, System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out time);
                 }
             }
 

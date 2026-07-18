@@ -200,7 +200,7 @@ public class ArtifactInteraction : MonoBehaviour
         // 1. Rotate the spawned 3D model (only if not currently grabbed/inspected)
         if (spawnedModel != null)
         {
-            var grabInteractable = spawnedModel.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+            var grabInteractable = spawnedModel.GetComponent<XRGrabInteractable>();
             if (grabInteractable == null || !grabInteractable.isSelected)
             {
                 spawnedModel.transform.Rotate(Vector3.up, modelSpinSpeed * Time.deltaTime, Space.World);
@@ -263,15 +263,6 @@ public class ArtifactInteraction : MonoBehaviour
             }
         }
 
-        // 5. Smoothly rotate the panel to face the player (billboard around vertical Y-axis)
-        Vector3 directionToPlayer = player.position - transform.position;
-        directionToPlayer.y = 0; // Keep the panel upright (no vertical tilt)
-        if (directionToPlayer != Vector3.zero)
-        {
-            // Canvas elements face their -Z direction, so we align the +Z (forward) to point away from the player
-            Quaternion targetRotation = Quaternion.LookRotation(-directionToPlayer);
-            transform.rotation = targetRotation;
-        }
     }
 
     /// <summary>

@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
-using UnityEngine.XR.Interaction.Toolkit.Interactables;
 
 [RequireComponent(typeof(SphereCollider))]
 [RequireComponent(typeof(XRGrabInteractable))]
@@ -10,13 +9,23 @@ public class RotateArtifact : MonoBehaviour
     [Tooltip("Degrees of rotation per meter of hand movement. Higher = more responsive.")]
     public float rotationSensitivity = 350f;
 
+    [Tooltip("Padding added around the spawned model's bounds when sizing the grab collider, in meters.")]
+    public float grabColliderPadding = 0.05f;
+
     private XRGrabInteractable grabInteractable;
     private Rigidbody rb;
+    private SphereCollider grabCollider;
     private Camera mainCamera;
 
     // Track active spawned model and its ID
     private GameObject spawnedModel;
     private string activeArtifactId;
+
+    // Original local pose of the spawner, restored on every new spawn since
+    // two-hand grabbing translates/scales this transform directly
+    private Vector3 initialLocalPosition;
+    private Quaternion initialLocalRotation;
+    private Vector3 initialLocalScale;
 
     // Track single and double hand selection states across frames
     private int activeInteractorsCount = 0;
@@ -29,6 +38,11 @@ public class RotateArtifact : MonoBehaviour
     {
         grabInteractable = GetComponent<XRGrabInteractable>();
         rb = GetComponent<Rigidbody>();
+        grabCollider = GetComponent<SphereCollider>();
+
+        initialLocalPosition = transform.localPosition;
+        initialLocalRotation = transform.localRotation;
+        initialLocalScale = transform.localScale;
 
         // Configure Rigidbody automatically for static/kinematic XRI dragging
         rb.useGravity = false;
@@ -70,8 +84,11 @@ public class RotateArtifact : MonoBehaviour
         // 1. Clear previous models
         ClearModel();
 
-        // 2. Reset local rotation
-        transform.localRotation = Quaternion.identity;
+        // 2. Restore the spawner's original pose (a previous two-hand grab may have
+        // translated/scaled this transform away from its home under the canvas)
+        transform.localPosition = initialLocalPosition;
+        transform.localRotation = initialLocalRotation;
+        transform.localScale = initialLocalScale;
 
         if (prefab == null) return null;
 
@@ -84,6 +101,12 @@ public class RotateArtifact : MonoBehaviour
 
         // Compensate for parent canvas scale so the model is rendered at its true physical size (1:1 with prefab scale)
         Vector3 worldScale = transform.lossyScale;
+        // If the canvas is currently scaling up from zero (pop-in animation), fallback to the target scale (0.0022f) for compensation
+        if (worldScale.x < 0.0001f)
+        {
+            worldScale = new Vector3(0.0022f, 0.0022f, 0.0022f);
+        }
+        
         Vector3 prefabScale = prefab.transform.localScale;
         spawnedModel.transform.localScale = new Vector3(
             worldScale.x != 0 ? prefabScale.x / worldScale.x : prefabScale.x,
@@ -91,7 +114,37 @@ public class RotateArtifact : MonoBehaviour
             worldScale.z != 0 ? prefabScale.z / worldScale.z : prefabScale.z
         );
 
+        // The spawner sits inside a scaled-down UI canvas, so its own lossyScale is tiny
+        // (e.g. ~0.002). The SphereCollider's radius is in that same tiny local space, so
+        // without resizing it here the grab hitbox ends up only millimeters wide in world
+        // space regardless of how large the visually-compensated model looks.
+        ResizeGrabCollider(spawnedModel);
+
         return spawnedModel;
+    }
+
+    /// <summary>
+    /// Grows/shrinks and re-centers the grab SphereCollider to match the true world-space
+    /// bounds of the spawned model, so it can actually be pinch-grabbed by hand.
+    /// </summary>
+    private void ResizeGrabCollider(GameObject model)
+    {
+        if (grabCollider == null || model == null) return;
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            bounds.Encapsulate(renderers[i].bounds);
+        }
+
+        float worldRadius = bounds.extents.magnitude + grabColliderPadding;
+        float uniformScale = Mathf.Max(transform.lossyScale.x, 0.0001f);
+
+        grabCollider.radius = worldRadius / uniformScale;
+        grabCollider.center = transform.InverseTransformPoint(bounds.center);
     }
 
     /// <summary>
@@ -211,12 +264,13 @@ public class RotateArtifact : MonoBehaviour
         }
     }
 
-    private Vector3 GetInteractorPos(UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor interactor)
+    private Vector3 GetInteractorPos(IXRSelectInteractor interactor)
     {
-        if (interactor is MonoBehaviour mb)
-        {
-            return mb.transform.position;
-        }
-        return transform.position;
+        // Use the interactor's actual attach/pinch point rather than its root transform.
+        // The root transform (e.g. a hand's palm/wrist anchor) can be offset from where the
+        // fingers are actually pinching, and that offset changes as the wrist rotates while
+        // walking - using the raw root position caused the held model to visibly drift/slide
+        // relative to the hands whenever the player moved.
+        return interactor.GetAttachTransform(grabInteractable).position;
     }
 }

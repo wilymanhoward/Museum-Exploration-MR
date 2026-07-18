@@ -458,6 +458,26 @@ public class MuseumSceneSetupEditor : EditorWindow
 
         artifactManager.artifactPanelPrefab = panelPrefab;
 
+        // Create EventSystem if none exists in the scene
+        GameObject eventSystemObj = GameObject.Find("EventSystem");
+        if (eventSystemObj == null)
+        {
+            eventSystemObj = new GameObject("EventSystem");
+            eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            eventSystemObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.XRUIInputModule>();
+        }
+        else
+        {
+            if (eventSystemObj.GetComponent<UnityEngine.EventSystems.EventSystem>() == null)
+            {
+                eventSystemObj.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            }
+            if (eventSystemObj.GetComponent<UnityEngine.XR.Interaction.Toolkit.UI.XRUIInputModule>() == null)
+            {
+                eventSystemObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.XRUIInputModule>();
+            }
+        }
+
         // Set up World Space Main Menu
         GameObject menuCanvas = BuildMainMenuUI();
         Canvas menuCanvasComp = menuCanvas.GetComponent<Canvas>();
@@ -542,42 +562,69 @@ public class MuseumSceneSetupEditor : EditorWindow
             240f / 48f // Button Aspect
         );
  
-        // Create NameButton (Middle)
-        GameObject nameBtn = new GameObject("NameButton");
-        nameBtn.transform.SetParent(canvasObj.transform, false);
-        Image nameImg = nameBtn.AddComponent<Image>();
-        nameImg.material = buttonMat;
-        nameImg.color = new Color(0.95f, 0.95f, 0.97f, 0.9f);
-        
-        RectTransform nameRect = nameBtn.GetComponent<RectTransform>();
-        nameRect.anchorMin = new Vector2(0.1f, 0.40f);
-        nameRect.anchorMax = new Vector2(0.9f, 0.64f);
-        nameRect.sizeDelta = Vector2.zero;
+        // Create TMP_InputField for Name Entry (Middle)
+        GameObject inputObj = new GameObject("NameInputField");
+        inputObj.transform.SetParent(canvasObj.transform, false);
+        RectTransform inputRect = inputObj.AddComponent<RectTransform>();
+        inputRect.anchorMin = new Vector2(0.1f, 0.40f);
+        inputRect.anchorMax = new Vector2(0.9f, 0.64f);
+        inputRect.sizeDelta = Vector2.zero;
  
-        GameObject nameTxtObj = new GameObject("Text");
-        nameTxtObj.transform.SetParent(nameBtn.transform, false);
-        TextMeshProUGUI nameTextComp = nameTxtObj.AddComponent<TextMeshProUGUI>();
-        nameTextComp.text = "Nama: Pelawat";
-        nameTextComp.fontSize = 16;
-        nameTextComp.alignment = TextAlignmentOptions.Center;
-        nameTextComp.color = new Color(0.1f, 0.1f, 0.15f);
-        RectTransform nameTextRect = nameTxtObj.GetComponent<RectTransform>();
-        nameTextRect.anchorMin = Vector2.zero;
-        nameTextRect.anchorMax = Vector2.one;
-        nameTextRect.sizeDelta = Vector2.zero;
+        Image inputImg = inputObj.AddComponent<Image>();
+        inputImg.material = buttonMat;
+        inputImg.color = new Color(0.95f, 0.95f, 0.97f, 0.9f);
  
-        // Attach XR Button Selection to Name Button
-        XRButtonSelection nameSelection = nameBtn.AddComponent<XRButtonSelection>();
-        nameSelection.buttonImage = nameImg;
-        nameSelection.scaleTarget = nameBtn.transform;
-        
-        // Add BoxCollider for XRI physics raycasting and physical finger poking (touching)
-        BoxCollider nameCollider = nameBtn.AddComponent<BoxCollider>();
-        nameCollider.size = new Vector3(240f, 48f, 15f);
-        nameCollider.isTrigger = true;
-        
-        // Link NameButton click to menuMgr.StartEditingName
-        UnityEditor.Events.UnityEventTools.AddPersistentListener(nameSelection.onClick, menuMgr.StartEditingName);
+        TMP_InputField inputField = inputObj.AddComponent<TMP_InputField>();
+ 
+        // Add BoxCollider so that XRI raycasts/pokes can hit the input field
+        BoxCollider inputCollider = inputObj.AddComponent<BoxCollider>();
+        inputCollider.size = new Vector3(240f, 48f, 15f);
+        inputCollider.isTrigger = true;
+ 
+        // Add XRSimpleInteractable for XRI interaction detection
+        inputObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.XRSimpleInteractable>();
+ 
+        // Text Area
+        GameObject textArea = new GameObject("TextArea");
+        textArea.transform.SetParent(inputObj.transform, false);
+        RectTransform areaRect = textArea.AddComponent<RectTransform>();
+        areaRect.anchorMin = new Vector2(0.05f, 0.1f);
+        areaRect.anchorMax = new Vector2(0.95f, 0.9f);
+        areaRect.sizeDelta = Vector2.zero;
+        textArea.AddComponent<RectMask2D>();
+ 
+        // Text Display component
+        GameObject textDisplayObj = new GameObject("Text");
+        textDisplayObj.transform.SetParent(textArea.transform, false);
+        TextMeshProUGUI textDisplay = textDisplayObj.AddComponent<TextMeshProUGUI>();
+        textDisplay.fontSize = 15;
+        textDisplay.color = new Color(0.1f, 0.1f, 0.15f);
+        textDisplay.alignment = TextAlignmentOptions.Left;
+        RectTransform textDispRect = textDisplayObj.GetComponent<RectTransform>();
+        textDispRect.anchorMin = Vector2.zero;
+        textDispRect.anchorMax = Vector2.one;
+        textDispRect.sizeDelta = Vector2.zero;
+ 
+        // Placeholder text component
+        GameObject placeholderObj = new GameObject("Placeholder");
+        placeholderObj.transform.SetParent(textArea.transform, false);
+        TextMeshProUGUI placeholder = placeholderObj.AddComponent<TextMeshProUGUI>();
+        placeholder.text = "Taip nama anda...";
+        placeholder.fontSize = 14;
+        placeholder.fontStyle = FontStyles.Italic;
+        placeholder.color = new Color(0.5f, 0.5f, 0.55f);
+        placeholder.alignment = TextAlignmentOptions.Left;
+        RectTransform placeholderRect = placeholderObj.GetComponent<RectTransform>();
+        placeholderRect.anchorMin = Vector2.zero;
+        placeholderRect.anchorMax = Vector2.one;
+        placeholderRect.sizeDelta = Vector2.zero;
+ 
+        inputField.textViewport = areaRect;
+        inputField.textComponent = textDisplay;
+        inputField.placeholder = placeholder;
+ 
+        // Load default value from playerprefs
+        inputField.text = PlayerPrefs.GetString("PlayerName", "Pelawat");
  
         // Start button (Bottom)
         GameObject startBtn = new GameObject("StartButton");

@@ -5,13 +5,13 @@ using UnityEngine.XR.Interaction.Toolkit;
 /// Handles intuitive rotation of a pinned artifact via XR interaction when grabbed with one hand,
 /// and translation/scaling/rotation when grabbed with both hands.
 /// </summary>
-[RequireComponent(typeof(UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable))]
+[RequireComponent(typeof(XRGrabInteractable))]
 public class ArtifactRotationDriver : MonoBehaviour
 {
     [Tooltip("Degrees of rotation per meter of hand movement. Higher = more responsive.")]
     public float rotationSensitivity = 350f;
 
-    private UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable grabInteractable;
+    private XRGrabInteractable grabInteractable;
     private Camera mainCamera;
 
     // Track states across frames
@@ -23,10 +23,10 @@ public class ArtifactRotationDriver : MonoBehaviour
 
     private void Awake()
     {
-        grabInteractable = GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+        grabInteractable = GetComponent<XRGrabInteractable>();
         
         // Allow both hands to grab the artifact simultaneously
-        grabInteractable.selectMode = UnityEngine.XR.Interaction.Toolkit.Interactables.InteractableSelectMode.Multiple;
+        grabInteractable.selectMode = InteractableSelectMode.Multiple;
         
         grabInteractable.selectEntered.AddListener(OnGrabbed);
         grabInteractable.selectExited.AddListener(OnReleased);
@@ -77,7 +77,7 @@ public class ArtifactRotationDriver : MonoBehaviour
 
         if (grabCount == 1)
         {
-            UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor interactor = grabInteractable.interactorsSelecting[0];
+            IXRSelectInteractor interactor = grabInteractable.interactorsSelecting[0];
             Vector3 currentPos = GetInteractorPos(interactor);
 
             if (activeInteractorsCount != 1)
@@ -109,8 +109,8 @@ public class ArtifactRotationDriver : MonoBehaviour
         }
         else if (grabCount >= 2)
         {
-            UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor interactor1 = grabInteractable.interactorsSelecting[0];
-            UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor interactor2 = grabInteractable.interactorsSelecting[1];
+            IXRSelectInteractor interactor1 = grabInteractable.interactorsSelecting[0];
+            IXRSelectInteractor interactor2 = grabInteractable.interactorsSelecting[1];
 
             Vector3 pos1 = GetInteractorPos(interactor1);
             Vector3 pos2 = GetInteractorPos(interactor2);
@@ -152,7 +152,7 @@ public class ArtifactRotationDriver : MonoBehaviour
         }
     }
 
-    private Vector3 GetInteractorPos(UnityEngine.XR.Interaction.Toolkit.Interactors.IXRSelectInteractor interactor)
+    private Vector3 GetInteractorPos(IXRSelectInteractor interactor)
     {
         return interactor.GetAttachTransform(grabInteractable).position;
     }

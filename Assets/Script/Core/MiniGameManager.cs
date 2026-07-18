@@ -26,6 +26,32 @@ public class MiniGameManager : MonoBehaviour
         }
     }
 
+    private void OnEnable()
+    {
+        QRCodeScanner.OnQRCodeScanned += HandleQRCodeScanned;
+    }
+
+    private void OnDisable()
+    {
+        QRCodeScanner.OnQRCodeScanned -= HandleQRCodeScanned;
+    }
+
+    private void HandleQRCodeScanned(string payload, Pose qrPose)
+    {
+        // Check if the payload matches a game ID ("game_1", "game_2", "game_3")
+        if (payload == "game_1" || payload == "game_2" || payload == "game_3")
+        {
+            // Check if this game is already active to prevent duplicate scan loops
+            if (ActiveGamePayload == payload)
+            {
+                Debug.Log($"MiniGameManager: Game '{payload}' is already active. Ignoring repeat scan.");
+                return;
+            }
+            
+            StartGame(payload, qrPose);
+        }
+    }
+
     /// <summary>
     /// Starts a mini-game based on the scanned QR payload.
     /// </summary>
@@ -37,12 +63,13 @@ public class MiniGameManager : MonoBehaviour
         // Clean up any active game first
         CloseActiveGame(false);
 
-        // Get player camera for eye-level spawning
+        // Get player camera for eye-level spawning in front of the player
         Transform playerTransform = Camera.main != null ? Camera.main.transform : null;
         Vector3 spawnPos = qrPose.position;
         if (playerTransform != null)
         {
-            // Spawn at eye level
+            // Spawn exactly 1.4 meters in front of the player's camera at eye level
+            spawnPos = playerTransform.position + playerTransform.forward * 1.4f;
             spawnPos.y = playerTransform.position.y;
         }
 
@@ -61,6 +88,25 @@ public class MiniGameManager : MonoBehaviour
 
         // Spawn the base glassmorphism panel
         activeGameInstance = Instantiate(prefabToUse, spawnPos, qrPose.rotation);
+
+        // The template may be an inactive scene object (e.g. the hidden ArtifactUICanvas),
+        // whose clone would also start inactive and never render or run its game logic.
+        activeGameInstance.SetActive(true);
+
+        // The artifact panel prefab carries a ModelSpawnAnchor (RotateArtifact spawner) that
+        // is irrelevant to mini-games and would leave a stray grabbable object in the panel.
+        Transform leftoverSpawner = activeGameInstance.transform.Find("ModelSpawnAnchor");
+        if (leftoverSpawner != null)
+        {
+            Destroy(leftoverSpawner.gameObject);
+        }
+
+        // Assign Main Camera as the World Camera on the Canvas for rendering and interaction
+        Canvas canvas = activeGameInstance.GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.worldCamera = Camera.main;
+        }
         
         // Fix zero scale issue (originally handled by pop-in animation in ArtifactInteraction)
         var artInteraction = activeGameInstance.GetComponent<ArtifactInteraction>();
