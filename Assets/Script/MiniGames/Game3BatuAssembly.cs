@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-
+using UnityEngine.XR.Interaction.Toolkit;
 using TMPro;
 
 public class Game3BatuAssembly : MonoBehaviour
@@ -118,8 +118,8 @@ public class Game3BatuAssembly : MonoBehaviour
         rb.isKinematic = true;
  
         // XR Grab setup
-        var grab = pieceObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
-        grab.movementType = UnityEngine.XR.Interaction.Toolkit.Interactables.XRBaseInteractable.MovementType.VelocityTracking;
+        var grab = pieceObj.AddComponent<XRGrabInteractable>();
+        grab.movementType = XRBaseInteractable.MovementType.VelocityTracking;
         grab.trackPosition = true; // Let them move it!
         grab.trackRotation = true;
         grab.useDynamicAttach = true;
@@ -166,7 +166,7 @@ public class Game3BatuAssembly : MonoBehaviour
         p.isSnapped = true;
         
         // Remove grabbing so it locks in place
-        var grab = p.gameObject.GetComponent<UnityEngine.XR.Interaction.Toolkit.Interactables.XRGrabInteractable>();
+        var grab = p.gameObject.GetComponent<XRGrabInteractable>();
         if (grab != null)
         {
             Destroy(grab);

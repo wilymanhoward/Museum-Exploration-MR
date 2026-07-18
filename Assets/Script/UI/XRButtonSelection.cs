@@ -5,7 +5,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 
-public class XRButtonSelection : UnityEngine.XR.Interaction.Toolkit.Interactables.XRSimpleInteractable, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler
+public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler
 {
     [Header("Visual Configurations")]
     [Tooltip("Target UI Image to color-transition on hover.")]
@@ -70,7 +70,7 @@ public class XRButtonSelection : UnityEngine.XR.Interaction.Toolkit.Interactable
         targetColor = hoverColor;
         
         // Optional: Play a tiny haptic click in controllers if they are used
-        if (args.interactorObject is UnityEngine.XR.Interaction.Toolkit.Interactors.XRBaseInputInteractor controllerInteractor)
+        if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
         {
             controllerInteractor.xrController.SendHapticImpulse(0.2f, 0.05f);
         }
@@ -94,7 +94,7 @@ public class XRButtonSelection : UnityEngine.XR.Interaction.Toolkit.Interactable
         onClick.Invoke();
 
         // Send a stronger haptic impulse on press
-        if (args.interactorObject is UnityEngine.XR.Interaction.Toolkit.Interactors.XRBaseInputInteractor controllerInteractor)
+        if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
         {
             controllerInteractor.xrController.SendHapticImpulse(0.5f, 0.1f);
         }

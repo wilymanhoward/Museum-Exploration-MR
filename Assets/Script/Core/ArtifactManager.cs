@@ -100,6 +100,16 @@ public class ArtifactManager : MonoBehaviour
     /// </summary>
     private void HandleQRCodeScanned(string payload, Pose pose)
     {
+        // Prevent duplicate scanning if this exact artifact detail panel is already open
+        if (activePanelInstance != null)
+        {
+            ArtifactInteraction existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactInteraction>();
+            if (existingInteraction != null && existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == payload)
+            {
+                return; // Already showing this exact panel, ignore repeat scan
+            }
+        }
+
         // Search through rooms configured in the RoomManager to locate the artifact
         ArtifactData artifactMatch = null;
         if (RoomManager.Instance != null)
@@ -123,6 +133,13 @@ public class ArtifactManager : MonoBehaviour
 
         if (artifactMatch != null)
         {
+            // A different QR was scanned while a panel is open: destroy the current
+            // panel and its 3D model before showing the new artifact
+            if (activePanelInstance != null)
+            {
+                CloseActivePanel();
+            }
+
             if (RoomManager.Instance != null)
             {
                 RoomManager.Instance.SetScanStatus($"Scanned Exhibit: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
@@ -226,7 +243,11 @@ public class ArtifactManager : MonoBehaviour
         {
             if (activePanelInstance == artifactUiCanvas)
             {
-                // Just hide the persistent canvas
+                // Destroy the spawned 3D model and hide the persistent canvas
+                if (objectSpawner != null)
+                {
+                    objectSpawner.ClearModel();
+                }
                 artifactUiCanvas.SetActive(false);
                 if (artifactInteraction != null)
                 {
