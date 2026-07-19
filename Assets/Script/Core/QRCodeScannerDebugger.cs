@@ -23,8 +23,9 @@ public class QRCodeScannerDebugger : MonoBehaviour
         else if (Input.GetKeyDown(KeyCode.Alpha7)) QRCodeScanner.Instance.SimulateScan("artifact_sutera");
         else if (Input.GetKeyDown(KeyCode.Alpha8)) QRCodeScanner.Instance.SimulateScan("artifact_batu");
 
-        // Simulate scanning Mini-Game QR codes (Game 1, Game 3)
+        // Simulate scanning Mini-Game QR codes (Game 1, Game 2, Game 3)
         else if (Input.GetKeyDown(KeyCode.Alpha9)) QRCodeScanner.Instance.SimulateScan("game_1");
+        else if (Input.GetKeyDown(KeyCode.G)) QRCodeScanner.Instance.SimulateScan("game_2");
         else if (Input.GetKeyDown(KeyCode.Alpha0)) QRCodeScanner.Instance.SimulateScan("game_3");
 
         // Simulate walking away / losing QR code
