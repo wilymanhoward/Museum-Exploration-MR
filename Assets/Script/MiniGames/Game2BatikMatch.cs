@@ -26,11 +26,13 @@ public class Game2BatikMatch : MonoBehaviour
 
         private XRGrabInteractable grabInteractable;
         private Game2BatikMatch controller;
+        private Transform homeParent;
 
         public void Setup(Game2BatikMatch gameController, int stepIndex, Vector2 cardSize)
         {
             controller = gameController;
             correctStepIndex = stepIndex;
+            homeParent = transform.parent;
 
             var boxCol = gameObject.AddComponent<BoxCollider>();
             boxCol.size = new Vector3(cardSize.x, cardSize.y, 14f);
@@ -57,11 +59,29 @@ public class Game2BatikMatch : MonoBehaviour
         private void OnGrabbed(SelectEnterEventArgs args)
         {
             isGrabbed = true;
+
+            // uGUI graphics draw strictly in hierarchy order, never by actual camera
+            // distance - even in a World Space canvas, the default UI shader doesn't
+            // test/write depth. Pulling a card out of the tray towards your hand doesn't
+            // make it render "in front" by itself, so it can vanish behind whichever
+            // panel element (the board, a button, etc.) happens to be a later sibling.
+            // Re-parent to the panel root and push to the very last sibling so the
+            // grabbed card always draws on top of everything else while held.
+            transform.SetParent(controller.transform, true);
+            transform.SetAsLastSibling();
         }
 
         private void OnReleased(SelectExitEventArgs args)
         {
             isGrabbed = false;
+
+            // Return to the board before re-running the slot/tray snap logic, which
+            // reads transform.localPosition relative to the board's local space.
+            if (homeParent != null)
+            {
+                transform.SetParent(homeParent, true);
+            }
+
             controller.OnCardReleased(this);
         }
 
