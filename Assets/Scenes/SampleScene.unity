@@ -131,7 +131,6 @@ GameObject:
   - component: {fileID: 100047321}
   - component: {fileID: 100047325}
   - component: {fileID: 100047324}
-  - component: {fileID: 100047323}
   m_Layer: 0
   m_Name: MuseumManager
   m_TagString: Untagged
@@ -186,19 +185,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &100047323
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 100047320}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f2b62a4c233f77d48ab9c0b3e4e5b5d5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  panelTemplatePrefab: {fileID: 0}
 --- !u!114 &100047324
 MonoBehaviour:
   m_ObjectHideFlags: 0
