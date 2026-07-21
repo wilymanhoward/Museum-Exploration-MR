@@ -78,8 +78,11 @@ public class QRCodeScanner : MonoBehaviour
         // Keyboard simulation handled externally by QRCodeScannerDebugger
 
 #if META_XR_SDK_PRESENT
-        // Optimization: Poll active trackables regularly to catch newly tracked states immediately
-        if (MRUK.Instance != null && Time.frameCount % 5 == 0) // Every 5 frames for high responsiveness
+        // Poll active trackables every frame. GetTrackables() only reads an already-populated
+        // in-memory dictionary (no native/IPC call), so this is cheap - polling every 5 frames
+        // was adding up to ~80ms of unnecessary latency on top of the OS-level marker tracker's
+        // own detection time for no real performance benefit.
+        if (MRUK.Instance != null)
         {
             MRUK.Instance.GetTrackables(activeTrackables);
             for (int i = 0; i < activeTrackables.Count; i++)
