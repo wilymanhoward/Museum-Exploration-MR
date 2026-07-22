@@ -16,7 +16,7 @@ public class Game2BatikMatch : MonoBehaviour
     // ------------------------------------------------------------------
     // Draggable card component
     // ------------------------------------------------------------------
-    public class BatikCard : MonoBehaviour
+    public class BatikCard : MonoBehaviour, UnityEngine.EventSystems.IPointerDownHandler, UnityEngine.EventSystems.IDragHandler, UnityEngine.EventSystems.IPointerUpHandler
     {
         public int correctStepIndex;   // which slot (0-4) this card belongs in
         public bool inSlot;            // currently parked in a slot (vs the tray)
@@ -24,9 +24,8 @@ public class Game2BatikMatch : MonoBehaviour
         public Vector3 targetLocalPosition;
         public bool isGrabbed;
 
-        private XRGrabInteractable grabInteractable;
         private Game2BatikMatch controller;
-        private Vector3 lastInteractorWorldPos;
+        private Vector2 grabOffsetLocal;
 
         public void Setup(Game2BatikMatch gameController, int stepIndex, Vector2 cardSize)
         {
@@ -39,85 +38,65 @@ public class Game2BatikMatch : MonoBehaviour
             var rb = gameObject.AddComponent<Rigidbody>();
             rb.useGravity = false;
             rb.isKinematic = true;
-
-            grabInteractable = gameObject.AddComponent<XRGrabInteractable>();
-            // The game panel spawns ~1.4m in front of the player - well outside near/direct
-            // hand-grab range - so on the real headset every card grab goes through the
-            // FAR ray-pinch interactor. Letting XRI's trackPosition snap the card straight
-            // to the interactor's attach point (as "Instantaneous" + trackPosition=true does)
-            // caused the card to jump to a nonsensical position the instant it was grabbed,
-            // which looked like it vanished and never landed in the right slot. Instead,
-            // drive position manually from the interactor's frame-to-frame movement delta
-            // (same proven approach as RotateArtifact.cs uses for the 3D artifact model).
-            grabInteractable.movementType = XRBaseInteractable.MovementType.Instantaneous;
-            grabInteractable.trackPosition = false;
-            grabInteractable.trackRotation = false;
-            grabInteractable.useDynamicAttach = true;
-
-            grabInteractable.selectEntered.AddListener(OnGrabbed);
-            grabInteractable.selectExited.AddListener(OnReleased);
         }
 
         public void DisableGrab()
         {
-            if (grabInteractable != null) Destroy(grabInteractable);
+            // No-op: UI GraphicRaycaster handles pointer events cleanly
         }
 
-        private void OnGrabbed(SelectEnterEventArgs args)
+        // --- Unity UI Drag Event Handlers ---
+        public void OnPointerDown(UnityEngine.EventSystems.PointerEventData eventData)
         {
             isGrabbed = true;
-            lastInteractorWorldPos = GetInteractorAttachPos(args.interactorObject);
-
-            // uGUI graphics draw strictly in hierarchy order, never by actual camera
-            // distance, so bring the held card to the front within its own parent to
-            // avoid it rendering behind other board elements while dragged over them.
             transform.SetAsLastSibling();
+
+            Vector3 worldHit = eventData.pointerCurrentRaycast.worldPosition;
+            if (worldHit != Vector3.zero && transform.parent != null)
+            {
+                Vector3 localHit = transform.parent.InverseTransformPoint(worldHit);
+                grabOffsetLocal = (Vector2)transform.localPosition - new Vector2(localHit.x, localHit.y);
+            }
+            else
+            {
+                grabOffsetLocal = Vector2.zero;
+            }
         }
 
-        private void OnReleased(SelectExitEventArgs args)
+        public void OnDrag(UnityEngine.EventSystems.PointerEventData eventData)
         {
+            if (!isGrabbed || transform.parent == null) return;
+
+            Vector3 worldHit = eventData.pointerCurrentRaycast.worldPosition;
+            if (worldHit != Vector3.zero)
+            {
+                Vector3 localHit = transform.parent.InverseTransformPoint(worldHit);
+                Vector2 targetPos = new Vector2(localHit.x, localHit.y) + grabOffsetLocal;
+
+                targetPos.x = Mathf.Clamp(targetPos.x, -220f, 220f);
+                targetPos.y = Mathf.Clamp(targetPos.y, -190f, 190f);
+                transform.localPosition = new Vector3(targetPos.x, targetPos.y, CardZ);
+            }
+        }
+
+        public void OnPointerUp(UnityEngine.EventSystems.PointerEventData eventData)
+        {
+            if (!isGrabbed) return;
             isGrabbed = false;
+            transform.SetAsLastSibling();
             controller.OnCardReleased(this);
         }
 
         private void Update()
         {
-            if (isGrabbed)
-            {
-                if (grabInteractable != null && grabInteractable.interactorsSelecting.Count > 0)
-                {
-                    Vector3 currentWorldPos = GetInteractorAttachPos(grabInteractable.interactorsSelecting[0]);
-                    Vector3 worldDelta = currentWorldPos - lastInteractorWorldPos;
-                    lastInteractorWorldPos = currentWorldPos;
+            Vector3 targetScale = isGrabbed ? new Vector3(1.08f, 1.08f, 1f) : Vector3.one;
+            transform.localScale = Vector3.Lerp(transform.localScale, targetScale, Time.deltaTime * 15f);
 
-                    // Convert the real-world hand movement into the parent's local
-                    // (canvas-unit) space - this accounts for both the panel's ~0.0022
-                    // scale and whatever angle it's facing the player at - then apply it
-                    // flat on the board's X/Y plane, holding Z fixed so the card stays at
-                    // the board's depth instead of drifting toward/away from the player.
-                    Vector3 localDelta = transform.parent.InverseTransformVector(worldDelta);
-                    transform.localPosition += new Vector3(localDelta.x, localDelta.y, 0f);
-                }
-            }
-            else
+            if (!isGrabbed)
             {
-                // Smoothly glide back to the assigned slot/tray anchor
-                transform.localPosition = Vector3.Lerp(transform.localPosition, targetLocalPosition, Time.deltaTime * 10f);
-                transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.identity, Time.deltaTime * 10f);
-            }
-        }
-
-        private Vector3 GetInteractorAttachPos(IXRSelectInteractor interactor)
-        {
-            return interactor.GetAttachTransform(grabInteractable).position;
-        }
-
-        private void OnDestroy()
-        {
-            if (grabInteractable != null)
-            {
-                grabInteractable.selectEntered.RemoveListener(OnGrabbed);
-                grabInteractable.selectExited.RemoveListener(OnReleased);
+                // Smoothly glide back to assigned slot or tray position
+                transform.localPosition = Vector3.Lerp(transform.localPosition, targetLocalPosition, Time.deltaTime * 12f);
+                transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.identity, Time.deltaTime * 12f);
             }
         }
     }
@@ -132,15 +111,15 @@ public class Game2BatikMatch : MonoBehaviour
     private const string FirestoreUrl = "https://firestore.googleapis.com/v1/projects/museum-mixed-reality-app/databases/(default)/documents";
 
     // ------------------------------------------------------------------
-    // Palette (matches the sage/khaki mockup)
+    // Palette (matches rich batik sage/gold aesthetic)
     // ------------------------------------------------------------------
-    private static readonly Color SageBg = new Color(0.545f, 0.557f, 0.486f, 1f);   // opaque sage panel
-    private static readonly Color SageDark = new Color(0.475f, 0.49f, 0.42f, 1f);   // slot interior
-    private static readonly Color Khaki = new Color(0.788f, 0.765f, 0.353f, 1f);    // chips, borders, buttons
-    private static readonly Color KhakiHover = new Color(0.87f, 0.85f, 0.48f, 1f);
-    private static readonly Color DarkOlive = new Color(0.22f, 0.235f, 0.16f, 1f);  // text on khaki, close button
-    private static readonly Color DarkOliveHover = new Color(0.33f, 0.35f, 0.25f, 1f);
-    private static readonly Color Cream = new Color(0.955f, 0.945f, 0.895f, 1f);    // title/feedback text
+    private static readonly Color SageBg = new Color(0.18f, 0.20f, 0.16f, 0.98f);   // rich dark olive/slate panel
+    private static readonly Color SageDark = new Color(0.12f, 0.14f, 0.10f, 0.90f); // slot interior
+    private static readonly Color Khaki = new Color(0.88f, 0.78f, 0.38f, 1f);    // glowing gold chips, borders, buttons
+    private static readonly Color KhakiHover = new Color(0.96f, 0.88f, 0.52f, 1f);
+    private static readonly Color DarkOlive = new Color(0.16f, 0.18f, 0.10f, 1f);  // text on khaki
+    private static readonly Color DarkOliveHover = new Color(0.26f, 0.28f, 0.18f, 1f);
+    private static readonly Color Cream = new Color(0.96f, 0.95f, 0.90f, 1f);    // title/feedback text
 
     // ------------------------------------------------------------------
     // Layout (canvas units; panel canvas is resized to 460x400)
@@ -154,9 +133,7 @@ public class Game2BatikMatch : MonoBehaviour
 
     // Steps in their CORRECT order (index == correct slot)
     private static readonly string[] StepNames = { "Melukis Corak", "Mencanting", "Mewarna", "Melorod", "Menjemur" };
-    // Optional real photos: drop sprites into Assets/Resources/BatikSteps/<key>.png
     private static readonly string[] StepSpriteKeys = { "melukis_corak", "mencanting", "mewarna", "melorod", "menjemur" };
-    // Fallback gradient tones per step (top, bottom) used when no photo sprite exists
     private static readonly Color[] StepTopColors = {
         new Color(0.85f, 0.78f, 0.62f), new Color(0.75f, 0.52f, 0.32f), new Color(0.48f, 0.31f, 0.56f),
         new Color(0.49f, 0.53f, 0.58f), new Color(0.56f, 0.68f, 0.42f)
@@ -206,17 +183,31 @@ public class Game2BatikMatch : MonoBehaviour
         RectTransform rootRect = GetComponent<RectTransform>();
         if (rootRect != null) rootRect.sizeDelta = PanelSize;
 
+        transform.localScale = new Vector3(0.001f, 0.001f, 0.001f);
+
         Transform bg = transform.Find("Background");
         if (bg != null)
         {
             Image bgImage = bg.GetComponent<Image>();
             if (bgImage != null)
             {
-                bgImage.material = null;          // drop the translucent glassmorphism material
+                bgImage.material = null;
                 bgImage.sprite = roundedFillSprite;
                 bgImage.type = Image.Type.Sliced;
-                bgImage.color = SageBg;           // fully opaque
+                bgImage.color = SageBg;
             }
+
+            // Add sleek outer gold border ring
+            GameObject panelBorderObj = new GameObject("PanelGoldBorder");
+            panelBorderObj.transform.SetParent(bg, false);
+            RectTransform pbRect = panelBorderObj.AddComponent<RectTransform>();
+            pbRect.anchorMin = Vector2.zero;
+            pbRect.anchorMax = Vector2.one;
+            pbRect.sizeDelta = Vector2.zero;
+            Image pbImage = panelBorderObj.AddComponent<Image>();
+            pbImage.sprite = roundedBorderSprite;
+            pbImage.type = Image.Type.Sliced;
+            pbImage.color = Khaki;
         }
 
         // 2. Restyle the header texts inherited from the panel prefab
@@ -226,31 +217,31 @@ public class Game2BatikMatch : MonoBehaviour
 
         if (titleText != null)
         {
-            SetupTextRect(titleText.rectTransform, new Vector2(-40f, 172f), new Vector2(320f, 44f));
-            titleText.text = "Susunkan Proses Pembuatan Batik";
-            titleText.fontSize = 19;
-            titleText.fontStyle = FontStyles.Bold;
+            SetupTextRect(titleText.rectTransform, new Vector2(-65f, 168f), new Vector2(300f, 36f));
+            titleText.text = "Susunkan proses pembuatan batik";
+            titleText.fontSize = 18;
+            titleText.fontStyle = FontStyles.Normal;
             titleText.alignment = TextAlignmentOptions.Left;
             titleText.color = Cream;
         }
         if (feedbackText != null)
         {
-            SetupTextRect(feedbackText.rectTransform, new Vector2(0f, -2f), new Vector2(430f, 26f));
-            feedbackText.text = "Heret kad ke petak 1-5 mengikut urutan proses batik.";
+            SetupTextRect(feedbackText.rectTransform, new Vector2(-50f, -172f), new Vector2(250f, 34f));
+            feedbackText.text = "";
             feedbackText.fontSize = 11;
-            feedbackText.fontStyle = FontStyles.Normal;
-            feedbackText.alignment = TextAlignmentOptions.Center;
+            feedbackText.fontStyle = FontStyles.Bold;
+            feedbackText.alignment = TextAlignmentOptions.Left;
             feedbackText.color = Cream;
         }
         if (descText != null)
         {
-            SetupTextRect(descText.rectTransform, new Vector2(0f, -10f), new Vector2(330f, 300f));
+            SetupTextRect(descText.rectTransform, new Vector2(0f, 0f), new Vector2(420f, 300f));
             descText.alignment = TextAlignmentOptions.Center;
             descText.color = Cream;
             descText.text = "";
         }
 
-        // 3. Close button (dark circle with X, top-right like the mockup)
+        // 3. Close button (dark circle with X, top-right)
         CreateCloseButton();
 
         // 4. Donut countdown timer (top-right, left of the close button)
@@ -282,6 +273,25 @@ public class Game2BatikMatch : MonoBehaviour
         boardRect.anchoredPosition = Vector2.zero;
         boardRect.sizeDelta = Vector2.zero;
 
+        // Decorative horizontal divider line between slots and cards
+        GameObject divObj = new GameObject("DividerLine");
+        divObj.transform.SetParent(boardRoot.transform, false);
+        RectTransform divRect = divObj.AddComponent<RectTransform>();
+        divRect.sizeDelta = new Vector2(380f, 2f);
+        divRect.anchoredPosition = new Vector2(0f, 0f);
+        Image divImg = divObj.AddComponent<Image>();
+        divImg.color = new Color(Khaki.r, Khaki.g, Khaki.b, 0.4f);
+
+        // Center diamond decoration on divider line
+        GameObject diaObj = new GameObject("DividerDiamond");
+        diaObj.transform.SetParent(boardRoot.transform, false);
+        RectTransform diaRect = diaObj.AddComponent<RectTransform>();
+        diaRect.sizeDelta = new Vector2(10f, 10f);
+        diaRect.anchoredPosition = new Vector2(0f, 0f);
+        diaRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+        Image diaImg = diaObj.AddComponent<Image>();
+        diaImg.color = Khaki;
+
         // --- Numbered slots (top row) ---
         for (int i = 0; i < 5; i++)
         {
@@ -296,7 +306,7 @@ public class Game2BatikMatch : MonoBehaviour
             fill.type = Image.Type.Sliced;
             fill.color = SageDark;
 
-            // Khaki border ring on top of the fill
+            // Khaki gold border ring on top of the fill
             GameObject borderObj = new GameObject("Border");
             borderObj.transform.SetParent(slotObj.transform, false);
             RectTransform borderRect = borderObj.AddComponent<RectTransform>();
@@ -308,7 +318,7 @@ public class Game2BatikMatch : MonoBehaviour
             border.type = Image.Type.Sliced;
             border.color = Khaki;
 
-            // Big slot number
+            // Slot number centered inside slot
             GameObject numObj = new GameObject("Number");
             numObj.transform.SetParent(slotObj.transform, false);
             RectTransform numRect = numObj.AddComponent<RectTransform>();
@@ -317,10 +327,10 @@ public class Game2BatikMatch : MonoBehaviour
             numRect.sizeDelta = Vector2.zero;
             TextMeshProUGUI numText = numObj.AddComponent<TextMeshProUGUI>();
             numText.text = (i + 1).ToString();
-            numText.fontSize = 26;
+            numText.fontSize = 24;
             numText.fontStyle = FontStyles.Bold;
             numText.alignment = TextAlignmentOptions.Center;
-            numText.color = Khaki;
+            numText.color = new Color(Khaki.r, Khaki.g, Khaki.b, 0.75f);
         }
 
         // --- Chevrons between slots ---
@@ -333,8 +343,8 @@ public class Game2BatikMatch : MonoBehaviour
             chevRect.sizeDelta = new Vector2(24f, 44f);
             chevRect.anchoredPosition = new Vector2(midX, SlotY);
             TextMeshProUGUI chevText = chevObj.AddComponent<TextMeshProUGUI>();
-            chevText.text = ">"; // plain ASCII: guaranteed glyph in the default TMP font
-            chevText.fontSize = 30;
+            chevText.text = ">";
+            chevText.fontSize = 24;
             chevText.fontStyle = FontStyles.Bold;
             chevText.alignment = TextAlignmentOptions.Center;
             chevText.color = Cream;
@@ -357,7 +367,7 @@ public class Game2BatikMatch : MonoBehaviour
         }
 
         // --- "Periksa Jawaban ›" button (bottom right) ---
-        GameObject checkBtn = CreateStyledButton("Periksa Jawaban  >", new Vector2(135f, -172f), new Vector2(180f, 38f), CheckAnswer);
+        GameObject checkBtn = CreateStyledButton("Periksa Jawaban  >", new Vector2(135f, -172f), new Vector2(170f, 38f), CheckAnswer);
         spawnedButtons.Add(checkBtn);
     }
 
@@ -368,18 +378,18 @@ public class Game2BatikMatch : MonoBehaviour
         RectTransform cardRect = cardObj.AddComponent<RectTransform>();
         cardRect.sizeDelta = CardSize;
 
-        // Cream rounded card base
+        // Card base background
         Image cardBg = cardObj.AddComponent<Image>();
         cardBg.sprite = roundedFillSprite;
         cardBg.type = Image.Type.Sliced;
-        cardBg.color = Cream;
+        cardBg.color = SageDark;
 
-        // Photo area (real sprite from Resources/BatikSteps if present, else a themed gradient)
+        // Photo area (top 70%)
         GameObject photoObj = new GameObject("Photo");
         photoObj.transform.SetParent(cardObj.transform, false);
         RectTransform photoRect = photoObj.AddComponent<RectTransform>();
-        photoRect.sizeDelta = new Vector2(CardSize.x - 10f, 76f);
-        photoRect.anchoredPosition = new Vector2(0f, 17f);
+        photoRect.sizeDelta = new Vector2(CardSize.x, 82f);
+        photoRect.anchoredPosition = new Vector2(0f, 19f);
         Image photoImage = photoObj.AddComponent<Image>();
         Sprite photo = Resources.Load<Sprite>($"BatikSteps/{StepSpriteKeys[stepIndex]}");
         if (photo != null)
@@ -396,7 +406,7 @@ public class Game2BatikMatch : MonoBehaviour
         GameObject chipObj = new GameObject("LabelChip");
         chipObj.transform.SetParent(cardObj.transform, false);
         RectTransform chipRect = chipObj.AddComponent<RectTransform>();
-        chipRect.sizeDelta = new Vector2(CardSize.x - 10f, 26f);
+        chipRect.sizeDelta = new Vector2(CardSize.x, 38f);
         chipRect.anchoredPosition = new Vector2(0f, -41f);
         Image chipImage = chipObj.AddComponent<Image>();
         chipImage.sprite = roundedFillSprite;
@@ -416,7 +426,7 @@ public class Game2BatikMatch : MonoBehaviour
         labelText.fontSizeMax = 9.5f;
         labelText.fontStyle = FontStyles.Bold;
         labelText.alignment = TextAlignmentOptions.Center;
-        labelText.color = DarkOlive;
+        labelText.color = Cream;
 
         BatikCard card = cardObj.AddComponent<BatikCard>();
         card.Setup(this, stepIndex, CardSize);
@@ -428,12 +438,6 @@ public class Game2BatikMatch : MonoBehaviour
     // ------------------------------------------------------------------
     public void OnCardReleased(BatikCard card)
     {
-        if (isGameOver)
-        {
-            card.targetLocalPosition = AnchorPosition(card.inSlot, card.anchorIndex);
-            return;
-        }
-
         // Find the nearest anchor (any slot or tray column) to the drop position
         Vector3 p = card.transform.localPosition;
         bool bestInSlot = false;
@@ -799,10 +803,8 @@ public class Game2BatikMatch : MonoBehaviour
         string postUrl = $"{FirestoreUrl}/leaderboard";
 
         // Firestore JSON document format: {"fields":{"name":{"stringValue":"..."},"time":{"doubleValue":...}}}
-        // Force invariant culture so the decimal separator is always '.' - a comma-locale
-        // headset would otherwise emit "12,34" and Firestore would reject the write as invalid JSON.
         string timeValue = time.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
-        string safeName = name.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        string safeName = string.IsNullOrWhiteSpace(name) ? "Pelawat" : name.Replace("\\", "\\\\").Replace("\"", "\\\"");
         string json = $"{{\"fields\":{{\"name\":{{\"stringValue\":\"{safeName}\"}},\"time\":{{\"doubleValue\":{timeValue}}}}}}}";
 
         using (UnityWebRequest request = new UnityWebRequest(postUrl, "POST"))
@@ -815,22 +817,15 @@ public class Game2BatikMatch : MonoBehaviour
             yield return request.SendWebRequest();
         }
 
-        // Fetch top scores from Firestore using runQuery
+        // Fetch scores directly via GET (avoids requiring a composite index in Firestore)
         if (descText != null)
         {
             descText.text = "<align=center><color=#B8D8F0>Memuatkan Papan Pendahulu...</color></align>";
         }
 
-        string queryUrl = "https://firestore.googleapis.com/v1/projects/museum-mixed-reality-app/databases/(default)/documents:runQuery";
-        string queryJson = "{\"structuredQuery\":{\"from\":[{\"collectionId\":\"leaderboard\"}],\"orderBy\":[{\"field\":{\"fieldPath\":\"time\"},\"direction\":\"ASCENDING\"}],\"limit\":5}}";
-
-        using (UnityWebRequest queryRequest = new UnityWebRequest(queryUrl, "POST"))
+        string getUrl = $"{FirestoreUrl}/leaderboard";
+        using (UnityWebRequest queryRequest = UnityWebRequest.Get(getUrl))
         {
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(queryJson);
-            queryRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            queryRequest.downloadHandler = new DownloadHandlerBuffer();
-            queryRequest.SetRequestHeader("Content-Type", "application/json");
-
             yield return queryRequest.SendWebRequest();
 
             if (queryRequest.result == UnityWebRequest.Result.Success)
@@ -852,39 +847,58 @@ public class Game2BatikMatch : MonoBehaviour
     private List<LeaderboardEntry> ParseLeaderboard(string json)
     {
         List<LeaderboardEntry> list = new List<LeaderboardEntry>();
-        if (string.IsNullOrEmpty(json) || json == "null" || json == "[]") return list;
+        if (string.IsNullOrEmpty(json) || json == "null" || json == "[]" || json == "{}") return list;
 
-        // Parse Firestore documents response by searching for document boundaries
-        string[] documents = json.Split(new string[] { "\"document\"" }, System.StringSplitOptions.None);
-        foreach (string doc in documents)
+        // Split by "fields" to parse each document entry in Firestore response
+        string[] docs = json.Split(new string[] { "\"fields\":" }, System.StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 1; i < docs.Length; i++)
         {
+            string doc = docs[i];
+
+            // 1. Extract Player Name
             string name = "";
-            int nameIndex = doc.IndexOf("\"stringValue\":\"");
-            if (nameIndex != -1)
+            int nameIdx = doc.IndexOf("\"name\":");
+            if (nameIdx != -1)
             {
-                int start = nameIndex + 15;
-                int end = doc.IndexOf("\"", start);
-                if (end != -1) name = doc.Substring(start, end - start);
+                int strIdx = doc.IndexOf("\"stringValue\":", nameIdx);
+                if (strIdx != -1)
+                {
+                    int start = doc.IndexOf("\"", strIdx + 14) + 1;
+                    int end = doc.IndexOf("\"", start);
+                    if (start > 0 && end > start)
+                    {
+                        name = doc.Substring(start, end - start);
+                    }
+                }
             }
 
+            // 2. Extract Solve Time (handles doubleValue and integerValue formats)
             float time = 999f;
-            int timeIndex = doc.IndexOf("\"doubleValue\":");
-            if (timeIndex != -1)
+            int timeIdx = doc.IndexOf("\"time\":");
+            if (timeIdx != -1)
             {
-                int start = timeIndex + 14;
-                // Search for the closing brace/comma AFTER 'start'. Searching from index 0
-                // would find the '}' that closes the earlier "stringValue" object (which sits
-                // before "doubleValue"), giving a negative length and throwing in Substring -
-                // that silently aborted the whole leaderboard parse and left the board blank.
-                int end = doc.IndexOf("}", start);
-                if (end == -1) end = doc.IndexOf(",", start);
-                if (end != -1)
+                int valIdx = doc.IndexOf("\"doubleValue\":", timeIdx);
+                int prefixLen = 14;
+                if (valIdx == -1)
                 {
-                    string timeStr = doc.Substring(start, end - start).Trim().Replace("}", "");
-                    // Firestore always returns '.' as the decimal separator, so parse with the
-                    // invariant culture (a comma-locale headset would otherwise fail to parse).
-                    float.TryParse(timeStr, System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out time);
+                    valIdx = doc.IndexOf("\"integerValue\":", timeIdx);
+                    prefixLen = 15;
+                }
+
+                if (valIdx != -1)
+                {
+                    int start = valIdx + prefixLen;
+                    while (start < doc.Length && (doc[start] == ' ' || doc[start] == '"' || doc[start] == ':')) start++;
+
+                    int end = start;
+                    while (end < doc.Length && (char.IsDigit(doc[end]) || doc[end] == '.' || doc[end] == ',')) end++;
+
+                    if (end > start)
+                    {
+                        string timeStr = doc.Substring(start, end - start).Replace(',', '.');
+                        float.TryParse(timeStr, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out time);
+                    }
                 }
             }
 
@@ -894,7 +908,7 @@ public class Game2BatikMatch : MonoBehaviour
             }
         }
 
-        // Sort by time ascending (Firestore query does this, but we sort locally just to be robust!)
+        // Sort by fastest time ascending
         list.Sort((a, b) => a.time.CompareTo(b.time));
         return list;
     }
@@ -905,8 +919,7 @@ public class Game2BatikMatch : MonoBehaviour
 
         if (titleText != null) titleText.text = "Papan Pendahulu";
 
-        // Gold/silver/bronze rank markers via color tags (emoji glyphs are missing
-        // from the default TMP font and would render as empty boxes on the headset)
+        // Gold/silver/bronze rank markers via color tags
         string board = "<align=center><b>TURUTAN TERPANTAS</b>\n\n";
         for (int i = 0; i < list.Count && i < 5; i++)
         {

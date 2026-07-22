@@ -68,8 +68,12 @@ public class MiniGameManager : MonoBehaviour
         Vector3 spawnPos = qrPose.position;
         if (playerTransform != null)
         {
-            // Spawn exactly 1.4 meters in front of the player's camera at eye level
-            spawnPos = playerTransform.position + playerTransform.forward * 1.4f;
+            // Spawn within comfortable arm's reach (not 1.4m like the artifact viewer) so
+            // cards get grabbed by the near/poke hand interactor instead of the far ray.
+            // The far ray's own aiming (see PinchPointFollow in the XRI Hands sample) freezes
+            // its rotation whenever a frame's angular change is too large, which is fine for
+            // pointing at a distant menu button but fights precise card-into-slot dragging.
+            spawnPos = playerTransform.position + playerTransform.forward * 0.5f;
             spawnPos.y = playerTransform.position.y;
         }
 

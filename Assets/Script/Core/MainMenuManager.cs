@@ -23,6 +23,7 @@ public class MainMenuManager : MonoBehaviour
     private TouchScreenKeyboard keyboard;
     private bool menuPositioned = false;
     private string currentName = DefaultPlayerName;
+    private readonly System.Collections.Generic.Dictionary<XRRayInteractor, float> originalRayDistances = new System.Collections.Generic.Dictionary<XRRayInteractor, float>();
 
     void Start()
     {
@@ -30,12 +31,19 @@ public class MainMenuManager : MonoBehaviour
         if (wayfindingSystem != null) wayfindingSystem.SetActive(false);
         if (artifactsContainer != null) artifactsContainer.SetActive(false);
 
-        // Automatically extend all hand/controller raycast pointer lengths in the scene (including inactive ones) so players can reach the menu
+        // Automatically extend all hand/controller raycast pointer lengths in the scene (including inactive ones) so players can reach the menu.
+        // Remember each one's original distance so it can be restored once exploration/gameplay starts -
+        // a 10m ray makes hand-pinch precision (e.g. dragging Batik game cards) unusably twitchy, since a
+        // small hand rotation sweeps a huge arc at that distance.
         XRRayInteractor[] rayInteractors = FindObjectsOfType<XRRayInteractor>(true);
         foreach (var ray in rayInteractors)
         {
             if (ray != null)
             {
+                if (!originalRayDistances.ContainsKey(ray))
+                {
+                    originalRayDistances[ray] = ray.maxRaycastDistance;
+                }
                 ray.maxRaycastDistance = 10f; // Extend pointer length to 10 meters!
                 Debug.Log($"Extended raycast pointer distance for: {ray.gameObject.name} to 10m.");
             }
@@ -112,6 +120,19 @@ public class MainMenuManager : MonoBehaviour
 
     void Update()
     {
+        // Gate the ray-extension purely on whether the menu is actually visible right now,
+        // rather than on whether StartExploration() was ever called - a player can reach a
+        // mini-game (e.g. by scanning its QR directly) without ever pressing the menu's Start
+        // button, and the previous "explorationStarted" latch would then never trip, leaving
+        // every ray interactor (including hand-pinch rays used to drag Batik game cards)
+        // stuck at 10m forever.
+        bool menuActive = mainMenuCanvas != null && mainMenuCanvas.activeInHierarchy;
+        if (!menuActive)
+        {
+            RestoreRayDistances();
+            return;
+        }
+
         // 1. Position the menu dynamically at eye level in front of the player ONLY when headset tracking starts
         if (!menuPositioned)
         {
@@ -184,7 +205,22 @@ public class MainMenuManager : MonoBehaviour
         }
 #endif
     }
- 
+
+    /// <summary>
+    /// Restores every ray interactor touched by this script back to its original
+    /// raycast distance. Safe to call repeatedly - a no-op once already restored.
+    /// </summary>
+    private void RestoreRayDistances()
+    {
+        foreach (var kvp in originalRayDistances)
+        {
+            if (kvp.Key != null && kvp.Key.maxRaycastDistance > kvp.Value)
+            {
+                kvp.Key.maxRaycastDistance = kvp.Value;
+            }
+        }
+    }
+
     /// <summary>
     /// Invoked when the user taps/clicks the Start button.
     /// </summary>
@@ -225,7 +261,7 @@ public class MainMenuManager : MonoBehaviour
         // Show standard references if assigned
         if (wayfindingSystem != null) wayfindingSystem.SetActive(true);
         if (artifactsContainer != null) artifactsContainer.SetActive(true);
- 
+
         // Tell the Room Manager to start populating and setting up the wayfinding paths
         if (RoomManager.Instance != null)
         {
