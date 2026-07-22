@@ -150,6 +150,8 @@ public class Game2BatikMatch : MonoBehaviour
     private BatikCard[] trayCards = new BatikCard[5];
     private List<BatikCard> allCards = new List<BatikCard>();
     private GameObject boardRoot;
+    private GameObject leaderboardRoot;
+    private GameObject introRoot;
     private List<GameObject> spawnedButtons = new List<GameObject>();
 
     private TextMeshProUGUI titleText;
@@ -160,6 +162,9 @@ public class Game2BatikMatch : MonoBehaviour
     private const float TotalGameTime = 45.0f;
     private float remainingTime = TotalGameTime;
     private bool isGameOver = false;
+    // The countdown/board only start once the player presses Mulai on the intro screen,
+    // not the instant the game QR is scanned.
+    private bool gameStarted = false;
 
     // Donut timer UI
     private GameObject donutContainer;
@@ -170,6 +175,7 @@ public class Game2BatikMatch : MonoBehaviour
     private List<Texture2D> generatedTextures = new List<Texture2D>();
     private Sprite roundedFillSprite;
     private Sprite roundedBorderSprite;
+    private Sprite dashedSlotBorderSprite;
     private Sprite circleSprite;
 
     [Header("Font Settings")]
@@ -204,6 +210,35 @@ public class Game2BatikMatch : MonoBehaviour
         roundedFillSprite = MakeRoundedSprite(128, 128, 24, 0);
         roundedBorderSprite = MakeRoundedSprite(128, 128, 24, 6);
         circleSprite = MakeRoundedSprite(64, 64, 32, 0);
+        // Dashed variant matches the mockup's dotted slot outline; 9-slicing would
+        // stretch and distort a dash pattern, so it's rendered at the slots' exact
+        // aspect ratio and drawn with Image.Type.Simple instead.
+        dashedSlotBorderSprite = MakeDashedBorderSprite((int)CardSize.x * 2, (int)CardSize.y * 2, 28, 6, 22);
+
+        // "Assets/Resources/Fonts & Materials/Georgia SDF.asset" was meant to give this
+        // game the mockup's serif look, but it turns out to be an empty, never-generated
+        // font stub - no material, no glyph/character table, no atlas texture. TMP can't
+        // render anything with it (silently, no exception), which is why text disappeared
+        // entirely when it was wired in. Only use it if it actually has a material - i.e.
+        // once someone runs it through Window > TextMeshPro > Font Asset Creator in the
+        // Editor - otherwise stay on TMP's default font, which already works everywhere
+        // else in this project.
+        if (customFont == null)
+        {
+            try
+            {
+                TMP_FontAsset loaded = Resources.Load<TMP_FontAsset>("Fonts & Materials/Georgia SDF");
+                if (loaded != null && loaded.material != null)
+                {
+                    customFont = loaded;
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"Game2BatikMatch: Georgia SDF font failed to load, falling back to the default font. {e.Message}");
+                customFont = null;
+            }
+        }
 
         // 1. Enlarge the panel canvas to a landscape layout and make it opaque sage
         RectTransform rootRect = GetComponent<RectTransform>();
@@ -224,41 +259,17 @@ public class Game2BatikMatch : MonoBehaviour
             }
         }
 
-        // 2. Restyle or bind header texts
+        // 2. Resolve header text references now, but leave them hidden/unstyled until
+        // the player actually presses "Mulai" on the intro screen (BeginGameplay).
         titleText = customTitleText != null ? customTitleText : transform.Find("TitleText")?.GetComponent<TextMeshProUGUI>();
         feedbackText = customFeedbackText != null ? customFeedbackText : transform.Find("ArtistYearText")?.GetComponent<TextMeshProUGUI>();
         descText = transform.Find("DescriptionText")?.GetComponent<TextMeshProUGUI>();
 
-        if (titleText != null && customTitleText == null)
-        {
-            SetupTextRect(titleText.rectTransform, new Vector2(-65f, 168f), new Vector2(300f, 36f));
-            titleText.text = "Susunkan proses pembuatan batik";
-            if (customFont != null) titleText.font = customFont;
-            titleText.fontSize = 18;
-            titleText.fontStyle = FontStyles.Normal;
-            titleText.alignment = TextAlignmentOptions.Left;
-            titleText.color = Cream;
-        }
-        if (feedbackText != null && customFeedbackText == null)
-        {
-            SetupTextRect(feedbackText.rectTransform, new Vector2(-50f, -172f), new Vector2(250f, 34f));
-            feedbackText.text = "";
-            if (customFont != null) feedbackText.font = customFont;
-            feedbackText.fontSize = 11;
-            feedbackText.fontStyle = FontStyles.Bold;
-            feedbackText.alignment = TextAlignmentOptions.Left;
-            feedbackText.color = Cream;
-        }
-        if (descText != null)
-        {
-            SetupTextRect(descText.rectTransform, new Vector2(0f, 0f), new Vector2(420f, 300f));
-            if (customFont != null) descText.font = customFont;
-            descText.alignment = TextAlignmentOptions.Center;
-            descText.color = Cream;
-            descText.text = "";
-        }
+        if (titleText != null) titleText.gameObject.SetActive(false);
+        if (feedbackText != null) feedbackText.gameObject.SetActive(false);
+        if (descText != null) descText.gameObject.SetActive(false);
 
-        // 3. Close button
+        // 3. Close button - available on both the intro screen and during gameplay
         if (customCloseButton != null)
         {
             customCloseButton.onClick.AddListener(() => MiniGameManager.Instance.CloseActiveGame());
@@ -268,17 +279,181 @@ public class Game2BatikMatch : MonoBehaviour
             CreateCloseButton();
         }
 
-        // 4. Donut countdown timer (top-right)
+        // 4. Show the intro screen ("Main Game" pill, title, Mulai button). The donut
+        // timer, board, and cards are only built once the player presses Mulai.
+        CreateIntroScreen();
+    }
+
+    /// <summary>
+    /// Called once, when the player presses "Mulai" on the intro screen. Tears down the
+    /// intro UI and builds the actual game (header texts, countdown timer, board, cards).
+    /// </summary>
+    private void BeginGameplay()
+    {
+        if (gameStarted) return;
+        gameStarted = true;
+
+        if (introRoot != null)
+        {
+            Destroy(introRoot);
+            introRoot = null;
+        }
+
+        // The Mulai button is parented directly to the panel root (like all other
+        // buttons CreateStyledButton makes), not under introRoot, so it must be cleared
+        // here explicitly rather than relying on introRoot's destruction to catch it.
+        foreach (var btn in spawnedButtons) Destroy(btn);
+        spawnedButtons.Clear();
+
+        if (titleText != null && customTitleText == null)
+        {
+            titleText.gameObject.SetActive(true);
+            SetupTextRect(titleText.rectTransform, new Vector2(-65f, 168f), new Vector2(300f, 36f));
+            titleText.text = "Susunkan proses pembuatan batik";
+            SafeSetFont(titleText);
+            titleText.fontSize = 18;
+            titleText.fontStyle = FontStyles.Normal;
+            titleText.alignment = TextAlignmentOptions.Left;
+            titleText.color = Cream;
+        }
+        if (feedbackText != null && customFeedbackText == null)
+        {
+            feedbackText.gameObject.SetActive(true);
+            SetupTextRect(feedbackText.rectTransform, new Vector2(-50f, -172f), new Vector2(250f, 34f));
+            feedbackText.text = "";
+            SafeSetFont(feedbackText);
+            feedbackText.fontSize = 11;
+            feedbackText.fontStyle = FontStyles.Bold;
+            feedbackText.alignment = TextAlignmentOptions.Left;
+            feedbackText.color = Cream;
+        }
+        if (descText != null)
+        {
+            descText.gameObject.SetActive(true);
+            SetupTextRect(descText.rectTransform, new Vector2(0f, 0f), new Vector2(420f, 300f));
+            SafeSetFont(descText);
+            descText.alignment = TextAlignmentOptions.Center;
+            descText.color = Cream;
+            descText.text = "";
+        }
+
+        // Donut countdown timer (top-right)
         CreateDonutTimerUI();
 
-        // 5. Check Answer button
+        // Check Answer button
         if (customCheckAnswerButton != null)
         {
             customCheckAnswerButton.onClick.AddListener(CheckAnswer);
         }
 
-        // 6. Build board & cards
+        // Build board & cards
         BuildBoard();
+    }
+
+    /// <summary>
+    /// Builds the intro screen shown right after scanning the game QR: a "Main Game"
+    /// pill, the game's title, and a Mulai button. The countdown only starts once the
+    /// player presses Mulai (BeginGameplay), not the moment the QR is scanned.
+    /// </summary>
+    private void CreateIntroScreen()
+    {
+        introRoot = new GameObject("IntroScreen");
+        introRoot.transform.SetParent(transform, false);
+        RectTransform introRect = introRoot.AddComponent<RectTransform>();
+        introRect.anchorMin = new Vector2(0.5f, 0.5f);
+        introRect.anchorMax = new Vector2(0.5f, 0.5f);
+        introRect.anchoredPosition = Vector2.zero;
+        introRect.sizeDelta = Vector2.zero;
+
+        // "Main Game" pill with a simple procedural game-icon (rounded chip + two dots)
+        GameObject pillObj = new GameObject("HeaderPill");
+        pillObj.transform.SetParent(introRoot.transform, false);
+        RectTransform pillRect = pillObj.AddComponent<RectTransform>();
+        pillRect.sizeDelta = new Vector2(150f, 30f);
+        pillRect.anchoredPosition = new Vector2(0f, 110f);
+        Image pillImg = pillObj.AddComponent<Image>();
+        pillImg.sprite = roundedFillSprite;
+        pillImg.type = Image.Type.Sliced;
+        pillImg.color = DarkOlive;
+
+        GameObject iconObj = new GameObject("Icon");
+        iconObj.transform.SetParent(pillObj.transform, false);
+        RectTransform iconRect = iconObj.AddComponent<RectTransform>();
+        iconRect.sizeDelta = new Vector2(20f, 14f);
+        iconRect.anchoredPosition = new Vector2(-50f, 0f);
+        Image iconImg = iconObj.AddComponent<Image>();
+        iconImg.sprite = roundedFillSprite;
+        iconImg.type = Image.Type.Sliced;
+        iconImg.color = Khaki;
+
+        GameObject dot1 = new GameObject("Dot1");
+        dot1.transform.SetParent(iconObj.transform, false);
+        RectTransform dot1Rect = dot1.AddComponent<RectTransform>();
+        dot1Rect.sizeDelta = new Vector2(4.5f, 4.5f);
+        dot1Rect.anchoredPosition = new Vector2(-4f, 2f);
+        Image dot1Img = dot1.AddComponent<Image>();
+        dot1Img.sprite = circleSprite;
+        dot1Img.color = DarkOlive;
+
+        GameObject dot2 = new GameObject("Dot2");
+        dot2.transform.SetParent(iconObj.transform, false);
+        RectTransform dot2Rect = dot2.AddComponent<RectTransform>();
+        dot2Rect.sizeDelta = new Vector2(4.5f, 4.5f);
+        dot2Rect.anchoredPosition = new Vector2(5f, -2f);
+        Image dot2Img = dot2.AddComponent<Image>();
+        dot2Img.sprite = circleSprite;
+        dot2Img.color = DarkOlive;
+
+        GameObject pillTextObj = new GameObject("PillText");
+        pillTextObj.transform.SetParent(pillObj.transform, false);
+        RectTransform pillTextRect = pillTextObj.AddComponent<RectTransform>();
+        pillTextRect.sizeDelta = new Vector2(105f, 30f);
+        pillTextRect.anchoredPosition = new Vector2(14f, 0f);
+        TextMeshProUGUI pillText = pillTextObj.AddComponent<TextMeshProUGUI>();
+        pillText.text = "Main Game";
+        SafeSetFont(pillText);
+        pillText.fontSize = 12;
+        pillText.fontStyle = FontStyles.Bold;
+        pillText.alignment = TextAlignmentOptions.Center;
+        pillText.color = Cream;
+
+        // Big centered title
+        GameObject introTitleObj = new GameObject("IntroTitle");
+        introTitleObj.transform.SetParent(introRoot.transform, false);
+        RectTransform introTitleRect = introTitleObj.AddComponent<RectTransform>();
+        introTitleRect.sizeDelta = new Vector2(360f, 90f);
+        introTitleRect.anchoredPosition = new Vector2(0f, 40f);
+        TextMeshProUGUI introTitleText = introTitleObj.AddComponent<TextMeshProUGUI>();
+        introTitleText.text = "Urutkan Proses\nPembuatan Batik";
+        SafeSetFont(introTitleText);
+        introTitleText.fontSize = 26;
+        introTitleText.fontStyle = FontStyles.Bold;
+        introTitleText.alignment = TextAlignmentOptions.Center;
+        introTitleText.color = Cream;
+
+        // Mulai (Start) button
+        GameObject startBtn = CreateStyledButton("Mulai", new Vector2(0f, -60f), new Vector2(140f, 42f), BeginGameplay);
+        spawnedButtons.Add(startBtn);
+    }
+
+    /// <summary>
+    /// Assigns customFont to a text element, swallowing any exception. Georgia SDF has
+    /// never actually been used in a live scene before this, so if it turns out to have
+    /// an internal issue (incomplete atlas, missing material, etc.) this keeps that
+    /// contained to "this one label stays in the default font" instead of aborting the
+    /// rest of Start() and leaving the whole panel blank.
+    /// </summary>
+    private void SafeSetFont(TextMeshProUGUI text)
+    {
+        if (text == null || customFont == null) return;
+        try
+        {
+            text.font = customFont;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"Game2BatikMatch: Failed to apply customFont to '{text.name}', leaving default font. {e.Message}");
+        }
     }
 
     private void SetupTextRect(RectTransform rect, Vector2 anchoredPos, Vector2 size)
@@ -353,8 +528,9 @@ public class Game2BatikMatch : MonoBehaviour
                 borderRect.anchorMax = Vector2.one;
                 borderRect.sizeDelta = Vector2.zero;
                 Image border = borderObj.AddComponent<Image>();
-                border.sprite = roundedBorderSprite;
-                border.type = Image.Type.Sliced;
+                border.sprite = dashedSlotBorderSprite;
+                // Simple, not Sliced: 9-slicing would stretch and distort the dash spacing.
+                border.type = Image.Type.Simple;
                 border.color = Khaki;
 
                 GameObject numObj = new GameObject("Number");
@@ -365,7 +541,7 @@ public class Game2BatikMatch : MonoBehaviour
                 numRect.sizeDelta = Vector2.zero;
                 TextMeshProUGUI numText = numObj.AddComponent<TextMeshProUGUI>();
                 numText.text = (i + 1).ToString();
-                if (customFont != null) numText.font = customFont;
+                SafeSetFont(numText);
                 numText.fontSize = 24;
                 numText.fontStyle = FontStyles.Bold;
                 numText.alignment = TextAlignmentOptions.Center;
@@ -383,7 +559,7 @@ public class Game2BatikMatch : MonoBehaviour
                 chevRect.anchoredPosition = new Vector2(midX, SlotY);
                 TextMeshProUGUI chevText = chevObj.AddComponent<TextMeshProUGUI>();
                 chevText.text = ">";
-                if (customFont != null) chevText.font = customFont;
+                SafeSetFont(chevText);
                 chevText.fontSize = 24;
                 chevText.fontStyle = FontStyles.Bold;
                 chevText.alignment = TextAlignmentOptions.Center;
@@ -434,7 +610,7 @@ public class Game2BatikMatch : MonoBehaviour
             if (labelText != null)
             {
                 labelText.text = StepNames[stepIndex];
-                if (customFont != null) labelText.font = customFont;
+                SafeSetFont(labelText);
             }
         }
         else
@@ -488,7 +664,7 @@ public class Game2BatikMatch : MonoBehaviour
             labelRect.sizeDelta = Vector2.zero;
             TextMeshProUGUI labelText = labelObj.AddComponent<TextMeshProUGUI>();
             labelText.text = StepNames[stepIndex];
-            if (customFont != null) labelText.font = customFont;
+            SafeSetFont(labelText);
             labelText.enableAutoSizing = true;
             labelText.fontSizeMin = 6f;
             labelText.fontSizeMax = 9.5f;
@@ -663,8 +839,9 @@ public class Game2BatikMatch : MonoBehaviour
 
     private void ResetAndRestartGame()
     {
-        // Tear down the old board and buttons
+        // Tear down the old board, leaderboard, and buttons
         if (boardRoot != null) Destroy(boardRoot);
+        if (leaderboardRoot != null) Destroy(leaderboardRoot);
         foreach (var btn in spawnedButtons) Destroy(btn);
         spawnedButtons.Clear();
         slotCards = new BatikCard[5];
@@ -734,6 +911,7 @@ public class Game2BatikMatch : MonoBehaviour
         textRect.sizeDelta = Vector2.zero;
         donutText = textObj.AddComponent<TextMeshProUGUI>();
         donutText.text = Mathf.CeilToInt(TotalGameTime).ToString();
+        SafeSetFont(donutText);
         donutText.fontSize = 12;
         donutText.fontStyle = FontStyles.Bold;
         donutText.alignment = TextAlignmentOptions.Center;
@@ -742,7 +920,7 @@ public class Game2BatikMatch : MonoBehaviour
 
     private void Update()
     {
-        if (isGameOver) return;
+        if (!gameStarted || isGameOver) return;
 
         remainingTime -= Time.deltaTime;
 
@@ -800,6 +978,7 @@ public class Game2BatikMatch : MonoBehaviour
         xRect.sizeDelta = Vector2.zero;
         TextMeshProUGUI xText = xObj.AddComponent<TextMeshProUGUI>();
         xText.text = "X"; // plain ASCII: guaranteed glyph in the default TMP font
+        SafeSetFont(xText);
         xText.fontSize = 16;
         xText.fontStyle = FontStyles.Bold;
         xText.alignment = TextAlignmentOptions.Center;
@@ -836,6 +1015,7 @@ public class Game2BatikMatch : MonoBehaviour
         textObj.transform.SetParent(buttonObj.transform, false);
         TextMeshProUGUI txt = textObj.AddComponent<TextMeshProUGUI>();
         txt.text = label;
+        SafeSetFont(txt);
         txt.fontSize = 12;
         txt.fontStyle = FontStyles.Bold;
         txt.alignment = TextAlignmentOptions.Center;
@@ -983,30 +1163,169 @@ public class Game2BatikMatch : MonoBehaviour
         return list;
     }
 
+    /// <summary>
+    /// Builds a proper row-based leaderboard (rank badge, name, time) matching the
+    /// game's sage/khaki design language, replacing the old single text-blob layout.
+    /// </summary>
     private void DisplayLeaderboard(List<LeaderboardEntry> list)
     {
-        if (descText == null) return;
-
         if (titleText != null) titleText.text = "Papan Pendahulu";
+        if (descText != null) descText.text = "";
 
-        // Gold/silver/bronze rank markers via color tags
-        string board = "<align=center><b>TURUTAN TERPANTAS</b>\n\n";
-        for (int i = 0; i < list.Count && i < 5; i++)
-        {
-            string prefix =
-                (i == 0) ? "<color=#E8C547><b>1.</b></color> " :
-                (i == 1) ? "<color=#C0C0C0><b>2.</b></color> " :
-                (i == 2) ? "<color=#CD7F32><b>3.</b></color> " :
-                $"{i + 1}. ";
-            board += $"<align=left>{prefix}{list[i].name} <line-height=0>\n<align=right>{list[i].time:F1}s<line-height=1em>\n";
-        }
+        if (leaderboardRoot != null) Destroy(leaderboardRoot);
+        leaderboardRoot = new GameObject("LeaderboardRoot");
+        leaderboardRoot.transform.SetParent(transform, false);
+        RectTransform lbRect = leaderboardRoot.AddComponent<RectTransform>();
+        lbRect.anchorMin = new Vector2(0.5f, 0.5f);
+        lbRect.anchorMax = new Vector2(0.5f, 0.5f);
+        lbRect.anchoredPosition = Vector2.zero;
+        lbRect.sizeDelta = Vector2.zero;
+
+        // Header chip
+        GameObject headerObj = new GameObject("HeaderChip");
+        headerObj.transform.SetParent(leaderboardRoot.transform, false);
+        RectTransform headerRect = headerObj.AddComponent<RectTransform>();
+        headerRect.sizeDelta = new Vector2(260f, 32f);
+        headerRect.anchoredPosition = new Vector2(0f, 132f);
+        Image headerImg = headerObj.AddComponent<Image>();
+        headerImg.sprite = roundedFillSprite;
+        headerImg.type = Image.Type.Sliced;
+        headerImg.color = Khaki;
+
+        GameObject headerTextObj = new GameObject("HeaderText");
+        headerTextObj.transform.SetParent(headerObj.transform, false);
+        RectTransform headerTextRect = headerTextObj.AddComponent<RectTransform>();
+        headerTextRect.anchorMin = Vector2.zero;
+        headerTextRect.anchorMax = Vector2.one;
+        headerTextRect.sizeDelta = Vector2.zero;
+        TextMeshProUGUI headerText = headerTextObj.AddComponent<TextMeshProUGUI>();
+        headerText.text = "TURUTAN TERPANTAS";
+        SafeSetFont(headerText);
+        headerText.fontSize = 13;
+        headerText.fontStyle = FontStyles.Bold;
+        headerText.alignment = TextAlignmentOptions.Center;
+        headerText.color = DarkOlive;
 
         if (list.Count == 0)
         {
-            board += "\nTiada rekod lagi. Jadilah yang pertama!";
+            GameObject emptyObj = new GameObject("EmptyMessage");
+            emptyObj.transform.SetParent(leaderboardRoot.transform, false);
+            RectTransform emptyRect = emptyObj.AddComponent<RectTransform>();
+            emptyRect.sizeDelta = new Vector2(380f, 60f);
+            emptyRect.anchoredPosition = new Vector2(0f, 30f);
+            TextMeshProUGUI emptyText = emptyObj.AddComponent<TextMeshProUGUI>();
+            emptyText.text = "Tiada rekod lagi.\nJadilah yang pertama!";
+            SafeSetFont(emptyText);
+            emptyText.fontSize = 14;
+            emptyText.alignment = TextAlignmentOptions.Center;
+            emptyText.color = Cream;
+            return;
         }
 
-        descText.text = board;
+        string myName = PlayerPrefs.GetString("PlayerName", "Pelawat");
+        bool foundMine = false;
+
+        Color[] rankBadgeColors =
+        {
+            new Color(0.90f, 0.75f, 0.30f), // gold
+            new Color(0.78f, 0.78f, 0.80f), // silver
+            new Color(0.72f, 0.48f, 0.28f), // bronze
+        };
+
+        const float rowWidth = 400f;
+        const float rowHeight = 40f;
+        const float rowSpacing = 46f;
+        const float startY = 95f;
+
+        for (int i = 0; i < list.Count && i < 5; i++)
+        {
+            LeaderboardEntry entry = list[i];
+            bool isTopThree = i < 3;
+            bool isMine = !foundMine && entry.name == myName;
+            if (isMine) foundMine = true;
+
+            float y = startY - i * rowSpacing;
+
+            GameObject rowObj = new GameObject($"Row_{i}");
+            rowObj.transform.SetParent(leaderboardRoot.transform, false);
+            RectTransform rowRect = rowObj.AddComponent<RectTransform>();
+            rowRect.sizeDelta = new Vector2(rowWidth, rowHeight);
+            rowRect.anchoredPosition = new Vector2(0f, y);
+            Image rowImg = rowObj.AddComponent<Image>();
+            rowImg.sprite = roundedFillSprite;
+            rowImg.type = Image.Type.Sliced;
+            rowImg.color = isTopThree
+                ? new Color(Khaki.r, Khaki.g, Khaki.b, 0.22f)
+                : new Color(SageDark.r, SageDark.g, SageDark.b, 0.9f);
+
+            if (isMine)
+            {
+                GameObject outlineObj = new GameObject("MyHighlight");
+                outlineObj.transform.SetParent(rowObj.transform, false);
+                RectTransform outlineRect = outlineObj.AddComponent<RectTransform>();
+                outlineRect.anchorMin = Vector2.zero;
+                outlineRect.anchorMax = Vector2.one;
+                outlineRect.sizeDelta = Vector2.zero;
+                Image outlineImg = outlineObj.AddComponent<Image>();
+                outlineImg.sprite = roundedBorderSprite;
+                outlineImg.type = Image.Type.Sliced;
+                outlineImg.color = Cream;
+            }
+
+            // Rank badge (circle)
+            GameObject badgeObj = new GameObject("RankBadge");
+            badgeObj.transform.SetParent(rowObj.transform, false);
+            RectTransform badgeRect = badgeObj.AddComponent<RectTransform>();
+            badgeRect.sizeDelta = new Vector2(30f, 30f);
+            badgeRect.anchoredPosition = new Vector2(-172f, 0f);
+            Image badgeImg = badgeObj.AddComponent<Image>();
+            badgeImg.sprite = circleSprite;
+            badgeImg.color = isTopThree ? rankBadgeColors[i] : new Color(Khaki.r, Khaki.g, Khaki.b, 0.35f);
+
+            GameObject badgeTextObj = new GameObject("RankNum");
+            badgeTextObj.transform.SetParent(badgeObj.transform, false);
+            RectTransform badgeTextRect = badgeTextObj.AddComponent<RectTransform>();
+            badgeTextRect.anchorMin = Vector2.zero;
+            badgeTextRect.anchorMax = Vector2.one;
+            badgeTextRect.sizeDelta = Vector2.zero;
+            TextMeshProUGUI badgeText = badgeTextObj.AddComponent<TextMeshProUGUI>();
+            badgeText.text = (i + 1).ToString();
+            SafeSetFont(badgeText);
+            badgeText.fontSize = 15;
+            badgeText.fontStyle = FontStyles.Bold;
+            badgeText.alignment = TextAlignmentOptions.Center;
+            badgeText.color = isTopThree ? DarkOlive : Cream;
+
+            // Player name
+            GameObject nameObj = new GameObject("PlayerName");
+            nameObj.transform.SetParent(rowObj.transform, false);
+            RectTransform nameRect = nameObj.AddComponent<RectTransform>();
+            nameRect.sizeDelta = new Vector2(220f, 34f);
+            nameRect.anchoredPosition = new Vector2(-30f, 0f);
+            TextMeshProUGUI nameText = nameObj.AddComponent<TextMeshProUGUI>();
+            nameText.text = entry.name;
+            SafeSetFont(nameText);
+            nameText.fontSize = 13;
+            nameText.fontStyle = isMine ? FontStyles.Bold : FontStyles.Normal;
+            nameText.alignment = TextAlignmentOptions.Left;
+            nameText.color = Cream;
+            nameText.enableWordWrapping = false;
+            nameText.overflowMode = TextOverflowModes.Ellipsis;
+
+            // Time
+            GameObject timeObj = new GameObject("Time");
+            timeObj.transform.SetParent(rowObj.transform, false);
+            RectTransform timeRect = timeObj.AddComponent<RectTransform>();
+            timeRect.sizeDelta = new Vector2(80f, 34f);
+            timeRect.anchoredPosition = new Vector2(150f, 0f);
+            TextMeshProUGUI timeText = timeObj.AddComponent<TextMeshProUGUI>();
+            timeText.text = $"{entry.time:F1}s";
+            SafeSetFont(timeText);
+            timeText.fontSize = 13;
+            timeText.fontStyle = FontStyles.Bold;
+            timeText.alignment = TextAlignmentOptions.Right;
+            timeText.color = Khaki;
+        }
     }
 
     // ------------------------------------------------------------------
@@ -1053,6 +1372,48 @@ public class Game2BatikMatch : MonoBehaviour
         float b = radius + 2f; // 9-slice margins keep corners crisp at any size
         return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f, 0,
             SpriteMeshType.FullRect, new Vector4(b, b, b, b));
+    }
+
+    /// <summary>
+    /// A rounded-rect border broken into evenly-spaced dashes around its perimeter,
+    /// matching the mockup's dotted slot outline. Uses an angle sweep normalized by the
+    /// rect's half-width/half-height so the dashes stay roughly even around a
+    /// non-square rect rather than bunching up on the short sides.
+    /// </summary>
+    private Sprite MakeDashedBorderSprite(int w, int h, int radius, int borderWidth, int dashCount)
+    {
+        Texture2D tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        generatedTextures.Add(tex);
+
+        float cx = (w - 1) * 0.5f;
+        float cy = (h - 1) * 0.5f;
+        float hw = w * 0.5f;
+        float hh = h * 0.5f;
+
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                float dx = Mathf.Abs(x - cx) - (hw - radius);
+                float dy = Mathf.Abs(y - cy) - (hh - radius);
+                float outsideDist = Mathf.Sqrt(Mathf.Max(dx, 0f) * Mathf.Max(dx, 0f) + Mathf.Max(dy, 0f) * Mathf.Max(dy, 0f));
+                float dist = outsideDist + Mathf.Min(Mathf.Max(dx, dy), 0f);
+
+                float outerAlpha = Mathf.Clamp01(radius - dist + 0.5f);
+                float innerAlpha = Mathf.Clamp01((radius - borderWidth) - dist + 0.5f);
+                float ringAlpha = Mathf.Clamp01(outerAlpha - innerAlpha);
+
+                float angle = Mathf.Atan2((y - cy) / hh, (x - cx) / hw);
+                float t = (angle + Mathf.PI) / (2f * Mathf.PI);
+                float dashPhase = (t * dashCount) % 1f;
+                float dashAlpha = dashPhase < 0.5f ? 1f : 0f;
+
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, ringAlpha * dashAlpha));
+            }
+        }
+        tex.Apply();
+
+        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
     }
 
     /// <summary>
