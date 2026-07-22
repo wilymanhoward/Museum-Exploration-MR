@@ -8,6 +8,7 @@ public class RoomManager : MonoBehaviour
 
     [Header("Museum Configurations")]
     [Tooltip("List of all rooms configured in the museum.")]
+    [HideInInspector]
     public List<RoomData> rooms = new List<RoomData>();
 
     [Tooltip("The room the player starts in (optional).")]
@@ -16,6 +17,8 @@ public class RoomManager : MonoBehaviour
     [Header("UI Canvas HUD References")]
     public GameObject roomHudContainer;
     public TextMeshProUGUI roomNameText;
+    public TextMeshProUGUI roomSubtitleText;
+    public TextMeshProUGUI roomArtifactCountText;
     public Transform artifactListContainer;
     [Tooltip("Prefab for a line item in the artifact checklist UI.")]
     public GameObject artifactListItemPrefab;
@@ -24,11 +27,13 @@ public class RoomManager : MonoBehaviour
 
     [Header("Wayfinding & Prefabs")]
     public WayfindingSystem wayfindingSystem;
+    public GameObject findButton;
 
     // Track active state
     private RoomData currentRoom;
+    private ArtifactData selectedChecklistArtifact;
     private Dictionary<string, bool> scannedArtifacts = new Dictionary<string, bool>();
-    private Dictionary<string, TextMeshProUGUI> hudListItemTexts = new Dictionary<string, TextMeshProUGUI>();
+    private Dictionary<string, GameObject> hudListItems = new Dictionary<string, GameObject>();
     private float statusTextTimer = 0f;
 
     public RoomData CurrentRoom => currentRoom;
@@ -47,13 +52,13 @@ public class RoomManager : MonoBehaviour
 
     private void Start()
     {
-        // 1. Try to find RoomHUDCanvas in the scene (active or inactive)
+        // 1. Try to find RoomHUDCanvas / RoomCanvas in the scene (active or inactive)
         if (roomHudContainer == null)
         {
             GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
             foreach (GameObject go in allGo)
             {
-                if (go.name == "RoomHUDCanvas" && go.scene.isLoaded)
+                if ((go.name == "RoomHUDCanvas" || go.name == "RoomCanvas") && go.scene.isLoaded)
                 {
                     roomHudContainer = go;
                     break;
@@ -61,13 +66,29 @@ public class RoomManager : MonoBehaviour
             }
             if (roomHudContainer != null)
             {
-                Debug.Log("RoomManager: Automatically located 'RoomHUDCanvas' (even if inactive).");
+                Debug.Log($"RoomManager: Automatically located '{roomHudContainer.name}' (even if inactive) in the scene.");
             }
         }
 
-        // 2. Try to find child references on the RoomHUDCanvas
+        // 2. Try to find child references on the RoomHUDCanvas / RoomCanvas
         if (roomHudContainer != null)
         {
+            Transform titlePanel = roomHudContainer.transform.Find("TitlePanel");
+            if (titlePanel != null)
+            {
+                TextMeshProUGUI[] texts = titlePanel.GetComponentsInChildren<TextMeshProUGUI>();
+                if (texts.Length > 0 && roomNameText == null)
+                {
+                    roomNameText = texts[0];
+                    Debug.Log($"RoomManager: Automatically located roomNameText '{roomNameText.name}' in TitlePanel.");
+                }
+                if (texts.Length > 1 && roomSubtitleText == null)
+                {
+                    roomSubtitleText = texts[1];
+                    Debug.Log($"RoomManager: Automatically located roomSubtitleText '{roomSubtitleText.name}' in TitlePanel.");
+                }
+            }
+
             if (roomNameText == null)
             {
                 roomNameText = roomHudContainer.transform.Find("RoomTitleText")?.GetComponent<TextMeshProUGUI>();
@@ -77,13 +98,38 @@ public class RoomManager : MonoBehaviour
             if (artifactListContainer == null)
             {
                 artifactListContainer = roomHudContainer.transform.Find("ArtifactList");
-                if (artifactListContainer != null) Debug.Log("RoomManager: Automatically located 'ArtifactList' container.");
+                if (artifactListContainer == null)
+                {
+                    artifactListContainer = roomHudContainer.transform.Find("List");
+                }
+                if (artifactListContainer != null) Debug.Log($"RoomManager: Automatically located list container '{artifactListContainer.name}'.");
             }
 
             if (scanStatusText == null)
             {
                 scanStatusText = roomHudContainer.transform.Find("ScanStatusText")?.GetComponent<TextMeshProUGUI>();
                 if (scanStatusText != null) Debug.Log("RoomManager: Automatically located 'ScanStatusText' component.");
+            }
+
+            if (roomArtifactCountText == null)
+            {
+                roomArtifactCountText = roomHudContainer.transform.Find("ArtifactCountText")?.GetComponent<TextMeshProUGUI>();
+                if (roomArtifactCountText == null)
+                {
+                    roomArtifactCountText = roomHudContainer.transform.Find("CountText")?.GetComponent<TextMeshProUGUI>();
+                }
+                if (roomArtifactCountText == null)
+                {
+                    foreach (var text in roomHudContainer.GetComponentsInChildren<TextMeshProUGUI>(true))
+                    {
+                        if (text.gameObject.name.ToLower().Contains("count") || text.text.ToLower().Contains("jumlah"))
+                        {
+                            roomArtifactCountText = text;
+                            break;
+                        }
+                    }
+                }
+                if (roomArtifactCountText != null) Debug.Log($"RoomManager: Automatically located roomArtifactCountText '{roomArtifactCountText.name}'.");
             }
         }
 
@@ -97,23 +143,20 @@ public class RoomManager : MonoBehaviour
             }
         }
 
-        // 4. Editor auto-healing lookup for missing assets
+        // 4. Editor auto-healing lookup for missing assets (always run to ensure complete list)
 #if UNITY_EDITOR
-        if (rooms == null || rooms.Count == 0)
+        rooms = new List<RoomData>();
+        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:RoomData");
+        foreach (string guid in guids)
         {
-            rooms = new List<RoomData>();
-            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:RoomData");
-            foreach (string guid in guids)
+            string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+            RoomData r = UnityEditor.AssetDatabase.LoadAssetAtPath<RoomData>(path);
+            if (r != null && !rooms.Contains(r))
             {
-                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-                RoomData r = UnityEditor.AssetDatabase.LoadAssetAtPath<RoomData>(path);
-                if (r != null && !rooms.Contains(r))
-                {
-                    rooms.Add(r);
-                }
+                rooms.Add(r);
             }
-            Debug.Log($"RoomManager: Automatically loaded {rooms.Count} RoomData assets in Editor.");
         }
+        Debug.Log($"RoomManager: Automatically loaded {rooms.Count} RoomData assets in Editor.");
 
         if (startingRoom == null && rooms.Count > 0)
         {
@@ -148,6 +191,18 @@ public class RoomManager : MonoBehaviour
 
         // Register for QR Scanner events
         QRCodeScanner.OnQRCodeScanned += HandleQRCodeScanned;
+
+        // Wire up the Find Button ("Temukan" button) if found
+        if (findButton != null)
+        {
+            UnityEngine.UI.Button findBtnComponent = findButton.GetComponent<UnityEngine.UI.Button>();
+            if (findBtnComponent == null) findBtnComponent = findButton.GetComponentInChildren<UnityEngine.UI.Button>();
+            if (findBtnComponent != null)
+            {
+                findBtnComponent.onClick.RemoveAllListeners();
+                findBtnComponent.onClick.AddListener(OnFindButtonClicked);
+            }
+        }
 
         // Initialize starting room if set
         if (startingRoom != null)
@@ -253,10 +308,29 @@ public class RoomManager : MonoBehaviour
             ArtifactManager.Instance.CloseActivePanel();
         }
 
+        // Make sure the room canvas is active when a room is entered/changed
+        if (roomHudContainer != null && !roomHudContainer.activeSelf)
+        {
+            roomHudContainer.SetActive(true);
+        }
+
         // Update UI Text
         if (roomNameText != null)
         {
             roomNameText.text = currentRoom.roomName;
+        }
+
+        // Update Subtitle Text
+        if (roomSubtitleText != null)
+        {
+            roomSubtitleText.text = currentRoom.roomSubtitle;
+        }
+
+        // Update Artifact Count Text
+        if (roomArtifactCountText != null)
+        {
+            int count = (currentRoom.artifacts != null) ? currentRoom.artifacts.Count : 0;
+            roomArtifactCountText.text = $"Jumlah Artefak: {count}";
         }
 
         // Repopulate HUD checklist
@@ -280,6 +354,17 @@ public class RoomManager : MonoBehaviour
             return;
         }
 
+        // Hide findButton initially, show scanStatusText
+        if (findButton != null)
+        {
+            findButton.SetActive(false);
+        }
+        if (scanStatusText != null)
+        {
+            scanStatusText.gameObject.SetActive(true);
+        }
+        selectedChecklistArtifact = null;
+
         // Clear existing items
         int clearedCount = 0;
         foreach (Transform child in artifactListContainer)
@@ -288,7 +373,7 @@ public class RoomManager : MonoBehaviour
             clearedCount++;
         }
         Debug.Log($"Cleared {clearedCount} existing checklist items.");
-        hudListItemTexts.Clear();
+        hudListItems.Clear();
 
         if (currentRoom == null)
         {
@@ -317,33 +402,88 @@ public class RoomManager : MonoBehaviour
             item.transform.localPosition = Vector3.zero;
             item.transform.localRotation = Quaternion.identity;
 
-            TextMeshProUGUI textComp = item.GetComponentInChildren<TextMeshProUGUI>();
-            if (textComp != null)
+            // Check if already scanned in the past
+            bool isScanned = scannedArtifacts.ContainsKey(artifact.artifactId) && scannedArtifacts[artifact.artifactId];
+            UpdateListItemVisual(item, artifact, isScanned);
+            hudListItems[artifact.artifactId] = item;
+
+            // Hook up the button click event
+            UnityEngine.UI.Button btn = item.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) btn = item.GetComponentInChildren<UnityEngine.UI.Button>();
+            if (btn != null)
             {
-                // Check if already scanned in the past
-                bool isScanned = scannedArtifacts.ContainsKey(artifact.artifactId) && scannedArtifacts[artifact.artifactId];
-                UpdateListItemVisual(textComp, artifact, isScanned);
-                hudListItemTexts[artifact.artifactId] = textComp;
-                Debug.Log($"Successfully spawned checklist item for artifact '{artifact.artifactName}' (Scanned: {isScanned}) at scale: {item.transform.localScale}");
+                ArtifactData currentArtifact = artifact;
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => {
+                    SelectArtifactFromList(currentArtifact);
+                });
             }
-            else
+
+            Debug.Log($"Successfully spawned checklist item for artifact '{artifact.artifactName}' (Scanned: {isScanned})");
+        }
+    }
+
+    private void UpdateListItemVisual(GameObject item, ArtifactData artifact, bool isScanned)
+    {
+        string displayName = isScanned ? $"<color=#009977>✓ {artifact.artifactName}</color>" : $"<color=#333333>○ {artifact.artifactName}</color>";
+
+        TextMeshProUGUI textComp = item.GetComponentInChildren<TextMeshProUGUI>();
+        if (textComp != null)
+        {
+            textComp.text = displayName;
+        }
+        else
+        {
+            UnityEngine.UI.Text legacyText = item.GetComponentInChildren<UnityEngine.UI.Text>();
+            if (legacyText != null)
             {
-                Debug.LogError($"Spawned checklist item prefab, but it does NOT contain a TextMeshProUGUI component in children!");
+                // Strip HTML tags for legacy UI text
+                string cleanName = isScanned ? $"✓ {artifact.artifactName}" : $"○ {artifact.artifactName}";
+                legacyText.text = cleanName;
             }
         }
     }
 
-    private void UpdateListItemVisual(TextMeshProUGUI textComp, ArtifactData artifact, bool isScanned)
+    public void SelectArtifactFromList(ArtifactData artifact)
     {
-        if (isScanned)
+        selectedChecklistArtifact = artifact;
+        Debug.Log($"Selected artifact from checklist: {artifact.artifactName}");
+
+        // Hide the scanStatusText and show the findButton
+        if (scanStatusText != null)
         {
-            // Styled color for scanned artifacts (Minimalist emerald green)
-            textComp.text = $"<color=#009977>✓ {artifact.artifactName}</color>";
+            scanStatusText.gameObject.SetActive(false);
         }
-        else
+        if (findButton != null)
         {
-            // Standard unvisited style (Charcoal gray for light background)
-            textComp.text = $"<color=#333333>○ {artifact.artifactName}</color>";
+            findButton.SetActive(true);
+        }
+    }
+
+    private void OnFindButtonClicked()
+    {
+        if (selectedChecklistArtifact == null)
+        {
+            Debug.LogWarning("No checklist artifact selected to find!");
+            return;
+        }
+
+        Debug.Log($"Find Button pressed! Showing waypoint to: {selectedChecklistArtifact.artifactName}");
+        
+        // Show scan status text again to provide search feedback
+        if (scanStatusText != null)
+        {
+            scanStatusText.gameObject.SetActive(true);
+            SetScanStatus($"Mencari: {selectedChecklistArtifact.artifactName}", new Color(0.1f, 0.75f, 0.2f));
+        }
+
+        // Trigger waypoint rendering (simulated)
+        if (wayfindingSystem != null)
+        {
+            Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
+            Vector3 startPos = camTransform.position;
+            Vector3 endPos = startPos + camTransform.forward * 2.0f;
+            wayfindingSystem.SetPath(new Vector3[] { startPos, endPos });
         }
     }
 
@@ -362,8 +502,27 @@ public class RoomManager : MonoBehaviour
     {
         Debug.Log($"RoomManager received QR scan payload: '{payload}'");
 
-        // Check if the payload matches a room transition QR
+        // Search for the room in our loaded list, or use editor fallback
         RoomData roomMatch = rooms.Find(r => r.roomId == payload);
+
+#if UNITY_EDITOR
+        if (roomMatch == null)
+        {
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:RoomData");
+            foreach (string guid in guids)
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                RoomData r = UnityEditor.AssetDatabase.LoadAssetAtPath<RoomData>(path);
+                if (r != null && r.roomId == payload)
+                {
+                    roomMatch = r;
+                    if (!rooms.Contains(r)) rooms.Add(r);
+                    break;
+                }
+            }
+        }
+#endif
+
         if (roomMatch != null)
         {
             if (currentRoom != null && currentRoom.roomId == payload)
@@ -391,7 +550,7 @@ public class RoomManager : MonoBehaviour
         scannedArtifacts[artifactId] = true;
 
         // Update HUD list if the item is in the current room list
-        if (hudListItemTexts.TryGetValue(artifactId, out TextMeshProUGUI textComp))
+        if (hudListItems.TryGetValue(artifactId, out GameObject item))
         {
             ArtifactData artifact = currentRoom.artifacts.Find(a => a.artifactId == artifactId);
             if (artifact == null)
@@ -406,7 +565,7 @@ public class RoomManager : MonoBehaviour
 
             if (artifact != null)
             {
-                UpdateListItemVisual(textComp, artifact, true);
+                UpdateListItemVisual(item, artifact, true);
                 SetScanStatus($"Completed: {artifact.artifactName}", new Color(0f, 0.8f, 0.4f));
             }
         }

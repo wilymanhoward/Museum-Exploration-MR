@@ -12,16 +12,18 @@ public class ArtifactManager : MonoBehaviour
     [Tooltip("The persistent parent canvas GameObject in the scene (ArtifactUICanvas).")]
     public GameObject artifactUiCanvas;
 
-    [Tooltip("The spawner component (RotateArtifact) under the canvas where models are instantiated.")]
-    public RotateArtifact objectSpawner;
-
-    [Tooltip("The script controller (ArtifactInteraction) on the panel UI.")]
-    public ArtifactInteraction artifactInteraction;
+    [Tooltip("The script controller (ArtifactPanel) on the panel UI.")]
+    public ArtifactPanel artifactInteraction;
 
     [Header("UI Prefab Fallback (Optional)")]
     [Tooltip("Prefab for the floating detail panel spawned when an artifact QR is scanned (fallback only).")]
     public GameObject artifactPanelPrefab;
 
+    [Header("Selected Artifact Details")]
+    [Tooltip("The currently selected artifact.")]
+    public ArtifactData selectedArtifact;
+
+    private ArtifactData lastSelectedArtifact;
     private GameObject activePanelInstance;
 
     private void Awake()
@@ -64,20 +66,9 @@ public class ArtifactManager : MonoBehaviour
 
         if (artifactUiCanvas != null)
         {
-            if (objectSpawner == null)
-            {
-                var spawnerTransform = artifactUiCanvas.transform.Find("ObjectSpawner");
-                if (spawnerTransform != null) objectSpawner = spawnerTransform.GetComponent<RotateArtifact>();
-                
-                if (objectSpawner == null)
-                {
-                    objectSpawner = artifactUiCanvas.GetComponentInChildren<RotateArtifact>(true);
-                }
-            }
-
             if (artifactInteraction == null)
             {
-                artifactInteraction = artifactUiCanvas.GetComponentInChildren<ArtifactInteraction>(true);
+                artifactInteraction = artifactUiCanvas.GetComponentInChildren<ArtifactPanel>(true);
             }
 
             // Hide the canvas initially
@@ -96,6 +87,51 @@ public class ArtifactManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Updates the selected artifact, syncs the UI panel to display it, and repositions the panel if a pose is provided.
+    /// </summary>
+    public void UpdateArtifact(ArtifactData artifact)
+    {
+        UpdateArtifact(artifact, CalculateDefaultPose());
+    }
+
+    /// <summary>
+    /// Updates the selected artifact, syncs the UI panel to display it, and repositions the panel to the given pose.
+    /// </summary>
+    public void UpdateArtifact(ArtifactData artifact, Pose pose)
+    {
+        selectedArtifact = artifact;
+        lastSelectedArtifact = artifact;
+
+        if (artifact == null)
+        {
+            CloseActivePanel();
+            return;
+        }
+
+        // If a panel is already open, update its details and position directly
+        if (activePanelInstance != null)
+        {
+            ArtifactPanel existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
+            if (existingInteraction != null)
+            {
+                existingInteraction.UpdateDetails(artifact);
+                return;
+            }
+        }
+
+        // If no panel is open, trigger a new scan setup
+        TriggerArtifactScan(artifact, pose);
+    }
+
+    private Pose CalculateDefaultPose()
+    {
+        Transform referenceTransform = playerTransform != null ? playerTransform : (Camera.main != null ? Camera.main.transform : transform);
+        Vector3 pos = referenceTransform.position + referenceTransform.forward * 1.5f;
+        Quaternion rot = Quaternion.LookRotation(-referenceTransform.forward, Vector3.up);
+        return new Pose(pos, rot);
+    }
+
+    /// <summary>
     /// Callback from QR Scanner when a QR code payload is detected.
     /// </summary>
     private void HandleQRCodeScanned(string payload, Pose pose)
@@ -103,49 +139,67 @@ public class ArtifactManager : MonoBehaviour
         // Prevent duplicate scanning if this exact artifact detail panel is already open
         if (activePanelInstance != null)
         {
-            ArtifactInteraction existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactInteraction>();
+            ArtifactPanel existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
             if (existingInteraction != null && existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == payload)
             {
                 return; // Already showing this exact panel, ignore repeat scan
             }
         }
 
-        // Search through rooms configured in the RoomManager to locate the artifact
-        ArtifactData artifactMatch = null;
-        if (RoomManager.Instance != null)
-        {
-            // Check current room first
-            if (RoomManager.Instance.CurrentRoom != null)
-            {
-                artifactMatch = RoomManager.Instance.CurrentRoom.artifacts.Find(a => a.artifactId == payload);
-            }
-
-            // Fallback: search all rooms
-            if (artifactMatch == null)
-            {
-                foreach (RoomData room in RoomManager.Instance.rooms)
-                {
-                    artifactMatch = room.artifacts.Find(a => a.artifactId == payload);
-                    if (artifactMatch != null) break;
-                }
-            }
-        }
+        // Search for the artifact in the rooms, and use editor fallback if needed
+        ArtifactData artifactMatch = FindArtifactInProject(payload);
 
         if (artifactMatch != null)
         {
-            // A different QR was scanned while a panel is open: destroy the current
-            // panel and its 3D model before showing the new artifact
-            if (activePanelInstance != null)
-            {
-                CloseActivePanel();
-            }
-
             if (RoomManager.Instance != null)
             {
                 RoomManager.Instance.SetScanStatus($"Scanned Exhibit: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
             }
-            TriggerArtifactScan(artifactMatch, pose);
+            UpdateArtifact(artifactMatch, pose);
         }
+    }
+
+    private ArtifactData FindArtifactInProject(string id)
+    {
+        ArtifactData match = null;
+
+        // 1. Try to find via RoomManager
+        if (RoomManager.Instance != null)
+        {
+            if (RoomManager.Instance.CurrentRoom != null)
+            {
+                match = RoomManager.Instance.CurrentRoom.artifacts.Find(a => a.artifactId == id);
+            }
+
+            if (match == null)
+            {
+                foreach (RoomData room in RoomManager.Instance.rooms)
+                {
+                    match = room.artifacts.Find(a => a.artifactId == id);
+                    if (match != null) break;
+                }
+            }
+        }
+
+        // 2. Editor Fallback: Find asset directly in project database
+#if UNITY_EDITOR
+        if (match == null)
+        {
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:ArtifactData");
+            foreach (string guid in guids)
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                ArtifactData data = UnityEditor.AssetDatabase.LoadAssetAtPath<ArtifactData>(path);
+                if (data != null && data.artifactId == id)
+                {
+                    match = data;
+                    break;
+                }
+            }
+        }
+#endif
+
+        return match;
     }
 
     private void HandleQRCodeLost(string payload)
@@ -153,7 +207,7 @@ public class ArtifactManager : MonoBehaviour
         // When physical QR code is lost, close the panel/canvas
         if (activePanelInstance != null)
         {
-            ArtifactInteraction interaction = activePanelInstance.GetComponentInChildren<ArtifactInteraction>();
+            ArtifactPanel interaction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
             if (interaction != null && interaction.artifactData != null && interaction.artifactData.artifactId == payload)
             {
                 CloseActivePanel();
@@ -164,6 +218,10 @@ public class ArtifactManager : MonoBehaviour
     private void TriggerArtifactScan(ArtifactData artifact, Pose pose)
     {
         Debug.Log($"Scanned Artifact QR: {artifact.artifactName}");
+
+        // Update selected artifact tracking
+        selectedArtifact = artifact;
+        lastSelectedArtifact = artifact;
 
         // Ensure we have a valid player transform reference (in case it was null at Start())
         if (playerTransform == null)
@@ -199,7 +257,7 @@ public class ArtifactManager : MonoBehaviour
             // Fallback to prefab spawning if the persistent canvas is not in the scene
             if (activePanelInstance != null)
             {
-                ArtifactInteraction existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactInteraction>();
+                ArtifactPanel existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
                 if (existingInteraction != null)
                 {
                     if (existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == artifact.artifactId)
@@ -207,7 +265,7 @@ public class ArtifactManager : MonoBehaviour
                         return;
                     }
                     existingInteraction.Setup(artifact, playerTransform, pose, () => {
-                        activePanelInstance = null;
+                        CloseActivePanel();
                     });
                     return;
                 }
@@ -222,11 +280,11 @@ public class ArtifactManager : MonoBehaviour
                     canvas.worldCamera = Camera.main;
                 }
 
-                ArtifactInteraction interaction = panelInstance.GetComponentInChildren<ArtifactInteraction>();
+                ArtifactPanel interaction = panelInstance.GetComponentInChildren<ArtifactPanel>();
                 if (interaction != null)
                 {
                     interaction.Setup(artifact, playerTransform, pose, () => {
-                        activePanelInstance = null;
+                        CloseActivePanel();
                     });
                     activePanelInstance = panelInstance;
                 }
@@ -241,13 +299,12 @@ public class ArtifactManager : MonoBehaviour
     {
         if (activePanelInstance != null)
         {
-            if (activePanelInstance == artifactUiCanvas)
+            GameObject tempInstance = activePanelInstance;
+            activePanelInstance = null; // Clear first to prevent recursion loops
+
+            if (tempInstance == artifactUiCanvas)
             {
-                // Destroy the spawned 3D model and hide the persistent canvas
-                if (objectSpawner != null)
-                {
-                    objectSpawner.ClearModel();
-                }
+                // Hide persistent canvas and trigger its close animation/cleanup
                 artifactUiCanvas.SetActive(false);
                 if (artifactInteraction != null)
                 {
@@ -256,15 +313,19 @@ public class ArtifactManager : MonoBehaviour
             }
             else
             {
-                // Instantiate/Destroy fallback
-                ArtifactInteraction interaction = activePanelInstance.GetComponentInChildren<ArtifactInteraction>();
+                // Instantiate/Destroy fallback - trigger cleanup and destroy the prefab instance
+                ArtifactPanel interaction = tempInstance.GetComponentInChildren<ArtifactPanel>();
                 if (interaction != null)
                 {
                     interaction.StartClose();
                 }
+                Destroy(tempInstance);
             }
-            activePanelInstance = null;
         }
+
+        // Clear selected artifact tracking
+        selectedArtifact = null;
+        lastSelectedArtifact = null;
     }
 
     /// <summary>

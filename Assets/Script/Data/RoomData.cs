@@ -10,6 +10,7 @@ public class RoomData : ScriptableObject
 
     [Header("Details")]
     public string roomName;
+    public string roomSubtitle;
 
     [Header("Exhibit Content")]
     [Tooltip("List of artifacts located in this specific room.")]

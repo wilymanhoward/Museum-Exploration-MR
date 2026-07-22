@@ -112,15 +112,15 @@ public class MiniGameManager : MonoBehaviour
             canvas.worldCamera = Camera.main;
         }
         
-        // Fix zero scale issue (originally handled by pop-in animation in ArtifactInteraction)
-        var artInteraction = activeGameInstance.GetComponent<ArtifactInteraction>();
+        // Fix zero scale issue (originally handled by pop-in animation in ArtifactPanel)
+        var artPanel = activeGameInstance.GetComponent<ArtifactPanel>();
         Vector3 targetScale = new Vector3(0.0022f, 0.0022f, 0.0022f); // fallback portrait scale
-        if (artInteraction != null)
+        if (artPanel != null)
         {
             // If the prefab already has a defined initial scale, use it (usually 0.0022f)
             // But since Awake might have set localScale to Vector3.zero, we check and fallback
             targetScale = new Vector3(0.0022f, 0.0022f, 0.0022f);
-            Destroy(artInteraction);
+            Destroy(artPanel);
         }
         activeGameInstance.transform.localScale = targetScale;
 

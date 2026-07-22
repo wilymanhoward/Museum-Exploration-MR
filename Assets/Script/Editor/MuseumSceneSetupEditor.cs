@@ -239,14 +239,11 @@ public class MuseumSceneSetupEditor : EditorWindow
         anchorObj.transform.SetParent(panelObj.transform, false);
         anchorObj.transform.localPosition = new Vector3(170f, 0f, -50f);
 
-        // Attach ArtifactInteraction
-        ArtifactInteraction interaction = panelObj.AddComponent<ArtifactInteraction>();
-        interaction.titleText = titleText;
-        interaction.artistYearText = subText;
+        // Attach ArtifactPanel
+        ArtifactPanel interaction = panelObj.AddComponent<ArtifactPanel>();
+        interaction.topTitleText = titleText;
         interaction.descriptionText = descText;
-        RotateArtifact rotator = anchorObj.AddComponent<RotateArtifact>();
-        interaction.modelSpawnAnchor = rotator;
-        interaction.maxInteractionDistance = 2.5f;
+        anchorObj.AddComponent<RotateArtifact>();
 
         GameObject prefab = PrefabUtility.SaveAsPrefabAsset(panelObj, path);
         DestroyImmediate(panelObj);

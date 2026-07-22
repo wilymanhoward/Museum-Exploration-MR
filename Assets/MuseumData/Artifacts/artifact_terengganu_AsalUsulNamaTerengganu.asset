@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc55c5d32fd5a2c4cae7404cd20bacc0, type: 3}
+  m_Name: artifact_terengganu_AsalUsulNamaTerengganu
+  m_EditorClassIdentifier: 
+  artifactId: artifact_terengganu
+  artifactName: Asal Usul Nama Terengganu
+  artist: Historical Chronicler
+  year: Historical
+  description: Historical details and manuscripts explaining the etymological origins
+    of the name Terengganu.
+  modelPrefab: {fileID: 2874445401389655939, guid: 7e5d6681ef8c77642aff081d520b2940,
+    type: 3}

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc55c5d32fd5a2c4cae7404cd20bacc0, type: 3}
+  m_Name: artifact_2_StatueofDavid
+  m_EditorClassIdentifier: 
+  artifactId: artifact_2
+  artifactName: Statue of David
+  artist: Michelangelo
+  year: 1504
+  description: A masterpiece of Renaissance sculpture, depicting the biblical hero
+    David in marble. Stands as a symbol of strength and youth.
+  modelPrefab: {fileID: 2141624830404559035, guid: 3c95f6d225737304faa009450f08fa5a,
+    type: 3}
