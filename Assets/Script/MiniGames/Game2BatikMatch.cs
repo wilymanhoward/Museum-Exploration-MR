@@ -26,13 +26,12 @@ public class Game2BatikMatch : MonoBehaviour
 
         private XRGrabInteractable grabInteractable;
         private Game2BatikMatch controller;
-        private Transform homeParent;
+        private Vector3 lastInteractorWorldPos;
 
         public void Setup(Game2BatikMatch gameController, int stepIndex, Vector2 cardSize)
         {
             controller = gameController;
             correctStepIndex = stepIndex;
-            homeParent = transform.parent;
 
             var boxCol = gameObject.AddComponent<BoxCollider>();
             boxCol.size = new Vector3(cardSize.x, cardSize.y, 14f);
@@ -42,9 +41,17 @@ public class Game2BatikMatch : MonoBehaviour
             rb.isKinematic = true;
 
             grabInteractable = gameObject.AddComponent<XRGrabInteractable>();
+            // The game panel spawns ~1.4m in front of the player - well outside near/direct
+            // hand-grab range - so on the real headset every card grab goes through the
+            // FAR ray-pinch interactor. Letting XRI's trackPosition snap the card straight
+            // to the interactor's attach point (as "Instantaneous" + trackPosition=true does)
+            // caused the card to jump to a nonsensical position the instant it was grabbed,
+            // which looked like it vanished and never landed in the right slot. Instead,
+            // drive position manually from the interactor's frame-to-frame movement delta
+            // (same proven approach as RotateArtifact.cs uses for the 3D artifact model).
             grabInteractable.movementType = XRBaseInteractable.MovementType.Instantaneous;
-            grabInteractable.trackPosition = true;
-            grabInteractable.trackRotation = false; // keep the card upright/readable
+            grabInteractable.trackPosition = false;
+            grabInteractable.trackRotation = false;
             grabInteractable.useDynamicAttach = true;
 
             grabInteractable.selectEntered.AddListener(OnGrabbed);
@@ -59,40 +66,50 @@ public class Game2BatikMatch : MonoBehaviour
         private void OnGrabbed(SelectEnterEventArgs args)
         {
             isGrabbed = true;
+            lastInteractorWorldPos = GetInteractorAttachPos(args.interactorObject);
 
             // uGUI graphics draw strictly in hierarchy order, never by actual camera
-            // distance - even in a World Space canvas, the default UI shader doesn't
-            // test/write depth. Pulling a card out of the tray towards your hand doesn't
-            // make it render "in front" by itself, so it can vanish behind whichever
-            // panel element (the board, a button, etc.) happens to be a later sibling.
-            // Re-parent to the panel root and push to the very last sibling so the
-            // grabbed card always draws on top of everything else while held.
-            transform.SetParent(controller.transform, true);
+            // distance, so bring the held card to the front within its own parent to
+            // avoid it rendering behind other board elements while dragged over them.
             transform.SetAsLastSibling();
         }
 
         private void OnReleased(SelectExitEventArgs args)
         {
             isGrabbed = false;
-
-            // Return to the board before re-running the slot/tray snap logic, which
-            // reads transform.localPosition relative to the board's local space.
-            if (homeParent != null)
-            {
-                transform.SetParent(homeParent, true);
-            }
-
             controller.OnCardReleased(this);
         }
 
         private void Update()
         {
-            if (!isGrabbed)
+            if (isGrabbed)
+            {
+                if (grabInteractable != null && grabInteractable.interactorsSelecting.Count > 0)
+                {
+                    Vector3 currentWorldPos = GetInteractorAttachPos(grabInteractable.interactorsSelecting[0]);
+                    Vector3 worldDelta = currentWorldPos - lastInteractorWorldPos;
+                    lastInteractorWorldPos = currentWorldPos;
+
+                    // Convert the real-world hand movement into the parent's local
+                    // (canvas-unit) space - this accounts for both the panel's ~0.0022
+                    // scale and whatever angle it's facing the player at - then apply it
+                    // flat on the board's X/Y plane, holding Z fixed so the card stays at
+                    // the board's depth instead of drifting toward/away from the player.
+                    Vector3 localDelta = transform.parent.InverseTransformVector(worldDelta);
+                    transform.localPosition += new Vector3(localDelta.x, localDelta.y, 0f);
+                }
+            }
+            else
             {
                 // Smoothly glide back to the assigned slot/tray anchor
                 transform.localPosition = Vector3.Lerp(transform.localPosition, targetLocalPosition, Time.deltaTime * 10f);
                 transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.identity, Time.deltaTime * 10f);
             }
+        }
+
+        private Vector3 GetInteractorAttachPos(IXRSelectInteractor interactor)
+        {
+            return interactor.GetAttachTransform(grabInteractable).position;
         }
 
         private void OnDestroy()
