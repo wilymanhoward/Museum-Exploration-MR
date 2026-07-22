@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 #if META_XR_SDK_PRESENT
 using Meta.XR.MRUtilityKit;
@@ -15,6 +16,11 @@ public class QRCodeScanner : MonoBehaviour
     [Tooltip("Distance from the camera where a simulated QR code will be spawned.")]
     public float simulatedSpawnDistance = 1.5f;
 
+    // Fast Scan Parameters (private constants to keep exact Unity serialization layout compatibility)
+    private const float MaxScanDistance = 4.0f; // Maximum distance (meters) to scan QR code
+    private const float MaxScanAngle = 45.0f;    // Maximum gaze angle (degrees) to scan QR code
+    private const float ScanCooldown = 1.0f;    // Cooldown (seconds) before re-triggering same QR code
+
     // Events raised when a QR code is scanned or lost
     public static event Action<string, Pose> OnQRCodeScanned;
     public static event Action<string> OnQRCodeLost;
@@ -22,7 +28,7 @@ public class QRCodeScanner : MonoBehaviour
     private string lastSimulatedPayload = "";
     private string lastHardwarePayload = "";
     private float hardwareScanCooldown = 0f;
-    private System.Collections.Generic.List<MRUKTrackable> activeTrackables = new System.Collections.Generic.List<MRUKTrackable>();
+    private List<MRUKTrackable> activeTrackables = new List<MRUKTrackable>();
 
     private void Awake()
     {
@@ -49,7 +55,7 @@ public class QRCodeScanner : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("QR Code Scanner: MRUK.Instance or SceneSettings is null. Headset QR scanning will not trigger.");
+            Debug.LogWarning("QR Code Scanner: MRUK.Instance or SceneSettings is null.");
         }
 #else
         Debug.Log("QR Code Scanner: META_XR_SDK_PRESENT define is not active. Running in Editor/Simulation mode.");
@@ -75,33 +81,54 @@ public class QRCodeScanner : MonoBehaviour
             hardwareScanCooldown -= Time.deltaTime;
         }
 
-        // Keyboard simulation handled externally by QRCodeScannerDebugger
-
 #if META_XR_SDK_PRESENT
-        // Optimization: Poll active trackables regularly to catch newly tracked states immediately
-        if (MRUK.Instance != null && Time.frameCount % 5 == 0) // Every 5 frames for high responsiveness
+        if (MRUK.Instance != null)
         {
+            Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
+            Vector3 camPos = camTransform.position;
+            Vector3 camForward = camTransform.forward;
+
             MRUK.Instance.GetTrackables(activeTrackables);
+            bool facingAnyTargetQR = false;
+
             for (int i = 0; i < activeTrackables.Count; i++)
             {
                 var trackable = activeTrackables[i];
                 if (trackable != null && trackable.TrackableType == OVRAnchor.TrackableType.QRCode && trackable.IsTracked)
                 {
                     string payload = trackable.MarkerPayloadString;
-                    if (!string.IsNullOrEmpty(payload))
+                    if (string.IsNullOrEmpty(payload)) continue;
+
+                    Vector3 qrPos = trackable.transform.position;
+                    Vector3 toQR = qrPos - camPos;
+                    float dist = toQR.magnitude;
+                    float angle = dist > 0.001f ? Vector3.Angle(camForward, toQR / dist) : 0f;
+
+                    // Check if player is facing towards the QR code within scanning distance
+                    bool isFacing = dist <= MaxScanDistance && angle <= MaxScanAngle;
+
+                    if (isFacing)
                     {
-                        // Trigger if it's a different QR code, or if the cooldown on the same code expired
+                        facingAnyTargetQR = true;
+
+                        // Trigger instantly if different payload or if cooldown expired
                         if (payload != lastHardwarePayload || hardwareScanCooldown <= 0f)
                         {
                             lastHardwarePayload = payload;
-                            hardwareScanCooldown = 3.0f; // 3s cooldown for the same QR to prevent duplicate triggers
-                            
-                            Pose pose = new Pose(trackable.transform.position, trackable.transform.rotation);
-                            Debug.Log($"[MRUK Poll] QR Code Scan Triggered: {payload}");
+                            hardwareScanCooldown = ScanCooldown;
+
+                            Pose pose = new Pose(qrPos, trackable.transform.rotation);
+                            Debug.Log($"[QR Scanner] Fast Scan Triggered for '{payload}' (dist: {dist:F2}m, angle: {angle:F1}°)");
                             OnQRCodeScanned?.Invoke(payload, pose);
                         }
                     }
                 }
+            }
+
+            // Reset active payload if the user turns away from the QR code, allowing immediate re-scan when facing back
+            if (!facingAnyTargetQR && !string.IsNullOrEmpty(lastHardwarePayload) && hardwareScanCooldown <= ScanCooldown * 0.5f)
+            {
+                lastHardwarePayload = "";
             }
         }
 #endif
@@ -125,7 +152,6 @@ public class QRCodeScanner : MonoBehaviour
     /// </summary>
     public void SimulateScan(string payload)
     {
-        // If scanning a new artifact/room, trigger loss of the previous one if it was an artifact
         if (lastSimulatedPayload.StartsWith("artifact_") && lastSimulatedPayload != payload)
         {
             OnQRCodeLost?.Invoke(lastSimulatedPayload);
@@ -133,9 +159,7 @@ public class QRCodeScanner : MonoBehaviour
 
         Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
         
-        // Spawn the simulated QR code pose in front of the camera, looking at the camera
         Vector3 pos = camTransform.position + camTransform.forward * simulatedSpawnDistance;
-        // Make the pose face the camera
         Quaternion rot = Quaternion.LookRotation(-camTransform.forward, Vector3.up);
         Pose simulatedPose = new Pose(pos, rot);
 
@@ -147,18 +171,25 @@ public class QRCodeScanner : MonoBehaviour
 #if META_XR_SDK_PRESENT
     private void OnMRUKTrackableAdded(MRUKTrackable trackable)
     {
-        // Check if the trackable is a QR Code
         if (trackable.TrackableType == OVRAnchor.TrackableType.QRCode)
         {
             string payload = trackable.MarkerPayloadString;
             if (!string.IsNullOrEmpty(payload))
             {
-                lastHardwarePayload = payload;
-                hardwareScanCooldown = 3.0f;
+                Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
+                Vector3 toQR = trackable.transform.position - camTransform.position;
+                float dist = toQR.magnitude;
+                float angle = dist > 0.001f ? Vector3.Angle(camTransform.forward, toQR / dist) : 0f;
 
-                Pose pose = new Pose(trackable.transform.position, trackable.transform.rotation);
-                Debug.Log($"[MRUK Event] QR Code Tracked: {payload} at Pose: {pose.position}");
-                OnQRCodeScanned?.Invoke(payload, pose);
+                if (dist <= MaxScanDistance && angle <= MaxScanAngle)
+                {
+                    lastHardwarePayload = payload;
+                    hardwareScanCooldown = ScanCooldown;
+
+                    Pose pose = new Pose(trackable.transform.position, trackable.transform.rotation);
+                    Debug.Log($"[MRUK Event] Fast QR Code Tracked: '{payload}' at Pose: {pose.position}");
+                    OnQRCodeScanned?.Invoke(payload, pose);
+                }
             }
         }
     }
