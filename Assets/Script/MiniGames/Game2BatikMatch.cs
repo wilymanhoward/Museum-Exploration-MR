@@ -111,15 +111,15 @@ public class Game2BatikMatch : MonoBehaviour
     private const string FirestoreUrl = "https://firestore.googleapis.com/v1/projects/museum-mixed-reality-app/databases/(default)/documents";
 
     // ------------------------------------------------------------------
-    // Palette (matches rich batik sage/gold aesthetic)
+    // Palette (matches exact sage green mockup aesthetic)
     // ------------------------------------------------------------------
-    private static readonly Color SageBg = new Color(0.18f, 0.20f, 0.16f, 0.98f);   // rich dark olive/slate panel
-    private static readonly Color SageDark = new Color(0.12f, 0.14f, 0.10f, 0.90f); // slot interior
-    private static readonly Color Khaki = new Color(0.88f, 0.78f, 0.38f, 1f);    // glowing gold chips, borders, buttons
-    private static readonly Color KhakiHover = new Color(0.96f, 0.88f, 0.52f, 1f);
-    private static readonly Color DarkOlive = new Color(0.16f, 0.18f, 0.10f, 1f);  // text on khaki
-    private static readonly Color DarkOliveHover = new Color(0.26f, 0.28f, 0.18f, 1f);
-    private static readonly Color Cream = new Color(0.96f, 0.95f, 0.90f, 1f);    // title/feedback text
+    private static readonly Color SageBg = new Color(0.537f, 0.557f, 0.478f, 1f);   // sage panel background (#898E7A)
+    private static readonly Color SageDark = new Color(0.424f, 0.447f, 0.373f, 1f); // slot interior (#6C725F)
+    private static readonly Color Khaki = new Color(0.784f, 0.765f, 0.353f, 1f);    // chips, borders, buttons (#C8C35A)
+    private static readonly Color KhakiHover = new Color(0.86f, 0.84f, 0.44f, 1f);
+    private static readonly Color DarkOlive = new Color(0.22f, 0.235f, 0.16f, 1f);  // text on khaki, close button
+    private static readonly Color DarkOliveHover = new Color(0.33f, 0.35f, 0.25f, 1f);
+    private static readonly Color Cream = new Color(0.96f, 0.96f, 0.92f, 1f);    // title & button text
 
     // ------------------------------------------------------------------
     // Layout (canvas units; panel canvas is resized to 460x400)
@@ -172,12 +172,38 @@ public class Game2BatikMatch : MonoBehaviour
     private Sprite roundedBorderSprite;
     private Sprite circleSprite;
 
+    [Header("Font Settings")]
+    [Tooltip("Drag any Serif TMP Font Asset (e.g. Georgia, Times New Roman, Playfair Display) to match the mockup typography.")]
+    public TMP_FontAsset customFont;
+
+    [Header("Manual UI Inspector References (Optional)")]
+    [Tooltip("Parent transform containing 5 Slot GameObjects. If assigned in Inspector, uses your custom slot layout.")]
+    public Transform customSlotsContainer;
+
+    [Tooltip("Parent transform containing 5 Tray anchor GameObjects. If assigned in Inspector, uses your custom tray anchors.")]
+    public Transform customTrayContainer;
+
+    [Tooltip("Custom Card UI Prefab. If assigned in Inspector, instantiated instead of procedural cards.")]
+    public GameObject customCardPrefab;
+
+    [Tooltip("Check Answer Button component in your custom UI.")]
+    public UnityEngine.UI.Button customCheckAnswerButton;
+
+    [Tooltip("Title Text component in your custom UI.")]
+    public TextMeshProUGUI customTitleText;
+
+    [Tooltip("Feedback Text component in your custom UI.")]
+    public TextMeshProUGUI customFeedbackText;
+
+    [Tooltip("Close Button component in your custom UI.")]
+    public UnityEngine.UI.Button customCloseButton;
+
     private void Start()
     {
-        // 0. Generate reusable rounded-corner sprites
-        roundedFillSprite = MakeRoundedSprite(64, 64, 14, 0);
-        roundedBorderSprite = MakeRoundedSprite(64, 64, 14, 4);
-        circleSprite = MakeRoundedSprite(48, 48, 24, 0);
+        // 0. Generate reusable high-precision rounded-corner sprites (24px radius)
+        roundedFillSprite = MakeRoundedSprite(128, 128, 24, 0);
+        roundedBorderSprite = MakeRoundedSprite(128, 128, 24, 6);
+        circleSprite = MakeRoundedSprite(64, 64, 32, 0);
 
         // 1. Enlarge the panel canvas to a landscape layout and make it opaque sage
         RectTransform rootRect = GetComponent<RectTransform>();
@@ -196,38 +222,28 @@ public class Game2BatikMatch : MonoBehaviour
                 bgImage.type = Image.Type.Sliced;
                 bgImage.color = SageBg;
             }
-
-            // Add sleek outer gold border ring
-            GameObject panelBorderObj = new GameObject("PanelGoldBorder");
-            panelBorderObj.transform.SetParent(bg, false);
-            RectTransform pbRect = panelBorderObj.AddComponent<RectTransform>();
-            pbRect.anchorMin = Vector2.zero;
-            pbRect.anchorMax = Vector2.one;
-            pbRect.sizeDelta = Vector2.zero;
-            Image pbImage = panelBorderObj.AddComponent<Image>();
-            pbImage.sprite = roundedBorderSprite;
-            pbImage.type = Image.Type.Sliced;
-            pbImage.color = Khaki;
         }
 
-        // 2. Restyle the header texts inherited from the panel prefab
-        titleText = transform.Find("TitleText")?.GetComponent<TextMeshProUGUI>();
-        feedbackText = transform.Find("ArtistYearText")?.GetComponent<TextMeshProUGUI>();
+        // 2. Restyle or bind header texts
+        titleText = customTitleText != null ? customTitleText : transform.Find("TitleText")?.GetComponent<TextMeshProUGUI>();
+        feedbackText = customFeedbackText != null ? customFeedbackText : transform.Find("ArtistYearText")?.GetComponent<TextMeshProUGUI>();
         descText = transform.Find("DescriptionText")?.GetComponent<TextMeshProUGUI>();
 
-        if (titleText != null)
+        if (titleText != null && customTitleText == null)
         {
             SetupTextRect(titleText.rectTransform, new Vector2(-65f, 168f), new Vector2(300f, 36f));
             titleText.text = "Susunkan proses pembuatan batik";
+            if (customFont != null) titleText.font = customFont;
             titleText.fontSize = 18;
             titleText.fontStyle = FontStyles.Normal;
             titleText.alignment = TextAlignmentOptions.Left;
             titleText.color = Cream;
         }
-        if (feedbackText != null)
+        if (feedbackText != null && customFeedbackText == null)
         {
             SetupTextRect(feedbackText.rectTransform, new Vector2(-50f, -172f), new Vector2(250f, 34f));
             feedbackText.text = "";
+            if (customFont != null) feedbackText.font = customFont;
             feedbackText.fontSize = 11;
             feedbackText.fontStyle = FontStyles.Bold;
             feedbackText.alignment = TextAlignmentOptions.Left;
@@ -236,18 +252,32 @@ public class Game2BatikMatch : MonoBehaviour
         if (descText != null)
         {
             SetupTextRect(descText.rectTransform, new Vector2(0f, 0f), new Vector2(420f, 300f));
+            if (customFont != null) descText.font = customFont;
             descText.alignment = TextAlignmentOptions.Center;
             descText.color = Cream;
             descText.text = "";
         }
 
-        // 3. Close button (dark circle with X, top-right)
-        CreateCloseButton();
+        // 3. Close button
+        if (customCloseButton != null)
+        {
+            customCloseButton.onClick.AddListener(() => MiniGameManager.Instance.CloseActiveGame());
+        }
+        else
+        {
+            CreateCloseButton();
+        }
 
-        // 4. Donut countdown timer (top-right, left of the close button)
+        // 4. Donut countdown timer (top-right)
         CreateDonutTimerUI();
 
-        // 5. Build slots, chevrons, cards and the check-answer button
+        // 5. Check Answer button
+        if (customCheckAnswerButton != null)
+        {
+            customCheckAnswerButton.onClick.AddListener(CheckAnswer);
+        }
+
+        // 6. Build board & cards
         BuildBoard();
     }
 
@@ -273,81 +303,92 @@ public class Game2BatikMatch : MonoBehaviour
         boardRect.anchoredPosition = Vector2.zero;
         boardRect.sizeDelta = Vector2.zero;
 
-        // Decorative horizontal divider line between slots and cards
-        GameObject divObj = new GameObject("DividerLine");
-        divObj.transform.SetParent(boardRoot.transform, false);
-        RectTransform divRect = divObj.AddComponent<RectTransform>();
-        divRect.sizeDelta = new Vector2(380f, 2f);
-        divRect.anchoredPosition = new Vector2(0f, 0f);
-        Image divImg = divObj.AddComponent<Image>();
-        divImg.color = new Color(Khaki.r, Khaki.g, Khaki.b, 0.4f);
-
-        // Center diamond decoration on divider line
-        GameObject diaObj = new GameObject("DividerDiamond");
-        diaObj.transform.SetParent(boardRoot.transform, false);
-        RectTransform diaRect = diaObj.AddComponent<RectTransform>();
-        diaRect.sizeDelta = new Vector2(10f, 10f);
-        diaRect.anchoredPosition = new Vector2(0f, 0f);
-        diaRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
-        Image diaImg = diaObj.AddComponent<Image>();
-        diaImg.color = Khaki;
-
-        // --- Numbered slots (top row) ---
-        for (int i = 0; i < 5; i++)
+        // If manual slots container is assigned, sync ColumnX positions
+        if (customSlotsContainer != null && customSlotsContainer.childCount >= 5)
         {
-            GameObject slotObj = new GameObject($"Slot_{i + 1}");
-            slotObj.transform.SetParent(boardRoot.transform, false);
-            RectTransform slotRect = slotObj.AddComponent<RectTransform>();
-            slotRect.sizeDelta = CardSize;
-            slotRect.anchoredPosition = new Vector2(ColumnX[i], SlotY);
-
-            Image fill = slotObj.AddComponent<Image>();
-            fill.sprite = roundedFillSprite;
-            fill.type = Image.Type.Sliced;
-            fill.color = SageDark;
-
-            // Khaki gold border ring on top of the fill
-            GameObject borderObj = new GameObject("Border");
-            borderObj.transform.SetParent(slotObj.transform, false);
-            RectTransform borderRect = borderObj.AddComponent<RectTransform>();
-            borderRect.anchorMin = Vector2.zero;
-            borderRect.anchorMax = Vector2.one;
-            borderRect.sizeDelta = Vector2.zero;
-            Image border = borderObj.AddComponent<Image>();
-            border.sprite = roundedBorderSprite;
-            border.type = Image.Type.Sliced;
-            border.color = Khaki;
-
-            // Slot number centered inside slot
-            GameObject numObj = new GameObject("Number");
-            numObj.transform.SetParent(slotObj.transform, false);
-            RectTransform numRect = numObj.AddComponent<RectTransform>();
-            numRect.anchorMin = Vector2.zero;
-            numRect.anchorMax = Vector2.one;
-            numRect.sizeDelta = Vector2.zero;
-            TextMeshProUGUI numText = numObj.AddComponent<TextMeshProUGUI>();
-            numText.text = (i + 1).ToString();
-            numText.fontSize = 24;
-            numText.fontStyle = FontStyles.Bold;
-            numText.alignment = TextAlignmentOptions.Center;
-            numText.color = new Color(Khaki.r, Khaki.g, Khaki.b, 0.75f);
+            for (int i = 0; i < 5; i++)
+            {
+                ColumnX[i] = customSlotsContainer.GetChild(i).localPosition.x;
+            }
         }
 
-        // --- Chevrons between slots ---
-        for (int i = 0; i < 4; i++)
+        // Decorative horizontal divider line between slots and cards (if procedural)
+        if (customSlotsContainer == null)
         {
-            float midX = (ColumnX[i] + ColumnX[i + 1]) * 0.5f;
-            GameObject chevObj = new GameObject($"Chevron_{i}");
-            chevObj.transform.SetParent(boardRoot.transform, false);
-            RectTransform chevRect = chevObj.AddComponent<RectTransform>();
-            chevRect.sizeDelta = new Vector2(24f, 44f);
-            chevRect.anchoredPosition = new Vector2(midX, SlotY);
-            TextMeshProUGUI chevText = chevObj.AddComponent<TextMeshProUGUI>();
-            chevText.text = ">";
-            chevText.fontSize = 24;
-            chevText.fontStyle = FontStyles.Bold;
-            chevText.alignment = TextAlignmentOptions.Center;
-            chevText.color = Cream;
+            GameObject divObj = new GameObject("DividerLine");
+            divObj.transform.SetParent(boardRoot.transform, false);
+            RectTransform divRect = divObj.AddComponent<RectTransform>();
+            divRect.sizeDelta = new Vector2(380f, 2f);
+            divRect.anchoredPosition = new Vector2(0f, 0f);
+            Image divImg = divObj.AddComponent<Image>();
+            divImg.color = new Color(Khaki.r, Khaki.g, Khaki.b, 0.4f);
+
+            GameObject diaObj = new GameObject("DividerDiamond");
+            diaObj.transform.SetParent(boardRoot.transform, false);
+            RectTransform diaRect = diaObj.AddComponent<RectTransform>();
+            diaRect.sizeDelta = new Vector2(10f, 10f);
+            diaRect.anchoredPosition = new Vector2(0f, 0f);
+            diaRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            Image diaImg = diaObj.AddComponent<Image>();
+            diaImg.color = Khaki;
+
+            // --- Numbered slots (top row) ---
+            for (int i = 0; i < 5; i++)
+            {
+                GameObject slotObj = new GameObject($"Slot_{i + 1}");
+                slotObj.transform.SetParent(boardRoot.transform, false);
+                RectTransform slotRect = slotObj.AddComponent<RectTransform>();
+                slotRect.sizeDelta = CardSize;
+                slotRect.anchoredPosition = new Vector2(ColumnX[i], SlotY);
+
+                Image fill = slotObj.AddComponent<Image>();
+                fill.sprite = roundedFillSprite;
+                fill.type = Image.Type.Sliced;
+                fill.color = SageDark;
+
+                GameObject borderObj = new GameObject("Border");
+                borderObj.transform.SetParent(slotObj.transform, false);
+                RectTransform borderRect = borderObj.AddComponent<RectTransform>();
+                borderRect.anchorMin = Vector2.zero;
+                borderRect.anchorMax = Vector2.one;
+                borderRect.sizeDelta = Vector2.zero;
+                Image border = borderObj.AddComponent<Image>();
+                border.sprite = roundedBorderSprite;
+                border.type = Image.Type.Sliced;
+                border.color = Khaki;
+
+                GameObject numObj = new GameObject("Number");
+                numObj.transform.SetParent(slotObj.transform, false);
+                RectTransform numRect = numObj.AddComponent<RectTransform>();
+                numRect.anchorMin = Vector2.zero;
+                numRect.anchorMax = Vector2.one;
+                numRect.sizeDelta = Vector2.zero;
+                TextMeshProUGUI numText = numObj.AddComponent<TextMeshProUGUI>();
+                numText.text = (i + 1).ToString();
+                if (customFont != null) numText.font = customFont;
+                numText.fontSize = 24;
+                numText.fontStyle = FontStyles.Bold;
+                numText.alignment = TextAlignmentOptions.Center;
+                numText.color = new Color(Khaki.r, Khaki.g, Khaki.b, 0.75f);
+            }
+
+            // --- Chevrons between slots ---
+            for (int i = 0; i < 4; i++)
+            {
+                float midX = (ColumnX[i] + ColumnX[i + 1]) * 0.5f;
+                GameObject chevObj = new GameObject($"Chevron_{i}");
+                chevObj.transform.SetParent(boardRoot.transform, false);
+                RectTransform chevRect = chevObj.AddComponent<RectTransform>();
+                chevRect.sizeDelta = new Vector2(24f, 44f);
+                chevRect.anchoredPosition = new Vector2(midX, SlotY);
+                TextMeshProUGUI chevText = chevObj.AddComponent<TextMeshProUGUI>();
+                chevText.text = ">";
+                if (customFont != null) chevText.font = customFont;
+                chevText.fontSize = 24;
+                chevText.fontStyle = FontStyles.Bold;
+                chevText.alignment = TextAlignmentOptions.Center;
+                chevText.color = Cream;
+            }
         }
 
         // --- Shuffled photo cards (bottom tray) ---
@@ -366,69 +407,98 @@ public class Game2BatikMatch : MonoBehaviour
             allCards.Add(card);
         }
 
-        // --- "Periksa Jawaban ›" button (bottom right) ---
-        GameObject checkBtn = CreateStyledButton("Periksa Jawaban  >", new Vector2(135f, -172f), new Vector2(170f, 38f), CheckAnswer);
-        spawnedButtons.Add(checkBtn);
+        // --- "Periksa Jawaban ›" button (if procedural) ---
+        if (customCheckAnswerButton == null)
+        {
+            GameObject checkBtn = CreateStyledButton("Periksa Jawaban  >", new Vector2(135f, -172f), new Vector2(170f, 38f), CheckAnswer);
+            spawnedButtons.Add(checkBtn);
+        }
     }
 
     private BatikCard CreateCard(int stepIndex)
     {
-        GameObject cardObj = new GameObject($"Card_{StepNames[stepIndex]}");
-        cardObj.transform.SetParent(boardRoot.transform, false);
-        RectTransform cardRect = cardObj.AddComponent<RectTransform>();
-        cardRect.sizeDelta = CardSize;
-
-        // Card base background
-        Image cardBg = cardObj.AddComponent<Image>();
-        cardBg.sprite = roundedFillSprite;
-        cardBg.type = Image.Type.Sliced;
-        cardBg.color = SageDark;
-
-        // Photo area (top 70%)
-        GameObject photoObj = new GameObject("Photo");
-        photoObj.transform.SetParent(cardObj.transform, false);
-        RectTransform photoRect = photoObj.AddComponent<RectTransform>();
-        photoRect.sizeDelta = new Vector2(CardSize.x, 82f);
-        photoRect.anchoredPosition = new Vector2(0f, 19f);
-        Image photoImage = photoObj.AddComponent<Image>();
-        Sprite photo = Resources.Load<Sprite>($"BatikSteps/{StepSpriteKeys[stepIndex]}");
-        if (photo != null)
+        GameObject cardObj;
+        if (customCardPrefab != null)
         {
-            photoImage.sprite = photo;
+            cardObj = Instantiate(customCardPrefab, boardRoot.transform, false);
+            cardObj.name = $"Card_{StepNames[stepIndex]}";
+
+            Image photoImage = cardObj.transform.Find("Photo")?.GetComponent<Image>();
+            if (photoImage != null)
+            {
+                Sprite photo = Resources.Load<Sprite>($"BatikSteps/{StepSpriteKeys[stepIndex]}");
+                if (photo != null) photoImage.sprite = photo;
+            }
+
+            TextMeshProUGUI labelText = cardObj.GetComponentInChildren<TextMeshProUGUI>();
+            if (labelText != null)
+            {
+                labelText.text = StepNames[stepIndex];
+                if (customFont != null) labelText.font = customFont;
+            }
         }
         else
         {
-            photoImage.sprite = MakeGradientSprite(64, 96, StepTopColors[stepIndex], StepBottomColors[stepIndex]);
+            cardObj = new GameObject($"Card_{StepNames[stepIndex]}");
+            cardObj.transform.SetParent(boardRoot.transform, false);
+            RectTransform cardRect = cardObj.AddComponent<RectTransform>();
+            cardRect.sizeDelta = CardSize;
+
+            Image cardBg = cardObj.AddComponent<Image>();
+            cardBg.sprite = roundedFillSprite;
+            cardBg.type = Image.Type.Sliced;
+            cardBg.color = SageDark;
+
+            // Masking component clips top photo & bottom chip perfectly to the rounded card corners
+            Mask cardMask = cardObj.AddComponent<Mask>();
+            cardMask.showMaskGraphic = true;
+
+            GameObject photoObj = new GameObject("Photo");
+            photoObj.transform.SetParent(cardObj.transform, false);
+            RectTransform photoRect = photoObj.AddComponent<RectTransform>();
+            photoRect.sizeDelta = new Vector2(CardSize.x, 82f);
+            photoRect.anchoredPosition = new Vector2(0f, 19f);
+            Image photoImage = photoObj.AddComponent<Image>();
+            Sprite photo = Resources.Load<Sprite>($"BatikSteps/{StepSpriteKeys[stepIndex]}");
+            if (photo != null)
+            {
+                photoImage.sprite = photo;
+            }
+            else
+            {
+                photoImage.sprite = MakeGradientSprite(64, 96, StepTopColors[stepIndex], StepBottomColors[stepIndex]);
+            }
+            photoImage.color = Color.white;
+
+            GameObject chipObj = new GameObject("LabelChip");
+            chipObj.transform.SetParent(cardObj.transform, false);
+            RectTransform chipRect = chipObj.AddComponent<RectTransform>();
+            chipRect.sizeDelta = new Vector2(CardSize.x, 38f);
+            chipRect.anchoredPosition = new Vector2(0f, -41f);
+            Image chipImage = chipObj.AddComponent<Image>();
+            chipImage.sprite = roundedFillSprite;
+            chipImage.type = Image.Type.Sliced;
+            chipImage.color = Khaki;
+
+            GameObject labelObj = new GameObject("Label");
+            labelObj.transform.SetParent(chipObj.transform, false);
+            RectTransform labelRect = labelObj.AddComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.sizeDelta = Vector2.zero;
+            TextMeshProUGUI labelText = labelObj.AddComponent<TextMeshProUGUI>();
+            labelText.text = StepNames[stepIndex];
+            if (customFont != null) labelText.font = customFont;
+            labelText.enableAutoSizing = true;
+            labelText.fontSizeMin = 6f;
+            labelText.fontSizeMax = 9.5f;
+            labelText.fontStyle = FontStyles.Normal;
+            labelText.alignment = TextAlignmentOptions.Center;
+            labelText.color = Cream;
         }
-        photoImage.color = Color.white;
 
-        // Khaki label chip at the bottom of the card
-        GameObject chipObj = new GameObject("LabelChip");
-        chipObj.transform.SetParent(cardObj.transform, false);
-        RectTransform chipRect = chipObj.AddComponent<RectTransform>();
-        chipRect.sizeDelta = new Vector2(CardSize.x, 38f);
-        chipRect.anchoredPosition = new Vector2(0f, -41f);
-        Image chipImage = chipObj.AddComponent<Image>();
-        chipImage.sprite = roundedFillSprite;
-        chipImage.type = Image.Type.Sliced;
-        chipImage.color = Khaki;
-
-        GameObject labelObj = new GameObject("Label");
-        labelObj.transform.SetParent(chipObj.transform, false);
-        RectTransform labelRect = labelObj.AddComponent<RectTransform>();
-        labelRect.anchorMin = Vector2.zero;
-        labelRect.anchorMax = Vector2.one;
-        labelRect.sizeDelta = Vector2.zero;
-        TextMeshProUGUI labelText = labelObj.AddComponent<TextMeshProUGUI>();
-        labelText.text = StepNames[stepIndex];
-        labelText.enableAutoSizing = true;
-        labelText.fontSizeMin = 6f;
-        labelText.fontSizeMax = 9.5f;
-        labelText.fontStyle = FontStyles.Bold;
-        labelText.alignment = TextAlignmentOptions.Center;
-        labelText.color = Cream;
-
-        BatikCard card = cardObj.AddComponent<BatikCard>();
+        BatikCard card = cardObj.GetComponent<BatikCard>();
+        if (card == null) card = cardObj.AddComponent<BatikCard>();
         card.Setup(this, stepIndex, CardSize);
         return card;
     }
