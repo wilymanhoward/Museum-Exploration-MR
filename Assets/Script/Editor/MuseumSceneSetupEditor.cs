@@ -323,19 +323,49 @@ public class MuseumSceneSetupEditor : EditorWindow
         // LEFT COLUMN: Media Viewport + Carousel Title + Mode Buttons
         // =========================================================
 
-        // Image Nav Header: ◀ Gambar 1 ▶
-        GameObject navObj = new GameObject("ImageNavHeader");
-        navObj.transform.SetParent(panelObj.transform, false);
-        TextMeshProUGUI navText = navObj.AddComponent<TextMeshProUGUI>();
-        navText.text = "◀   Gambar 1   ▶";
+        Sprite leftArrowSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Left arrow.png");
+
+        // Top Nav Row with Left & Right Arrow Images
+        GameObject topNavRow = new GameObject("TopNavRow");
+        topNavRow.transform.SetParent(panelObj.transform, false);
+        RectTransform topNavRect = topNavRow.AddComponent<RectTransform>();
+        topNavRect.anchorMin = new Vector2(0.12f, 0.80f);
+        topNavRect.anchorMax = new Vector2(0.45f, 0.86f);
+        topNavRect.sizeDelta = Vector2.zero;
+
+        GameObject topLeftArrow = new GameObject("LeftArrow");
+        topLeftArrow.transform.SetParent(topNavRow.transform, false);
+        Image leftImg = topLeftArrow.AddComponent<Image>();
+        if (leftArrowSprite != null) leftImg.sprite = leftArrowSprite;
+        leftImg.preserveAspect = true;
+        RectTransform tlRect = topLeftArrow.GetComponent<RectTransform>();
+        tlRect.anchorMin = new Vector2(0.0f, 0.10f);
+        tlRect.anchorMax = new Vector2(0.15f, 0.90f);
+        tlRect.sizeDelta = Vector2.zero;
+
+        GameObject navTxtObj = new GameObject("ImageNavText");
+        navTxtObj.transform.SetParent(topNavRow.transform, false);
+        TextMeshProUGUI navText = navTxtObj.AddComponent<TextMeshProUGUI>();
+        navText.text = "Gambar 1";
         navText.fontSize = 18;
         navText.fontStyle = FontStyles.Bold;
         navText.alignment = TextAlignmentOptions.Center;
         navText.color = Color.white;
-        RectTransform navRect = navObj.GetComponent<RectTransform>();
-        navRect.anchorMin = new Vector2(0.05f, 0.80f);
-        navRect.anchorMax = new Vector2(0.52f, 0.86f);
-        navRect.sizeDelta = Vector2.zero;
+        RectTransform navTxtRect = navTxtObj.GetComponent<RectTransform>();
+        navTxtRect.anchorMin = new Vector2(0.16f, 0.0f);
+        navTxtRect.anchorMax = new Vector2(0.84f, 1.0f);
+        navTxtRect.sizeDelta = Vector2.zero;
+
+        GameObject topRightArrow = new GameObject("RightArrow");
+        topRightArrow.transform.SetParent(topNavRow.transform, false);
+        Image rightImg = topRightArrow.AddComponent<Image>();
+        if (leftArrowSprite != null) rightImg.sprite = leftArrowSprite;
+        rightImg.preserveAspect = true;
+        RectTransform trRect = topRightArrow.GetComponent<RectTransform>();
+        trRect.anchorMin = new Vector2(0.85f, 0.10f);
+        trRect.anchorMax = new Vector2(1.0f, 0.90f);
+        trRect.sizeDelta = Vector2.zero;
+        topRightArrow.transform.localEulerAngles = new Vector3(0, 0, 180f);
 
         // Main Display Frame (White background container for Image / 3D)
         GameObject displayFrameObj = new GameObject("DisplayFrame");
@@ -364,19 +394,47 @@ public class MuseumSceneSetupEditor : EditorWindow
         spawnerObj.transform.SetParent(displayFrameObj.transform, false);
         spawnerObj.transform.localPosition = new Vector3(0f, 0f, -20f);
 
-        // Bottom Title Banner: ◀ Artifact: “Gamelan” ▶ + Line
-        GameObject btmTitleObj = new GameObject("BottomTitleText");
-        btmTitleObj.transform.SetParent(panelObj.transform, false);
-        TextMeshProUGUI btmTitleText = btmTitleObj.AddComponent<TextMeshProUGUI>();
-        btmTitleText.text = "Artifact:\n◀  <color=#E5EE9C>“Gamelan”</color>  ▶";
+        // Bottom Title Banner Row with Left & Right Arrow Images
+        GameObject btmRow = new GameObject("BottomTitleRow");
+        btmRow.transform.SetParent(panelObj.transform, false);
+        RectTransform btmRowRect = btmRow.AddComponent<RectTransform>();
+        btmRowRect.anchorMin = new Vector2(0.05f, 0.20f);
+        btmRowRect.anchorMax = new Vector2(0.52f, 0.34f);
+        btmRowRect.sizeDelta = Vector2.zero;
+
+        GameObject btmLeftArrow = new GameObject("LeftArrow");
+        btmLeftArrow.transform.SetParent(btmRow.transform, false);
+        Image btmLeftImg = btmLeftArrow.AddComponent<Image>();
+        if (leftArrowSprite != null) btmLeftImg.sprite = leftArrowSprite;
+        btmLeftImg.preserveAspect = true;
+        RectTransform blRect = btmLeftArrow.GetComponent<RectTransform>();
+        blRect.anchorMin = new Vector2(0.04f, 0.25f);
+        blRect.anchorMax = new Vector2(0.16f, 0.75f);
+        blRect.sizeDelta = Vector2.zero;
+
+        GameObject btmTxtObj = new GameObject("BottomTitleText");
+        btmTxtObj.transform.SetParent(btmRow.transform, false);
+        TextMeshProUGUI btmTitleText = btmTxtObj.AddComponent<TextMeshProUGUI>();
+        btmTitleText.text = "Artifact:\n<color=#E5EE9C>“Gamelan”</color>";
         btmTitleText.fontSize = 20;
         btmTitleText.fontStyle = FontStyles.Bold;
         btmTitleText.alignment = TextAlignmentOptions.Center;
         btmTitleText.color = Color.white;
-        RectTransform btmTitleRect = btmTitleObj.GetComponent<RectTransform>();
-        btmTitleRect.anchorMin = new Vector2(0.05f, 0.20f);
-        btmTitleRect.anchorMax = new Vector2(0.52f, 0.34f);
-        btmTitleRect.sizeDelta = Vector2.zero;
+        RectTransform btmTxtRect = btmTxtObj.GetComponent<RectTransform>();
+        btmTxtRect.anchorMin = new Vector2(0.17f, 0.0f);
+        btmTxtRect.anchorMax = new Vector2(0.83f, 1.0f);
+        btmTxtRect.sizeDelta = Vector2.zero;
+
+        GameObject btmRightArrow = new GameObject("RightArrow");
+        btmRightArrow.transform.SetParent(btmRow.transform, false);
+        Image btmRightImg = btmRightArrow.AddComponent<Image>();
+        if (leftArrowSprite != null) btmRightImg.sprite = leftArrowSprite;
+        btmRightImg.preserveAspect = true;
+        RectTransform brRect = btmRightArrow.GetComponent<RectTransform>();
+        brRect.anchorMin = new Vector2(0.84f, 0.25f);
+        brRect.anchorMax = new Vector2(0.96f, 0.75f);
+        brRect.sizeDelta = Vector2.zero;
+        btmRightArrow.transform.localEulerAngles = new Vector3(0, 0, 180f);
 
         // Decorative horizontal line with diamond
         GameObject decLineObj = new GameObject("DecLine");
@@ -388,64 +446,88 @@ public class MuseumSceneSetupEditor : EditorWindow
         decLineRect.anchorMax = new Vector2(0.45f, 0.184f);
         decLineRect.sizeDelta = Vector2.zero;
 
-        // Mode Button 1: "Images" (Pale olive lime yellow button)
+        // Mode Button 1: "Images" (Pale olive lime yellow button with rounded edges)
         GameObject imgBtnObj = new GameObject("ImagesButton");
         imgBtnObj.transform.SetParent(panelObj.transform, false);
         Image imgBtnImg = imgBtnObj.AddComponent<Image>();
-        Material mulaiMat = GetOrCreateRoundedMaterial("Mat_MulaiButton",
+        Material imagesBtnMat = GetOrCreateRoundedMaterial("Mat_ImagesBtn",
             new Color(0.72f, 0.76f, 0.44f, 0.95f),
             new Color(0.62f, 0.66f, 0.36f, 0.98f),
             0.02f,
-            0.20f,
-            150f / 42f
+            0.25f,
+            135f / 48f
         );
-        imgBtnImg.material = mulaiMat;
+        imgBtnImg.material = imagesBtnMat;
         RectTransform imgBtnRect = imgBtnObj.GetComponent<RectTransform>();
         imgBtnRect.anchorMin = new Vector2(0.06f, 0.05f);
         imgBtnRect.anchorMax = new Vector2(0.27f, 0.15f);
         imgBtnRect.sizeDelta = Vector2.zero;
 
+        // Icon Image (Image icon.png)
+        GameObject imgIconObj = new GameObject("Icon");
+        imgIconObj.transform.SetParent(imgBtnObj.transform, false);
+        Image imgIconImg = imgIconObj.AddComponent<Image>();
+        imgIconImg.preserveAspect = true;
+        Sprite imgIconSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Image icon.png");
+        if (imgIconSprite != null) imgIconImg.sprite = imgIconSprite;
+        RectTransform imgIconRect = imgIconObj.GetComponent<RectTransform>();
+        imgIconRect.anchorMin = new Vector2(0.08f, 0.15f);
+        imgIconRect.anchorMax = new Vector2(0.32f, 0.85f);
+        imgIconRect.sizeDelta = Vector2.zero;
+
         GameObject imgBtnTxtObj = new GameObject("Text");
         imgBtnTxtObj.transform.SetParent(imgBtnObj.transform, false);
         TextMeshProUGUI imgBtnTxt = imgBtnTxtObj.AddComponent<TextMeshProUGUI>();
-        imgBtnTxt.text = "🖼  Images";
+        imgBtnTxt.text = "Images";
         imgBtnTxt.fontSize = 16;
         imgBtnTxt.fontStyle = FontStyles.Bold;
-        imgBtnTxt.alignment = TextAlignmentOptions.Center;
+        imgBtnTxt.alignment = TextAlignmentOptions.Left;
         imgBtnTxt.color = Color.white;
         RectTransform imgBtnTxtRect = imgBtnTxtObj.GetComponent<RectTransform>();
-        imgBtnTxtRect.anchorMin = Vector2.zero;
-        imgBtnTxtRect.anchorMax = Vector2.one;
+        imgBtnTxtRect.anchorMin = new Vector2(0.35f, 0.0f);
+        imgBtnTxtRect.anchorMax = new Vector2(0.95f, 1.0f);
         imgBtnTxtRect.sizeDelta = Vector2.zero;
 
-        // Mode Button 2: "3D View" (Dark translucent sage box)
+        // Mode Button 2: "3D View" (Dark translucent sage box with rounded edges)
         GameObject viewBtnObj = new GameObject("3DViewButton");
         viewBtnObj.transform.SetParent(panelObj.transform, false);
         Image viewBtnImg = viewBtnObj.AddComponent<Image>();
-        Material rowMat = GetOrCreateRoundedMaterial("Mat_OptionRow",
-            new Color(0.35f, 0.38f, 0.31f, 0.65f),
-            new Color(0.48f, 0.52f, 0.43f, 0.80f),
-            0.015f,
-            0.20f,
-            150f / 42f
+        Material viewBtnMat = GetOrCreateRoundedMaterial("Mat_3DViewBtn",
+            new Color(0.35f, 0.38f, 0.31f, 0.75f),
+            new Color(0.48f, 0.52f, 0.43f, 0.90f),
+            0.02f,
+            0.25f,
+            135f / 48f
         );
-        viewBtnImg.material = rowMat;
+        viewBtnImg.material = viewBtnMat;
         RectTransform viewBtnRect = viewBtnObj.GetComponent<RectTransform>();
         viewBtnRect.anchorMin = new Vector2(0.30f, 0.05f);
         viewBtnRect.anchorMax = new Vector2(0.51f, 0.15f);
         viewBtnRect.sizeDelta = Vector2.zero;
 
+        // Icon Image (3D Model.png)
+        GameObject viewIconObj = new GameObject("Icon");
+        viewIconObj.transform.SetParent(viewBtnObj.transform, false);
+        Image viewIconImg = viewIconObj.AddComponent<Image>();
+        viewIconImg.preserveAspect = true;
+        Sprite model3DSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/3D Model.png");
+        if (model3DSprite != null) viewIconImg.sprite = model3DSprite;
+        RectTransform viewIconRect = viewIconObj.GetComponent<RectTransform>();
+        viewIconRect.anchorMin = new Vector2(0.08f, 0.15f);
+        viewIconRect.anchorMax = new Vector2(0.32f, 0.85f);
+        viewIconRect.sizeDelta = Vector2.zero;
+
         GameObject viewBtnTxtObj = new GameObject("Text");
         viewBtnTxtObj.transform.SetParent(viewBtnObj.transform, false);
         TextMeshProUGUI viewBtnTxt = viewBtnTxtObj.AddComponent<TextMeshProUGUI>();
-        viewBtnTxt.text = "🧊  3D View";
+        viewBtnTxt.text = "3D View";
         viewBtnTxt.fontSize = 16;
         viewBtnTxt.fontStyle = FontStyles.Bold;
-        viewBtnTxt.alignment = TextAlignmentOptions.Center;
+        viewBtnTxt.alignment = TextAlignmentOptions.Left;
         viewBtnTxt.color = Color.white;
         RectTransform viewBtnTxtRect = viewBtnTxtObj.GetComponent<RectTransform>();
-        viewBtnTxtRect.anchorMin = Vector2.zero;
-        viewBtnTxtRect.anchorMax = Vector2.one;
+        viewBtnTxtRect.anchorMin = new Vector2(0.35f, 0.0f);
+        viewBtnTxtRect.anchorMax = new Vector2(0.95f, 1.0f);
         viewBtnTxtRect.sizeDelta = Vector2.zero;
 
 
@@ -453,11 +535,19 @@ public class MuseumSceneSetupEditor : EditorWindow
         // RIGHT COLUMN: "Detail Artefak" Sub-Card + "Tentang Artefak Ini" Sub-Card
         // =========================================================
 
+        Material subCardMat = GetOrCreateRoundedMaterial("Mat_DetailSubCard",
+            new Color(0.54f, 0.58f, 0.48f, 0.88f), // Brighter sage fill (#8C967D)
+            new Color(0.66f, 0.70f, 0.60f, 0.95f), // Soft border
+            0.012f,
+            0.06f,
+            256f / 182f
+        );
+
         // Sub-Card 1: Detail Artefak
         GameObject detailCardObj = new GameObject("DetailArtefakCard");
         detailCardObj.transform.SetParent(panelObj.transform, false);
         Image detailCardBg = detailCardObj.AddComponent<Image>();
-        detailCardBg.material = rowMat;
+        detailCardBg.material = subCardMat;
         RectTransform detailCardRect = detailCardObj.GetComponent<RectTransform>();
         detailCardRect.anchorMin = new Vector2(0.55f, 0.48f);
         detailCardRect.anchorMax = new Vector2(0.95f, 0.86f);
@@ -530,7 +620,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         GameObject descCardObj = new GameObject("TentangArtefakCard");
         descCardObj.transform.SetParent(panelObj.transform, false);
         Image descCardBg = descCardObj.AddComponent<Image>();
-        descCardBg.material = rowMat;
+        descCardBg.material = subCardMat;
         RectTransform descCardRect = descCardObj.GetComponent<RectTransform>();
         descCardRect.anchorMin = new Vector2(0.55f, 0.05f);
         descCardRect.anchorMax = new Vector2(0.95f, 0.45f);
