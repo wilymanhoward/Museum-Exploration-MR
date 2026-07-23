@@ -75,19 +75,20 @@ Shader "UI/TranslucentDottedCard"
             
             fixed4 frag(v2f i) : SV_Target
             {
-                float2 p = i.texcoord - 0.5;
-                p.x *= _Aspect;
-                float2 halfSize = float2(_Aspect * 0.5, 0.5);
+                // Physical metric space where 1 unit X = 1 unit Y
+                float2 p = (i.texcoord - 0.5) * float2(_Aspect, 1.0);
+                float2 b = float2(_Aspect * 0.5, 0.5) - float2(_CornerRadius, _CornerRadius);
+                float2 q = abs(p) - b;
+                float d = min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - _CornerRadius;
                 
-                float d = sdRoundedBox(p, halfSize, _CornerRadius);
-                float antialias = 0.015;
+                float antialias = 0.005;
                 float cardAlpha = 1.0 - smoothstep(0.0 - antialias, 0.0 + antialias, d);
                 
                 float2 st = i.texcoord * _DotGridSize;
                 st.x *= _Aspect;
                 float2 grid = frac(st) - 0.5;
                 float dist = length(grid);
-                float dotAlpha = 1.0 - smoothstep(_DotRadius - antialias, _DotRadius + antialias, dist);
+                float dotAlpha = (_DotRadius > 0.001) ? (1.0 - smoothstep(_DotRadius - antialias, _DotRadius + antialias, dist)) : 0.0;
                 
                 fixed4 baseCol = i.color;
                 fixed4 finalCol = lerp(baseCol, _DotColor, dotAlpha * _DotColor.a);
