@@ -282,6 +282,11 @@ public class MainMenuManager : MonoBehaviour
     {
         Debug.Log("Museum Exploration: Starting gameplay!");
         IsExplorationStarted = true;
+
+        if (QRCodeScanner.Instance != null)
+        {
+            QRCodeScanner.Instance.ResetScanState();
+        }
  
         // Hide the Main Menu
         if (mainMenuCanvas != null)

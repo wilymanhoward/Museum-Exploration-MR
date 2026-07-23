@@ -84,6 +84,12 @@ public class QRCodeScanner : MonoBehaviour
 #if META_XR_SDK_PRESENT
         if (MRUK.Instance != null)
         {
+            // Do not process hardware QR scans while on the Main Menu screen before pressing MULAI
+            if (!MainMenuManager.IsExplorationStarted)
+            {
+                return;
+            }
+
             Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
             Vector3 camPos = camTransform.position;
             Vector3 camForward = camTransform.forward;
@@ -132,6 +138,16 @@ public class QRCodeScanner : MonoBehaviour
             }
         }
 #endif
+    }
+
+    /// <summary>
+    /// Resets recent hardware scan payload states so pre-existing physical QR codes on desk require fresh scan.
+    /// </summary>
+    public void ResetScanState()
+    {
+        lastHardwarePayload = "";
+        lastSimulatedPayload = "";
+        hardwareScanCooldown = 1.0f;
     }
 
     /// <summary>
