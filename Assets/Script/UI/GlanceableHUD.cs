@@ -105,14 +105,12 @@ public class GlanceableHUD : MonoBehaviour
 
     private Quaternion GetTargetRotation()
     {
-        // The HUD should billboard to face the player's camera
+        // The HUD should billboard to face the player's camera right-side up
         Vector3 directionToCamera = cameraTransform.position - transform.position;
+        directionToCamera.y = 0;
         if (directionToCamera != Vector3.zero)
         {
-            // Assuming the HUD canvas is facing forward, we want it to look at the camera.
-            // If the canvas faces its -Z direction, we look in the direction pointing away from the camera.
-            // For general canvas HUDs, LookRotation(-directionToCamera) makes it face the camera.
-            return Quaternion.LookRotation(-directionToCamera);
+            return Quaternion.LookRotation(-directionToCamera, Vector3.up);
         }
         return transform.rotation;
     }

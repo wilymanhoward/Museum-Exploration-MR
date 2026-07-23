@@ -160,7 +160,7 @@ public class QRCodeScanner : MonoBehaviour
         Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
         
         Vector3 pos = camTransform.position + camTransform.forward * simulatedSpawnDistance;
-        Quaternion rot = Quaternion.LookRotation(-camTransform.forward, Vector3.up);
+        Quaternion rot = Quaternion.LookRotation(camTransform.forward, Vector3.up);
         Pose simulatedPose = new Pose(pos, rot);
 
         lastSimulatedPayload = payload;

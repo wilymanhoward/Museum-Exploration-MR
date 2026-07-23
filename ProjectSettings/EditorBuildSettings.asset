@@ -6,8 +6,8 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/Scenes/1.unity
+    guid: c2d196bfb192e5345b4acaeae5e152fa
   m_configObjects:
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 632c94dbc6d07a541bcc0979ea3bf6e2,
       type: 2}
@@ -15,4 +15,3 @@ EditorBuildSettings:
       type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 8ebd51d59c4c5984cb6f5d0b1caa6075,
       type: 2}
-  m_UseUCBPForAssetBundles: 0

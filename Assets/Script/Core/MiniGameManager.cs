@@ -38,17 +38,41 @@ public class MiniGameManager : MonoBehaviour
 
     private void HandleQRCodeScanned(string payload, Pose qrPose)
     {
-        // Check if the payload matches a game ID ("game_1", "game_2", "game_3")
-        if (payload == "game_1" || payload == "game_2" || payload == "game_3")
+        // Ignore all mini-game scans until player taps MULAI on the Main Menu
+        if (!MainMenuManager.IsExplorationStarted)
         {
-            // Check if this game is already active to prevent duplicate scan loops
-            if (ActiveGamePayload == payload)
+            Debug.Log("MiniGameManager: Exploration has not started yet. Ignoring QR scan.");
+            return;
+        }
+
+        if (string.IsNullOrEmpty(payload)) return;
+
+        string cleanPayload = payload.Trim().ToLower();
+        string gameId = null;
+
+        if (cleanPayload.Contains("game_1") || cleanPayload.Contains("game1") || cleanPayload == "1" || cleanPayload.Contains("guess"))
+        {
+            gameId = "game_1";
+        }
+        else if (cleanPayload.Contains("game_2") || cleanPayload.Contains("game2") || cleanPayload == "2" || cleanPayload.Contains("batik"))
+        {
+            gameId = "game_2";
+        }
+        else if (cleanPayload.Contains("game_3") || cleanPayload.Contains("game3") || cleanPayload == "3" || cleanPayload.Contains("batu") || cleanPayload.Contains("assemble"))
+        {
+            gameId = "game_3";
+        }
+
+        if (gameId != null)
+        {
+            if (ActiveGamePayload == gameId)
             {
-                Debug.Log($"MiniGameManager: Game '{payload}' is already active. Ignoring repeat scan.");
+                Debug.Log($"MiniGameManager: Game '{gameId}' is already active. Ignoring repeat scan.");
                 return;
             }
-            
-            StartGame(payload, qrPose);
+
+            Debug.Log($"MiniGameManager matched raw QR scan '{payload}' to game '{gameId}'.");
+            StartGame(gameId, qrPose);
         }
     }
 
@@ -97,13 +121,26 @@ public class MiniGameManager : MonoBehaviour
         // whose clone would also start inactive and never render or run its game logic.
         activeGameInstance.SetActive(true);
 
-        // The artifact panel prefab carries a ModelSpawnAnchor (RotateArtifact spawner) that
-        // is irrelevant to mini-games and would leave a stray grabbable object in the panel.
-        Transform leftoverSpawner = activeGameInstance.transform.Find("ModelSpawnAnchor");
-        if (leftoverSpawner != null)
+        // Clean up all template children (e.g. artifact detail panel elements) so game has a clean container canvas
+        System.Collections.Generic.List<GameObject> childrenToDestroy = new System.Collections.Generic.List<GameObject>();
+        foreach (Transform child in activeGameInstance.transform)
         {
-            Destroy(leftoverSpawner.gameObject);
+            childrenToDestroy.Add(child.gameObject);
         }
+        foreach (GameObject child in childrenToDestroy)
+        {
+            DestroyImmediate(child);
+        }
+
+        // Add a clean Background image for the mini-game
+        GameObject bgObj = new GameObject("Background");
+        bgObj.transform.SetParent(activeGameInstance.transform, false);
+        UnityEngine.UI.Image bgImg = bgObj.AddComponent<UnityEngine.UI.Image>();
+        bgImg.color = new Color(0.537f, 0.557f, 0.478f, 1f); // Sage background (#898E7A)
+        RectTransform bgRect = bgObj.GetComponent<RectTransform>();
+        bgRect.anchorMin = Vector2.zero;
+        bgRect.anchorMax = Vector2.one;
+        bgRect.sizeDelta = Vector2.zero;
 
         // Assign Main Camera as the World Camera on the Canvas for rendering and interaction
         Canvas canvas = activeGameInstance.GetComponent<Canvas>();
@@ -124,14 +161,14 @@ public class MiniGameManager : MonoBehaviour
         }
         activeGameInstance.transform.localScale = targetScale;
 
-        // Rotate to face player (vertical billboard)
+        // Rotate to face player view (right-side up, unmirrored)
         if (playerTransform != null)
         {
-            Vector3 directionToPlayer = playerTransform.position - activeGameInstance.transform.position;
-            directionToPlayer.y = 0;
-            if (directionToPlayer != Vector3.zero)
+            Vector3 playerForward = playerTransform.forward;
+            playerForward.y = 0;
+            if (playerForward != Vector3.zero)
             {
-                activeGameInstance.transform.rotation = Quaternion.LookRotation(-directionToPlayer);
+                activeGameInstance.transform.rotation = Quaternion.LookRotation(playerForward, Vector3.up);
             }
         }
 

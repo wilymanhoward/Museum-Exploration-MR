@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Mat_MulaiButton
+  m_Name: Mat_OptionsRowCard
   m_Shader: {fileID: 4800000, guid: e0eecdaa2001b694190f088a8c2f9eef, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -29,10 +29,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 3
-    - _BorderWidth: 0.02
-    - _CornerRadius: 0.25
+    - _Aspect: 4.789116
+    - _BorderWidth: 0.015
+    - _CornerRadius: 0.08
     m_Colors:
-    - _BorderColor: {r: 0.62, g: 0.66, b: 0.36, a: 0.98}
-    - _Color: {r: 0.72, g: 0.76, b: 0.44, a: 0.95}
+    - _BorderColor: {r: 0.48, g: 0.52, b: 0.43, a: 0.8}
+    - _Color: {r: 0.35, g: 0.38, b: 0.31, a: 0.65}
   m_BuildTextureStacks: []

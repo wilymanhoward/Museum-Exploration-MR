@@ -22,6 +22,8 @@ public class RoomManager : MonoBehaviour
     public Transform artifactListContainer;
     [Tooltip("Prefab for a line item in the artifact checklist UI.")]
     public GameObject artifactListItemPrefab;
+    [Tooltip("Material applied to line item cards in the artifact checklist UI.")]
+    public Material rowCardMaterial;
     [Tooltip("Text field to show scan feedback (e.g. Scanned Exhibit: Mona Lisa).")]
     public TextMeshProUGUI scanStatusText;
 
@@ -432,20 +434,11 @@ public class RoomManager : MonoBehaviour
             bgImage = item.AddComponent<UnityEngine.UI.Image>();
         }
 
-        // Apply rounded card material or translucent sage color
-#if UNITY_EDITOR
-        Material rowMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Prefabs/Mat_OptionRow.mat");
-        if (rowMat != null)
+        // Apply rounded card material if assigned or keep prefab material
+        if (rowCardMaterial != null && (bgImage.material == null || bgImage.material.name == "Default UI"))
         {
-            bgImage.material = rowMat;
+            bgImage.material = rowCardMaterial;
         }
-        else
-        {
-            bgImage.color = new Color(0.48f, 0.52f, 0.44f, 0.60f); // Translucent sage gray (#7A8070)
-        }
-#else
-        bgImage.color = new Color(0.48f, 0.52f, 0.44f, 0.60f);
-#endif
 
         RectTransform itemRect = item.GetComponent<RectTransform>();
         if (itemRect != null)
@@ -638,6 +631,13 @@ public class RoomManager : MonoBehaviour
     /// </summary>
     private void HandleQRCodeScanned(string payload, Pose pose)
     {
+        // Ignore room transition QR scans until player taps MULAI on the Main Menu
+        if (!MainMenuManager.IsExplorationStarted)
+        {
+            Debug.Log("RoomManager: Exploration has not started yet. Ignoring QR scan.");
+            return;
+        }
+
         Debug.Log($"RoomManager received QR scan payload: '{payload}'");
 
         // Search for the room in our loaded list, or use editor fallback

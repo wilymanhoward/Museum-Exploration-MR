@@ -194,7 +194,7 @@ public class WristWatchMenu : MonoBehaviour
                     Vector3 lookDir = playerCam.position - wristWatchButtonObj.transform.position;
                     if (lookDir.sqrMagnitude > 0.0001f)
                     {
-                        wristWatchButtonObj.transform.rotation = Quaternion.LookRotation(-lookDir);
+                        wristWatchButtonObj.transform.rotation = Quaternion.LookRotation(-lookDir, Vector3.up);
                     }
                 }
             }
@@ -222,7 +222,7 @@ public class WristWatchMenu : MonoBehaviour
             lookDir.y = 0; // Keep canvas upright
             if (lookDir.sqrMagnitude > 0.0001f)
             {
-                Quaternion targetRot = Quaternion.LookRotation(-lookDir);
+                Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
                 panel.transform.rotation = Quaternion.Slerp(panel.transform.rotation, targetRot, Time.deltaTime * 10f);
             }
         }

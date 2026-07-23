@@ -626,17 +626,35 @@ public class MuseumSceneSetupEditor : EditorWindow
         descCardRect.anchorMax = new Vector2(0.95f, 0.45f);
         descCardRect.sizeDelta = Vector2.zero;
 
-        GameObject descHeaderObj = new GameObject("Header");
-        descHeaderObj.transform.SetParent(descCardObj.transform, false);
-        TextMeshProUGUI descHeader = descHeaderObj.AddComponent<TextMeshProUGUI>();
-        descHeader.text = "ℹ  Tentang Artefak Ini";
+        GameObject descHeaderRow = new GameObject("HeaderRow");
+        descHeaderRow.transform.SetParent(descCardObj.transform, false);
+        RectTransform descHeaderRowRect = descHeaderRow.AddComponent<RectTransform>();
+        descHeaderRowRect.anchorMin = new Vector2(0.05f, 0.82f);
+        descHeaderRowRect.anchorMax = new Vector2(0.95f, 0.96f);
+        descHeaderRowRect.sizeDelta = Vector2.zero;
+
+        GameObject infoIconObj = new GameObject("HeaderIcon");
+        infoIconObj.transform.SetParent(descHeaderRow.transform, false);
+        Image infoIconImg = infoIconObj.AddComponent<Image>();
+        infoIconImg.preserveAspect = true;
+        Sprite infoIconSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Information icon.png");
+        if (infoIconSprite != null) infoIconImg.sprite = infoIconSprite;
+        RectTransform infoIconRect = infoIconObj.GetComponent<RectTransform>();
+        infoIconRect.anchorMin = new Vector2(0.0f, 0.10f);
+        infoIconRect.anchorMax = new Vector2(0.12f, 0.90f);
+        infoIconRect.sizeDelta = Vector2.zero;
+
+        GameObject descHeaderTxtObj = new GameObject("HeaderText");
+        descHeaderTxtObj.transform.SetParent(descHeaderRow.transform, false);
+        TextMeshProUGUI descHeader = descHeaderTxtObj.AddComponent<TextMeshProUGUI>();
+        descHeader.text = "Tentang Artefak Ini";
         descHeader.fontSize = 18;
         descHeader.fontStyle = FontStyles.Bold;
         descHeader.alignment = TextAlignmentOptions.Left;
         descHeader.color = Color.white;
-        RectTransform descHeaderRect = descHeaderObj.GetComponent<RectTransform>();
-        descHeaderRect.anchorMin = new Vector2(0.05f, 0.82f);
-        descHeaderRect.anchorMax = new Vector2(0.95f, 0.96f);
+        RectTransform descHeaderRect = descHeaderTxtObj.GetComponent<RectTransform>();
+        descHeaderRect.anchorMin = new Vector2(0.14f, 0.0f);
+        descHeaderRect.anchorMax = new Vector2(1.0f, 1.0f);
         descHeaderRect.sizeDelta = Vector2.zero;
 
         // Line
@@ -1603,33 +1621,18 @@ public class MuseumSceneSetupEditor : EditorWindow
         titleRect.anchorMax = new Vector2(0.85f, 0.95f);
         titleRect.sizeDelta = Vector2.zero;
 
-        // Close Button ("X") on Top Right
+        // Close Button (Close.png) on Top Right
         GameObject closeBtn = new GameObject("CloseButton");
         closeBtn.transform.SetParent(optionsCanvasObj.transform, false);
         Image closeImg = closeBtn.AddComponent<Image>();
-        closeImg.material = GetOrCreateRoundedMaterial("Mat_CloseBtn",
-            new Color(0.22f, 0.24f, 0.20f, 0.90f),
-            new Color(0.90f, 0.90f, 0.90f, 0.90f),
-            0.04f,
-            0.50f, // Circular
-            1.0f
-        );
+        closeImg.preserveAspect = true;
+        Sprite closeSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Close.png");
+        if (closeSprite != null) closeImg.sprite = closeSprite;
+
         RectTransform closeRect = closeBtn.GetComponent<RectTransform>();
-        closeRect.anchorMin = new Vector2(0.86f, 0.78f);
+        closeRect.anchorMin = new Vector2(0.89f, 0.82f);
         closeRect.anchorMax = new Vector2(0.95f, 0.93f);
         closeRect.sizeDelta = Vector2.zero;
-
-        GameObject closeTxtObj = new GameObject("Text");
-        closeTxtObj.transform.SetParent(closeBtn.transform, false);
-        TextMeshProUGUI closeText = closeTxtObj.AddComponent<TextMeshProUGUI>();
-        closeText.text = "✕";
-        closeText.fontSize = 16;
-        closeText.alignment = TextAlignmentOptions.Center;
-        closeText.color = Color.white;
-        RectTransform closeTxtRect = closeTxtObj.GetComponent<RectTransform>();
-        closeTxtRect.anchorMin = Vector2.zero;
-        closeTxtRect.anchorMax = Vector2.one;
-        closeTxtRect.sizeDelta = Vector2.zero;
 
         XRButtonSelection closeSelection = closeBtn.AddComponent<XRButtonSelection>();
         closeSelection.buttonImage = closeImg;
@@ -1659,24 +1662,31 @@ public class MuseumSceneSetupEditor : EditorWindow
 
         Sprite expandSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Expand button.png");
 
+        Material optionsRowMat = GetOrCreateRoundedMaterial("Mat_OptionsRowCard",
+            new Color(0.35f, 0.38f, 0.31f, 0.65f),
+            new Color(0.48f, 0.52f, 0.43f, 0.80f),
+            0.015f,
+            0.08f,
+            563.2f / 117.6f
+        );
+
         // --- ROW 1: "Ruang" (Gallery Rooms) ---
         GameObject row1 = new GameObject("Row_Ruang");
         row1.transform.SetParent(optionsCanvasObj.transform, false);
         Image row1Img = row1.AddComponent<Image>();
-        row1Img.material = rowMat;
+        row1Img.material = optionsRowMat;
         RectTransform row1Rect = row1.GetComponent<RectTransform>();
         row1Rect.anchorMin = new Vector2(0.06f, 0.44f);
         row1Rect.anchorMax = new Vector2(0.94f, 0.72f);
         row1Rect.sizeDelta = Vector2.zero;
 
-        // Row 1 Icon: Museum Building Temple Icon (🏛)
+        // Row 1 Icon: Galery Icon.png
         GameObject row1IconObj = new GameObject("Icon");
         row1IconObj.transform.SetParent(row1.transform, false);
-        TextMeshProUGUI row1Icon = row1IconObj.AddComponent<TextMeshProUGUI>();
-        row1Icon.text = "🏛";
-        row1Icon.fontSize = 28;
-        row1Icon.alignment = TextAlignmentOptions.Center;
-        row1Icon.color = iconColor; // Pale yellow #E5EE9C
+        Image row1Icon = row1IconObj.AddComponent<Image>();
+        Sprite galerySprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Galery Icon.png");
+        if (galerySprite != null) row1Icon.sprite = galerySprite;
+        row1Icon.preserveAspect = true;
         RectTransform row1IconRect = row1IconObj.GetComponent<RectTransform>();
         row1IconRect.anchorMin = new Vector2(0.04f, 0.1f);
         row1IconRect.anchorMax = new Vector2(0.22f, 0.9f);
@@ -1729,22 +1739,23 @@ public class MuseumSceneSetupEditor : EditorWindow
         GameObject row2 = new GameObject("Row_Artefak");
         row2.transform.SetParent(optionsCanvasObj.transform, false);
         Image row2Img = row2.AddComponent<Image>();
-        row2Img.material = rowMat;
+        row2Img.material = optionsRowMat;
         RectTransform row2Rect = row2.GetComponent<RectTransform>();
         row2Rect.anchorMin = new Vector2(0.06f, 0.10f);
         row2Rect.anchorMax = new Vector2(0.94f, 0.38f);
         row2Rect.sizeDelta = Vector2.zero;
 
-        // Row 2 Icon: Urn / Vase Artifact Icon (🏺)
+        // Row 2 Icon: Artifak Icon.png
         GameObject row2IconObj = new GameObject("Icon");
         row2IconObj.transform.SetParent(row2.transform, false);
-        TextMeshProUGUI row2Icon = row2IconObj.AddComponent<TextMeshProUGUI>();
-        row2Icon.text = "🏺";
-        row2Icon.fontSize = 28;
-        row2Icon.alignment = TextAlignmentOptions.Center;
-        row2Icon.color = iconColor; // Pale yellow #E5EE9C
+        Image row2Icon = row2IconObj.AddComponent<Image>();
+        Sprite artifakSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Icon.png");
+        if (artifakSprite != null) row2Icon.sprite = artifakSprite;
+        row2Icon.preserveAspect = true;
         RectTransform row2IconRect = row2IconObj.GetComponent<RectTransform>();
         row2IconRect.anchorMin = new Vector2(0.04f, 0.1f);
+        row2IconRect.anchorMax = new Vector2(0.22f, 0.9f);
+        row2IconRect.sizeDelta = Vector2.zero;
         row2IconRect.anchorMax = new Vector2(0.22f, 0.9f);
         row2IconRect.sizeDelta = Vector2.zero;
 

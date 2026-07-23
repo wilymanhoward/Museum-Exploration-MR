@@ -52,7 +52,7 @@ public class ArtifactManager : MonoBehaviour
             GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
             foreach (GameObject go in allGo)
             {
-                if (go.name == "ArtifactUICanvas" && go.scene.isLoaded)
+                if ((go.name == "ArtifactDetailPanel" || go.name == "ArtifactUICanvas" || go.name == "ArtifactPanelPrefab") && go.scene.isLoaded)
                 {
                     artifactUiCanvas = go;
                     break;
@@ -60,7 +60,7 @@ public class ArtifactManager : MonoBehaviour
             }
             if (artifactUiCanvas != null)
             {
-                Debug.Log("ArtifactManager: Automatically located 'ArtifactUICanvas' (even if inactive) in the scene.");
+                Debug.Log($"ArtifactManager: Automatically located '{artifactUiCanvas.name}' (even if inactive) in the scene.");
             }
         }
 
@@ -127,7 +127,7 @@ public class ArtifactManager : MonoBehaviour
     {
         Transform referenceTransform = playerTransform != null ? playerTransform : (Camera.main != null ? Camera.main.transform : transform);
         Vector3 pos = referenceTransform.position + referenceTransform.forward * 1.5f;
-        Quaternion rot = Quaternion.LookRotation(-referenceTransform.forward, Vector3.up);
+        Quaternion rot = Quaternion.LookRotation(referenceTransform.forward, Vector3.up);
         return new Pose(pos, rot);
     }
 
@@ -136,6 +136,13 @@ public class ArtifactManager : MonoBehaviour
     /// </summary>
     private void HandleQRCodeScanned(string payload, Pose pose)
     {
+        // Ignore exhibit QR scans until player taps MULAI on the Main Menu
+        if (!MainMenuManager.IsExplorationStarted)
+        {
+            Debug.Log("ArtifactManager: Exploration has not started yet. Ignoring QR scan.");
+            return;
+        }
+
         // Prevent duplicate scanning if this exact artifact detail panel is already open
         if (activePanelInstance != null)
         {
@@ -273,7 +280,15 @@ public class ArtifactManager : MonoBehaviour
 
             if (artifactPanelPrefab != null)
             {
-                GameObject panelInstance = Instantiate(artifactPanelPrefab, pose.position, pose.rotation);
+                Vector3 spawnPos = pose.position;
+                if (playerTransform != null)
+                {
+                    Vector3 fwd = Vector3.ProjectOnPlane(playerTransform.forward, Vector3.up).normalized;
+                    if (fwd == Vector3.zero) fwd = playerTransform.forward;
+                    spawnPos = playerTransform.position + fwd * 1.0f;
+                }
+
+                GameObject panelInstance = Instantiate(artifactPanelPrefab, spawnPos, pose.rotation);
                 Canvas canvas = panelInstance.GetComponent<Canvas>();
                 if (canvas != null && canvas.worldCamera == null)
                 {

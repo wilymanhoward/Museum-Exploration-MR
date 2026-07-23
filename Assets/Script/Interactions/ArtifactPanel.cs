@@ -28,14 +28,49 @@ public class ArtifactPanel : MonoBehaviour
     [Tooltip("Offset of the panel relative to the QR code's local space. (X = right/left, Y = up/down, Z = forward/back out of wall)")]
     public Vector3 panelOffset = new Vector3(0.45f, 0.0f, 0.05f);
 
-    [Tooltip("If true, rotates the panel 180 degrees relative to the QR code to face the room.")]
-    public bool invertRotation = true;
+    [Tooltip("If true, rotates the panel 180 degrees relative to the player direction.")]
+    public bool invertRotation = false;
 
     [HideInInspector] public ArtifactData artifactData;
     private GameObject spawnedModel;
     private Action onCloseCallback;
     private int currentImageIndex = 0;
     private Transform trackedPlayer;
+
+    private void Awake()
+    {
+        // Ensure detail panel is hidden at startup until opened by scan or menu
+        gameObject.SetActive(false);
+    }
+
+    private void OnEnable()
+    {
+        PositionInFrontOfUser();
+    }
+
+    public void PositionInFrontOfUser()
+    {
+        if (trackedPlayer == null && Camera.main != null)
+        {
+            trackedPlayer = Camera.main.transform;
+        }
+
+        if (trackedPlayer != null)
+        {
+            Vector3 forwardDir = Vector3.ProjectOnPlane(trackedPlayer.forward, Vector3.up).normalized;
+            if (forwardDir == Vector3.zero) forwardDir = Vector3.forward;
+
+            // Spawn exactly 1.0 meter in front of the user's camera
+            transform.position = trackedPlayer.position + forwardDir * 1.0f;
+
+            Vector3 directionToPlayer = trackedPlayer.position - transform.position;
+            directionToPlayer.y = 0;
+            if (directionToPlayer != Vector3.zero)
+            {
+                transform.rotation = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+            }
+        }
+    }
 
     /// <summary>
     /// Configures the panel with data, references, and callback events.
@@ -44,7 +79,9 @@ public class ArtifactPanel : MonoBehaviour
     {
         artifactData = data;
         onCloseCallback = onClose;
-        trackedPlayer = playerTransform;
+        if (playerTransform != null) trackedPlayer = playerTransform;
+
+        PositionInFrontOfUser();
 
         Canvas canvas = GetComponent<Canvas>();
         if (canvas != null && canvas.worldCamera == null)
@@ -91,9 +128,7 @@ public class ArtifactPanel : MonoBehaviour
         directionToPlayer.y = 0; // yaw only, keep the panel upright
         if (directionToPlayer != Vector3.zero)
         {
-            transform.rotation = invertRotation
-                ? Quaternion.LookRotation(-directionToPlayer)
-                : Quaternion.LookRotation(directionToPlayer);
+            transform.rotation = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
         }
     }
 

@@ -24,6 +24,14 @@ public class MainMenuManager : MonoBehaviour
     private bool menuPositioned = false;
     private string currentName = DefaultPlayerName;
     private readonly System.Collections.Generic.Dictionary<XRRayInteractor, float> originalRayDistances = new System.Collections.Generic.Dictionary<XRRayInteractor, float>();
+    public static bool IsExplorationStarted { get; set; } = false;
+    public static MainMenuManager Instance { get; private set; }
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        IsExplorationStarted = false;
+    }
 
     void Start()
     {
@@ -175,7 +183,7 @@ public class MainMenuManager : MonoBehaviour
             directionToPlayer.y = 0; // Keep canvas upright
             if (directionToPlayer.sqrMagnitude > 0.0001f)
             {
-                targetMenu.transform.rotation = Quaternion.LookRotation(-directionToPlayer);
+                targetMenu.transform.rotation = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
             }
         }
 
@@ -273,6 +281,7 @@ public class MainMenuManager : MonoBehaviour
     private void ProceedStartExploration()
     {
         Debug.Log("Museum Exploration: Starting gameplay!");
+        IsExplorationStarted = true;
  
         // Hide the Main Menu
         if (mainMenuCanvas != null)
