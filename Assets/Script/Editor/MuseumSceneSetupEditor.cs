@@ -268,13 +268,13 @@ public class MuseumSceneSetupEditor : EditorWindow
         );
         bgImg.material = cardMat;
 
-        // Top Left Header: Galery Icon + "Artefak" + Subtitle
+        // Top Left Header: Artifak Icon + "Artefak" + Subtitle
         GameObject urnIconObj = new GameObject("UrnIcon");
         urnIconObj.transform.SetParent(panelObj.transform, false);
         Image urnImg = urnIconObj.AddComponent<Image>();
         urnImg.preserveAspect = true;
-        Sprite galerySprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Galery Icon.png");
-        if (galerySprite != null) urnImg.sprite = galerySprite;
+        Sprite artifakSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Icon.png");
+        if (artifakSprite != null) urnImg.sprite = artifakSprite;
 
         RectTransform urnIconRect = urnIconObj.GetComponent<RectTransform>();
         urnIconRect.anchorMin = new Vector2(0.04f, 0.87f);

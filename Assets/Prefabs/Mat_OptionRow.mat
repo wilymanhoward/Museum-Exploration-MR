@@ -29,9 +29,9 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 5
+    - _Aspect: 4.83871
     - _BorderWidth: 0.015
-    - _CornerRadius: 0.12
+    - _CornerRadius: 0.03
     m_Colors:
     - _BorderColor: {r: 0.48, g: 0.52, b: 0.43, a: 0.8}
     - _Color: {r: 0.35, g: 0.38, b: 0.31, a: 0.65}

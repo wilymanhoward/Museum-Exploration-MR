@@ -76,25 +76,16 @@ Shader "UI/RoundedCorners"
             
             fixed4 frag(v2f i) : SV_Target
             {
-                // Map UV coords from [0, 1] to aspect-scaled coordinates centered at (0,0)
-                float2 p = i.texcoord - 0.5;
-                p.x *= _Aspect;
+                // Physical metric space where 1 unit X = 1 unit Y
+                float2 p = (i.texcoord - 0.5) * float2(_Aspect, 1.0);
+                float2 b = float2(_Aspect * 0.5, 0.5) - float2(_CornerRadius, _CornerRadius);
+                float2 q = abs(p) - b;
+                float d = min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - _CornerRadius;
                 
-                float2 halfSize = float2(_Aspect * 0.5, 0.5);
-                
-                // Calculate distance from UV edge
-                float d = sdRoundedBox(p, halfSize, _CornerRadius);
-                
-                // Anti-aliasing threshold (approx. 1 pixel width in UV space)
-                float antialias = 0.01;
-                
-                // Outermost shape alpha clip
+                float antialias = 0.005;
                 float alpha = 1.0 - smoothstep(0.0 - antialias, 0.0 + antialias, d);
-                
-                // Border alpha gradient (inside the shape border width)
                 float borderAlpha = smoothstep(-_BorderWidth - antialias, -_BorderWidth + antialias, d);
                 
-                // Interpolate between the fill color and the border color
                 fixed4 finalColor = lerp(i.color, _BorderColor, borderAlpha);
                 finalColor.a *= alpha;
                 

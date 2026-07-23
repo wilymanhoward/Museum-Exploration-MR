@@ -29,8 +29,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 1.5238096
-    - _CornerRadius: 0.08
+    - _Aspect: 1.3333334
+    - _CornerRadius: 0.04
     - _DotGridSize: 14
     - _DotRadius: 0
     m_Colors:
