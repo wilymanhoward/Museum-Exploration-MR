@@ -68,6 +68,9 @@ public class ArtifactPanel : MonoBehaviour
         // Clean up previous models inside the ObjectSpawner
         ClearSpawnedModel();
 
+        // Automatically spawn the 3D model inside the ObjectSpawner
+        OnSpawnModelClicked();
+
         Debug.Log($"Setup detail panel next to QR code for: {data.artifactName} at position: {transform.position}");
     }
 
@@ -80,10 +83,27 @@ public class ArtifactPanel : MonoBehaviour
 
         if (objectSpawner != null && artifactData.modelPrefab != null)
         {
-            spawnedModel = Instantiate(artifactData.modelPrefab, objectSpawner.position, objectSpawner.rotation, objectSpawner);
-            spawnedModel.transform.localPosition = Vector3.zero;
-            spawnedModel.transform.localRotation = Quaternion.identity;
-            spawnedModel.transform.localScale = Vector3.one;
+            RotateArtifact rotator = objectSpawner.GetComponent<RotateArtifact>();
+            if (rotator != null)
+            {
+                spawnedModel = rotator.SpawnModel(artifactData.modelPrefab, artifactData.artifactId);
+            }
+            else
+            {
+                spawnedModel = Instantiate(artifactData.modelPrefab, objectSpawner.position, objectSpawner.rotation, objectSpawner);
+                
+                Camera cam = Camera.main;
+                float zOffset = -150f;
+                if (cam != null)
+                {
+                    Vector3 localCamDir = objectSpawner.InverseTransformDirection(cam.transform.position - objectSpawner.position).normalized;
+                    zOffset = Mathf.Sign(localCamDir.z) * 150f;
+                }
+                
+                spawnedModel.transform.localPosition = new Vector3(0, 0, zOffset);
+                spawnedModel.transform.localRotation = Quaternion.identity;
+                spawnedModel.transform.localScale = Vector3.one;
+            }
 
             Debug.Log($"3D Model spawned inside ObjectSpawner for {artifactData.artifactName}.");
         }
@@ -112,9 +132,17 @@ public class ArtifactPanel : MonoBehaviour
 
         if (objectSpawner != null)
         {
-            foreach (Transform child in objectSpawner)
+            RotateArtifact rotator = objectSpawner.GetComponent<RotateArtifact>();
+            if (rotator != null)
             {
-                Destroy(child.gameObject);
+                rotator.ClearModel();
+            }
+            else
+            {
+                foreach (Transform child in objectSpawner)
+                {
+                    Destroy(child.gameObject);
+                }
             }
         }
     }
@@ -207,6 +235,9 @@ public class ArtifactPanel : MonoBehaviour
 
         // Clean up previous models inside the ObjectSpawner
         ClearSpawnedModel();
+
+        // Automatically spawn the 3D model inside the ObjectSpawner
+        OnSpawnModelClicked();
 
         Debug.Log($"Updated detail panel with new artifact data: {data.artifactName}");
     }

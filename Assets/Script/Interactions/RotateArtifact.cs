@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.EventSystems;
 
 [RequireComponent(typeof(SphereCollider))]
 [RequireComponent(typeof(XRGrabInteractable))]
 [RequireComponent(typeof(Rigidbody))]
-public class RotateArtifact : MonoBehaviour
+public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
 {
     [Tooltip("Degrees of rotation per meter of hand movement. Higher = more responsive.")]
     public float rotationSensitivity = 350f;
@@ -36,6 +37,15 @@ public class RotateArtifact : MonoBehaviour
 
     private void Awake()
     {
+        // Programmatically add a transparent Image if missing so this RectTransform receives UI raycasts
+        UnityEngine.UI.Image uiImage = GetComponent<UnityEngine.UI.Image>();
+        if (uiImage == null)
+        {
+            uiImage = gameObject.AddComponent<UnityEngine.UI.Image>();
+            uiImage.color = new Color(0, 0, 0, 0); // Completely transparent
+        }
+        uiImage.raycastTarget = true;
+
         grabInteractable = GetComponent<XRGrabInteractable>();
         rb = GetComponent<Rigidbody>();
         grabCollider = GetComponent<SphereCollider>();
@@ -96,7 +106,25 @@ public class RotateArtifact : MonoBehaviour
 
         // 3. Instantiate under the spawner
         spawnedModel = Instantiate(prefab, transform.position, transform.rotation, transform);
-        spawnedModel.transform.localPosition = Vector3.zero;
+        
+        // Resolve camera to project model forward (towards the player)
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                mainCamera = FindObjectOfType<Camera>();
+            }
+        }
+        
+        float zOffset = -150f;
+        if (mainCamera != null)
+        {
+            Vector3 localCameraDirection = transform.InverseTransformDirection(mainCamera.transform.position - transform.position).normalized;
+            zOffset = Mathf.Sign(localCameraDirection.z) * 150f;
+        }
+        
+        spawnedModel.transform.localPosition = new Vector3(0, 0, zOffset);
         spawnedModel.transform.localRotation = Quaternion.identity;
 
         // Compensate for parent canvas scale so the model is rendered at its true physical size (1:1 with prefab scale)
@@ -132,7 +160,11 @@ public class RotateArtifact : MonoBehaviour
         if (grabCollider == null || model == null) return;
 
         Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return;
+        if (renderers.Length == 0)
+        {
+            Debug.LogWarning("[RotateArtifact] No renderers found on spawned model!");
+            return;
+        }
 
         Bounds bounds = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++)
@@ -145,6 +177,8 @@ public class RotateArtifact : MonoBehaviour
 
         grabCollider.radius = worldRadius / uniformScale;
         grabCollider.center = transform.InverseTransformPoint(bounds.center);
+
+        Debug.Log($"[RotateArtifact] Resized grab collider: radius = {grabCollider.radius} (world radius = {worldRadius}), center = {grabCollider.center}");
     }
 
     /// <summary>
@@ -162,6 +196,7 @@ public class RotateArtifact : MonoBehaviour
 
     private void OnGrabbed(SelectEnterEventArgs args)
     {
+        Debug.Log($"[RotateArtifact] OnGrabbed: Grabbed by {args.interactorObject.transform.name}. Interactors count: {grabInteractable.interactorsSelecting.Count}");
         activeInteractorsCount = 0;
 
         // Mark artifact completed on grab
@@ -173,12 +208,24 @@ public class RotateArtifact : MonoBehaviour
 
     private void OnReleased(SelectExitEventArgs args)
     {
+        Debug.Log($"[RotateArtifact] OnReleased: Released by {args.interactorObject.transform.name}");
         activeInteractorsCount = 0;
     }
 
     private void Update()
     {
-        if (grabInteractable == null || mainCamera == null) return;
+        if (grabInteractable == null) return;
+
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                mainCamera = FindObjectOfType<Camera>();
+            }
+        }
+
+        if (mainCamera == null) return;
 
         int grabCount = grabInteractable.interactorsSelecting.Count;
         if (grabCount == 0)
@@ -191,6 +238,8 @@ public class RotateArtifact : MonoBehaviour
         {
             var interactor = grabInteractable.interactorsSelecting[0];
             Vector3 currentPos = GetInteractorPos(interactor);
+
+            Debug.Log($"[RotateArtifact] Update single-grab: Current Position = {currentPos}, Last Position = {lastSingleInteractorPos}");
 
             if (activeInteractorsCount != 1)
             {
@@ -273,4 +322,47 @@ public class RotateArtifact : MonoBehaviour
         // relative to the hands whenever the player moved.
         return interactor.GetAttachTransform(grabInteractable).position;
     }
+
+    #region UI Pointer Handlers (For Graphic Raycasting / Trigger Dragging)
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        Debug.Log($"[RotateArtifact] OnPointerDown UI Drag start by pointer: {eventData.pointerId}");
+        
+        // Mark artifact completed on grab/drag interaction
+        if (!string.IsNullOrEmpty(activeArtifactId) && ArtifactManager.Instance != null)
+        {
+            ArtifactManager.Instance.MarkArtifactInteracted(activeArtifactId);
+        }
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        // Drag delta in pixels
+        Vector2 delta = eventData.delta;
+
+        if (delta.sqrMagnitude < 0.0001f) return;
+
+        // Dynamic camera resolution
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                mainCamera = FindObjectOfType<Camera>();
+            }
+        }
+
+        // Rotate the model
+        // Dragging horizontally rotates around local Y-axis (spins it left/right)
+        // Dragging vertically rotates around the camera's right direction (tilts it up/down)
+        float sensitivity = 0.25f; // Adjust sensitivity for comfortable dragging
+        transform.Rotate(Vector3.up, -delta.x * sensitivity, Space.World);
+
+        if (mainCamera != null)
+        {
+            Vector3 camRight = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up).normalized;
+            transform.Rotate(camRight, delta.y * sensitivity, Space.World);
+        }
+    }
+    #endregion
 }
