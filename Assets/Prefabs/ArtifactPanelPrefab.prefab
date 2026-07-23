@@ -382,6 +382,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rotationSensitivity: 350
+  grabColliderPadding: 0.05
 --- !u!1 &6529188949796289641
 GameObject:
   m_ObjectHideFlags: 0
@@ -393,7 +394,7 @@ GameObject:
   - component: {fileID: 6867661959518919612}
   - component: {fileID: 6234357313026079868}
   - component: {fileID: 4857080377682393024}
-  - component: {fileID: 6634184228437258285}
+  - component: {fileID: 6019051650555970787}
   m_Layer: 0
   m_Name: ArtifactPanelPrefab
   m_TagString: Untagged
@@ -467,7 +468,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RaycastTriggerInteraction: 1
---- !u!114 &6634184228437258285
+--- !u!114 &6019051650555970787
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -476,21 +477,22 @@ MonoBehaviour:
   m_GameObject: {fileID: 6529188949796289641}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 636629bbcd9bb7c4586f4d69353be80f, type: 3}
+  m_Script: {fileID: 11500000, guid: 95f222c2d29dbc74b8ee5f9a5e8aa84f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  titleText: {fileID: 3860559390397157774}
-  artistYearText: {fileID: 7142617830123506326}
+  topTitleText: {fileID: 3860559390397157774}
+  bottomTitleText: {fileID: 0}
   descriptionText: {fileID: 7076144646382260597}
-  spawnModelButton: {fileID: 0}
-  modelSpawnAnchor: {fileID: 1754095175562906944}
-  modelSpinSpeed: 20
+  timePeriodText: {fileID: 0}
+  locationText: {fileID: 0}
+  dimensionText: {fileID: 0}
+  materialText: {fileID: 0}
+  displayImage: {fileID: 0}
+  noImagesText: {fileID: 0}
+  imageIndexText: {fileID: 0}
+  objectSpawner: {fileID: 0}
   panelOffset: {x: 0.45, y: 0, z: 0.05}
   invertRotation: 1
-  enableProximityDismissal: 0
-  maxInteractionDistance: 2.5
-  closeDelay: 3
-  transitionSpeed: 6
   artifactData: {fileID: 0}
 --- !u!1 &6752286700025402074
 GameObject:

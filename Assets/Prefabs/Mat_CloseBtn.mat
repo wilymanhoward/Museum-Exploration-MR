@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Mat_RoomHUD
+  m_Name: Mat_CloseBtn
   m_Shader: {fileID: 4800000, guid: e0eecdaa2001b694190f088a8c2f9eef, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -29,10 +29,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 0.875
-    - _BorderWidth: 0.008
-    - _CornerRadius: 0.08
+    - _Aspect: 1
+    - _BorderWidth: 0.04
+    - _CornerRadius: 0.5
     m_Colors:
-    - _BorderColor: {r: 0.58, g: 0.62, b: 0.52, a: 0.95}
-    - _Color: {r: 0.43, g: 0.46, b: 0.38, a: 0.88}
+    - _BorderColor: {r: 0.9, g: 0.9, b: 0.9, a: 0.9}
+    - _Color: {r: 0.22, g: 0.24, b: 0.2, a: 0.9}
   m_BuildTextureStacks: []

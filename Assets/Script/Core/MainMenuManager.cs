@@ -17,7 +17,7 @@ public class MainMenuManager : MonoBehaviour
     public TextMeshProUGUI nameLabel;
 
     private const string NameLabelPrefix = "Nama: ";
-    private const string DefaultPlayerName = "Pelawat";
+    private const string DefaultPlayerName = "Pengunjung";
 
     private TMP_InputField activeInputField;
     private TouchScreenKeyboard keyboard;
@@ -133,27 +133,31 @@ public class MainMenuManager : MonoBehaviour
             return;
         }
 
-        // 1. Position the menu dynamically at eye level in front of the player ONLY when headset tracking starts
+        // 1. Position the menu dynamically at eye level 1 meter in front of the player ONLY when headset tracking starts
+        GameObject targetMenu = mainMenuCanvas != null ? mainMenuCanvas : gameObject;
         if (!menuPositioned)
         {
             Transform camTransform = Camera.main != null ? Camera.main.transform : null;
             if (camTransform != null && camTransform.position.y > 0.1f)
             {
-                GameObject targetMenu = mainMenuCanvas != null ? mainMenuCanvas : gameObject;
-                // Spawn exactly 1.4 meters in front of the player gaze at eye level
-                Vector3 pos = camTransform.position + camTransform.forward * 1.4f;
+                // Spawn exactly 1.0 meter in front of the player gaze at eye level
+                Vector3 pos = camTransform.position + camTransform.forward * 1.0f;
                 pos.y = camTransform.position.y; 
                 targetMenu.transform.position = pos;
-      
-                // Rotate Main Menu to face the player
-                Vector3 directionToPlayer = camTransform.position - targetMenu.transform.position;
-                directionToPlayer.y = 0; // Keep it upright
-                if (directionToPlayer != Vector3.zero)
-                {
-                    targetMenu.transform.rotation = Quaternion.LookRotation(-directionToPlayer);
-                }
                 menuPositioned = true;
-                Debug.Log($"Main Menu positioned at eye level: {pos.y}m and oriented to face player.");
+                Debug.Log($"Main Menu positioned 1.0m in front of player and fixed at world position: {pos}");
+            }
+        }
+
+        // 2. Continuously rotate the menu to face toward the player as they move around (while keeping world position fixed)
+        Transform currentCam = Camera.main != null ? Camera.main.transform : null;
+        if (currentCam != null && targetMenu != null)
+        {
+            Vector3 directionToPlayer = currentCam.position - targetMenu.transform.position;
+            directionToPlayer.y = 0; // Keep canvas upright
+            if (directionToPlayer.sqrMagnitude > 0.0001f)
+            {
+                targetMenu.transform.rotation = Quaternion.LookRotation(-directionToPlayer);
             }
         }
 

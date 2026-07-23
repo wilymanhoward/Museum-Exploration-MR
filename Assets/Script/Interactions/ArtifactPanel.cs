@@ -35,6 +35,7 @@ public class ArtifactPanel : MonoBehaviour
     private GameObject spawnedModel;
     private Action onCloseCallback;
     private int currentImageIndex = 0;
+    private Transform trackedPlayer;
 
     /// <summary>
     /// Configures the panel with data, references, and callback events.
@@ -43,6 +44,7 @@ public class ArtifactPanel : MonoBehaviour
     {
         artifactData = data;
         onCloseCallback = onClose;
+        trackedPlayer = playerTransform;
 
         Canvas canvas = GetComponent<Canvas>();
         if (canvas != null && canvas.worldCamera == null)
@@ -72,6 +74,27 @@ public class ArtifactPanel : MonoBehaviour
         OnSpawnModelClicked();
 
         Debug.Log($"Setup detail panel next to QR code for: {data.artifactName} at position: {transform.position}");
+    }
+
+    /// <summary>
+    /// Keeps the panel at the player's eye level and billboarded to face them while it's open.
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (trackedPlayer == null) return;
+
+        Vector3 pos = transform.position;
+        pos.y = trackedPlayer.position.y;
+        transform.position = pos;
+
+        Vector3 directionToPlayer = trackedPlayer.position - transform.position;
+        directionToPlayer.y = 0; // yaw only, keep the panel upright
+        if (directionToPlayer != Vector3.zero)
+        {
+            transform.rotation = invertRotation
+                ? Quaternion.LookRotation(-directionToPlayer)
+                : Quaternion.LookRotation(directionToPlayer);
+        }
     }
 
     /// <summary>

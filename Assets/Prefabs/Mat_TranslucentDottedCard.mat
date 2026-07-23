@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Mat_RoomHUD
-  m_Shader: {fileID: 4800000, guid: e0eecdaa2001b694190f088a8c2f9eef, type: 3}
+  m_Name: Mat_TranslucentDottedCard
+  m_Shader: {fileID: 4800000, guid: 2bc489eb93dfaf546b72e6f42b9011a1, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -29,10 +29,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 0.875
-    - _BorderWidth: 0.008
+    - _Aspect: 1.5
     - _CornerRadius: 0.08
+    - _DotGridSize: 16
+    - _DotRadius: 0.07
     m_Colors:
-    - _BorderColor: {r: 0.58, g: 0.62, b: 0.52, a: 0.95}
-    - _Color: {r: 0.43, g: 0.46, b: 0.38, a: 0.88}
+    - _Color: {r: 0.43, g: 0.46, b: 0.38, a: 0.85}
+    - _DotColor: {r: 0.28, g: 0.3, b: 0.25, a: 0.5}
   m_BuildTextureStacks: []

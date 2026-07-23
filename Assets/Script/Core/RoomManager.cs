@@ -425,7 +425,46 @@ public class RoomManager : MonoBehaviour
 
     private void UpdateListItemVisual(GameObject item, ArtifactData artifact, bool isScanned)
     {
-        string displayName = isScanned ? $"<color=#009977>✓ {artifact.artifactName}</color>" : $"<color=#333333>○ {artifact.artifactName}</color>";
+        // New styled row (thumbnail + number + name + visited status), matching the wrist
+        // menu design. Falls back to the legacy single-text layout when those children
+        // are missing.
+        Transform nameT = item.transform.Find("NameText");
+        Transform statusT = item.transform.Find("StatusText");
+        if (nameT != null && statusT != null)
+        {
+            TextMeshProUGUI nameText = nameT.GetComponent<TextMeshProUGUI>();
+            if (nameText != null) nameText.text = artifact.artifactName;
+
+            TextMeshProUGUI statusText = statusT.GetComponent<TextMeshProUGUI>();
+            if (statusText != null)
+            {
+                statusText.text = isScanned ? "Sudah Dikunjung" : "Belum Dikunjung";
+                statusText.color = isScanned ? new Color(0.42f, 0.72f, 0.35f) : new Color(0.16f, 0.16f, 0.16f);
+            }
+
+            Transform numT = item.transform.Find("NumText");
+            if (numT != null)
+            {
+                int index = (currentRoom != null && currentRoom.artifacts != null) ? currentRoom.artifacts.IndexOf(artifact) : -1;
+                TextMeshProUGUI numText = numT.GetComponent<TextMeshProUGUI>();
+                if (numText != null && index >= 0) numText.text = (index + 1).ToString("00");
+            }
+
+            Transform thumbT = item.transform.Find("Thumb");
+            if (thumbT != null)
+            {
+                bool hasImage = artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null;
+                thumbT.gameObject.SetActive(hasImage);
+                if (hasImage)
+                {
+                    UnityEngine.UI.Image thumb = thumbT.GetComponent<UnityEngine.UI.Image>();
+                    if (thumb != null) thumb.sprite = artifact.images[0].sprite;
+                }
+            }
+            return;
+        }
+
+        string displayName = isScanned ? $"<color=#4CAF50>{artifact.artifactName}</color>" : $"<color=#EDEBCF>{artifact.artifactName}</color>";
 
         TextMeshProUGUI textComp = item.GetComponentInChildren<TextMeshProUGUI>();
         if (textComp != null)
@@ -438,8 +477,7 @@ public class RoomManager : MonoBehaviour
             if (legacyText != null)
             {
                 // Strip HTML tags for legacy UI text
-                string cleanName = isScanned ? $"✓ {artifact.artifactName}" : $"○ {artifact.artifactName}";
-                legacyText.text = cleanName;
+                legacyText.text = artifact.artifactName;
             }
         }
     }

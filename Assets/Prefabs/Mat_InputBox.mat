@@ -7,7 +7,7 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Mat_RoomHUD
+  m_Name: Mat_InputBox
   m_Shader: {fileID: 4800000, guid: e0eecdaa2001b694190f088a8c2f9eef, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
@@ -29,10 +29,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 0.875
-    - _BorderWidth: 0.008
-    - _CornerRadius: 0.08
+    - _Aspect: 7.5789475
+    - _BorderWidth: 0.015
+    - _CornerRadius: 0.18
     m_Colors:
-    - _BorderColor: {r: 0.58, g: 0.62, b: 0.52, a: 0.95}
-    - _Color: {r: 0.43, g: 0.46, b: 0.38, a: 0.88}
+    - _BorderColor: {r: 0.78, g: 0.8, b: 0.75, a: 0.95}
+    - _Color: {r: 0.88, g: 0.89, b: 0.86, a: 0.88}
   m_BuildTextureStacks: []

@@ -485,6 +485,9 @@ public class MuseumSceneSetupEditor : EditorWindow
         Canvas hudCanvasComp = hudCanvas.GetComponent<Canvas>();
         if (hudCanvasComp != null) hudCanvasComp.worldCamera = mainCam;
 
+        // Set up Left Hand Wrist Watch & Floating Options Panel
+        BuildWristWatchAndOptionsUI(mainCam, hudCanvas);
+
         // Link manager GUI toggles
         MainMenuManager mainMenuController = menuCanvas.GetComponent<MainMenuManager>();
         mainMenuController.mainMenuCanvas = menuCanvas;
@@ -502,7 +505,7 @@ public class MuseumSceneSetupEditor : EditorWindow
 
         canvasObj = new GameObject("MainMenuCanvas");
         float cameraY = Camera.main != null ? Camera.main.transform.position.y : 1.6f;
-        canvasObj.transform.position = new Vector3(0f, cameraY, 1.4f); // Same level as camera, 1.4m forward
+        canvasObj.transform.position = new Vector3(0f, cameraY, 1.0f); // 1.0m forward
         canvasObj.transform.rotation = Quaternion.identity;
 
         Canvas canvas = canvasObj.AddComponent<Canvas>();
@@ -510,155 +513,178 @@ public class MuseumSceneSetupEditor : EditorWindow
         canvas.worldCamera = Camera.main;
         canvasObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
         RectTransform rect = canvasObj.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(300, 200);
-        canvasObj.transform.localScale = Vector3.one * 0.003f;
+        rect.sizeDelta = new Vector2(360, 240); // 360x240 aspect card matching user image
+        canvasObj.transform.localScale = Vector3.one * 0.0025f;
 
         // Add MainMenuManager controller
         MainMenuManager menuMgr = canvasObj.AddComponent<MainMenuManager>();
 
-        // Background Glass Panel (Translucent light white + Rounded corners)
-        GameObject panel = new GameObject("Background");
-        panel.transform.SetParent(canvasObj.transform, false);
-        Image img = panel.AddComponent<Image>();
+        // Background Card with Translucent Dotted Matrix (matching user image)
+        GameObject cardPanel = new GameObject("BackgroundCard");
+        cardPanel.transform.SetParent(canvasObj.transform, false);
+        Image cardImg = cardPanel.AddComponent<Image>();
         
-        Material menuMat = GetOrCreateRoundedMaterial("Mat_MainMenu", 
-            new Color(0.96f, 0.96f, 0.98f, 0.92f), // Light translucent
-            new Color(0.82f, 0.82f, 0.86f, 0.85f), // Border: Soft silver
-            0.01f, // Border Width
-            0.08f, // Corner Radius
-            300f / 200f // Aspect Ratio
+        Material cardMat = GetOrCreateTranslucentCardMaterial("Mat_TranslucentDottedCard",
+            new Color(0.43f, 0.46f, 0.38f, 0.85f), // Translucent dark sage green card (#6E7562)
+            new Color(0.28f, 0.30f, 0.25f, 0.50f), // Darker sage dot matrix overlay
+            16.0f, // Grid density
+            0.07f, // Dot radius
+            0.08f, // Corner radius
+            360f / 240f // Aspect ratio (1.5)
         );
-        img.material = menuMat;
+        cardImg.material = cardMat;
 
-        RectTransform panelRect = panel.GetComponent<RectTransform>();
-        panelRect.anchorMin = Vector2.zero;
-        panelRect.anchorMax = Vector2.one;
-        panelRect.sizeDelta = Vector2.zero;
+        RectTransform cardRect = cardPanel.GetComponent<RectTransform>();
+        cardRect.anchorMin = Vector2.zero;
+        cardRect.anchorMax = Vector2.one;
+        cardRect.sizeDelta = Vector2.zero;
 
-        // Title text (Slate gray + letter spacing)
-        GameObject title = new GameObject("Title");
-        title.transform.SetParent(canvasObj.transform, false);
-        TextMeshProUGUI text = title.AddComponent<TextMeshProUGUI>();
-        text.text = "MUSEUM EXPLORATION";
-        text.fontSize = 24;
-        text.fontStyle = FontStyles.Bold;
-        text.characterSpacing = 12f; // Modern wide spacing
-        text.alignment = TextAlignmentOptions.Center;
-        text.color = new Color(0.1f, 0.1f, 0.15f);
-        RectTransform titleRect = title.GetComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.05f, 0.72f);
-        titleRect.anchorMax = new Vector2(0.95f, 0.95f);
+        // 1. Title Text: "Museum Exploration" (Crisp White, Elegant Serif)
+        GameObject titleObj = new GameObject("TitleText");
+        titleObj.transform.SetParent(canvasObj.transform, false);
+        TextMeshProUGUI titleText = titleObj.AddComponent<TextMeshProUGUI>();
+        titleText.text = "Museum Exploration";
+        titleText.fontSize = 28;
+        titleText.fontStyle = FontStyles.Normal;
+        titleText.characterSpacing = 2f;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.color = Color.white;
+        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.05f, 0.76f);
+        titleRect.anchorMax = new Vector2(0.95f, 0.94f);
         titleRect.sizeDelta = Vector2.zero;
- 
-        // Shared Button Material (Rounded pill + border)
-        Material buttonMat = GetOrCreateRoundedMaterial("Mat_Button", 
-            new Color(0.9f, 0.9f, 0.93f, 0.8f), // Soft button fill
-            new Color(0.72f, 0.72f, 0.78f, 0.9f), // Visible border
-            0.035f, // Thicker border
-            0.22f, // Rounded pill corners
-            240f / 48f // Button Aspect
+
+        // 2. Name Label: "Nama Pengunjung" (Crisp White, Left Aligned)
+        GameObject labelObj = new GameObject("NameLabelText");
+        labelObj.transform.SetParent(canvasObj.transform, false);
+        TextMeshProUGUI labelText = labelObj.AddComponent<TextMeshProUGUI>();
+        labelText.text = "Nama Pengunjung";
+        labelText.fontSize = 18;
+        labelText.fontStyle = FontStyles.Normal;
+        labelText.color = Color.white;
+        labelText.alignment = TextAlignmentOptions.Left;
+        RectTransform labelRect = labelObj.GetComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0.10f, 0.58f);
+        labelRect.anchorMax = new Vector2(0.90f, 0.72f);
+        labelRect.sizeDelta = Vector2.zero;
+
+        // 3. Name Input Field Box (Light gray/white translucent pill input box)
+        Material inputMat = GetOrCreateRoundedMaterial("Mat_InputBox",
+            new Color(0.88f, 0.89f, 0.86f, 0.88f), // Soft light gray-white fill (#E0E2DB)
+            new Color(0.78f, 0.80f, 0.75f, 0.95f), // Subtle border
+            0.015f, // Border width
+            0.18f,  // Rounded input field corners
+            288f / 38f // Aspect ratio
         );
- 
-        // Create TMP_InputField for Name Entry (Middle)
+
         GameObject inputObj = new GameObject("NameInputField");
         inputObj.transform.SetParent(canvasObj.transform, false);
         RectTransform inputRect = inputObj.AddComponent<RectTransform>();
-        inputRect.anchorMin = new Vector2(0.1f, 0.40f);
-        inputRect.anchorMax = new Vector2(0.9f, 0.64f);
+        inputRect.anchorMin = new Vector2(0.10f, 0.38f);
+        inputRect.anchorMax = new Vector2(0.90f, 0.55f);
         inputRect.sizeDelta = Vector2.zero;
- 
+
         Image inputImg = inputObj.AddComponent<Image>();
-        inputImg.material = buttonMat;
-        inputImg.color = new Color(0.95f, 0.95f, 0.97f, 0.9f);
- 
+        inputImg.material = inputMat;
+
         TMP_InputField inputField = inputObj.AddComponent<TMP_InputField>();
- 
-        // Add BoxCollider so that XRI raycasts/pokes can hit the input field
+
+        // Add BoxCollider so XRI raycasts & finger pokes hit input field
         BoxCollider inputCollider = inputObj.AddComponent<BoxCollider>();
-        inputCollider.size = new Vector3(240f, 48f, 15f);
+        inputCollider.size = new Vector3(288f, 40f, 15f);
         inputCollider.isTrigger = true;
- 
+
         // Add XRSimpleInteractable for XRI interaction detection
         inputObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.XRSimpleInteractable>();
- 
-        // Text Area
+
+        // Text Area inside Input Field
         GameObject textArea = new GameObject("TextArea");
         textArea.transform.SetParent(inputObj.transform, false);
         RectTransform areaRect = textArea.AddComponent<RectTransform>();
-        areaRect.anchorMin = new Vector2(0.05f, 0.1f);
-        areaRect.anchorMax = new Vector2(0.95f, 0.9f);
+        areaRect.anchorMin = new Vector2(0.04f, 0.1f);
+        areaRect.anchorMax = new Vector2(0.96f, 0.9f);
         areaRect.sizeDelta = Vector2.zero;
         textArea.AddComponent<RectMask2D>();
- 
-        // Text Display component
+
+        // Text Display
         GameObject textDisplayObj = new GameObject("Text");
         textDisplayObj.transform.SetParent(textArea.transform, false);
         TextMeshProUGUI textDisplay = textDisplayObj.AddComponent<TextMeshProUGUI>();
-        textDisplay.fontSize = 15;
-        textDisplay.color = new Color(0.1f, 0.1f, 0.15f);
+        textDisplay.fontSize = 17;
+        textDisplay.color = new Color(0.18f, 0.20f, 0.16f); // Charcoal dark text
         textDisplay.alignment = TextAlignmentOptions.Left;
         RectTransform textDispRect = textDisplayObj.GetComponent<RectTransform>();
         textDispRect.anchorMin = Vector2.zero;
         textDispRect.anchorMax = Vector2.one;
         textDispRect.sizeDelta = Vector2.zero;
- 
-        // Placeholder text component
+
+        // Placeholder Component
         GameObject placeholderObj = new GameObject("Placeholder");
         placeholderObj.transform.SetParent(textArea.transform, false);
         TextMeshProUGUI placeholder = placeholderObj.AddComponent<TextMeshProUGUI>();
-        placeholder.text = "Taip nama anda...";
-        placeholder.fontSize = 14;
-        placeholder.fontStyle = FontStyles.Italic;
-        placeholder.color = new Color(0.5f, 0.5f, 0.55f);
+        placeholder.text = "Pengunjung";
+        placeholder.fontSize = 17;
+        placeholder.fontStyle = FontStyles.Normal;
+        placeholder.color = new Color(0.55f, 0.58f, 0.52f, 0.9f); // Gray placeholder matching image
         placeholder.alignment = TextAlignmentOptions.Left;
         RectTransform placeholderRect = placeholderObj.GetComponent<RectTransform>();
         placeholderRect.anchorMin = Vector2.zero;
         placeholderRect.anchorMax = Vector2.one;
         placeholderRect.sizeDelta = Vector2.zero;
- 
+
         inputField.textViewport = areaRect;
         inputField.textComponent = textDisplay;
         inputField.placeholder = placeholder;
- 
-        // Load default value from playerprefs
-        inputField.text = PlayerPrefs.GetString("PlayerName", "Pelawat");
- 
-        // Start button (Bottom)
+        inputField.text = PlayerPrefs.GetString("PlayerName", "Pengunjung");
+
+        // 4. Start Button ("Mulai") - Pale Olive Lime Yellow Rounded Pill Button
+        Material mulaiMat = GetOrCreateRoundedMaterial("Mat_MulaiButton",
+            new Color(0.72f, 0.76f, 0.44f, 0.95f), // Pale olive-lime yellow fill (#B8C06C)
+            new Color(0.62f, 0.66f, 0.36f, 0.98f), // Border
+            0.02f, // Border width
+            0.30f, // Rounded pill corners
+            120f / 36f // Aspect ratio
+        );
+
         GameObject startBtn = new GameObject("StartButton");
         startBtn.transform.SetParent(canvasObj.transform, false);
         Image startImg = startBtn.AddComponent<Image>();
-        startImg.material = buttonMat;
-        
+        startImg.material = mulaiMat;
+
         RectTransform startRect = startBtn.GetComponent<RectTransform>();
-        startRect.anchorMin = new Vector2(0.1f, 0.12f);
-        startRect.anchorMax = new Vector2(0.9f, 0.36f);
+        startRect.anchorMin = new Vector2(0.33f, 0.10f);
+        startRect.anchorMax = new Vector2(0.67f, 0.27f);
         startRect.sizeDelta = Vector2.zero;
- 
-        GameObject startTxt = new GameObject("Text");
-        startTxt.transform.SetParent(startBtn.transform, false);
-        TextMeshProUGUI startTextComp = startTxt.AddComponent<TextMeshProUGUI>();
-        startTextComp.text = "Start Exploration";
-        startTextComp.fontSize = 16;
-        startTextComp.alignment = TextAlignmentOptions.Center;
-        startTextComp.color = new Color(0.1f, 0.1f, 0.15f);
-        RectTransform startTextRect = startTxt.GetComponent<RectTransform>();
+
+        GameObject startTxtObj = new GameObject("Text");
+        startTxtObj.transform.SetParent(startBtn.transform, false);
+        TextMeshProUGUI startText = startTxtObj.AddComponent<TextMeshProUGUI>();
+        startText.text = "Mulai";
+        startText.fontSize = 20;
+        startText.fontStyle = FontStyles.Bold;
+        startText.alignment = TextAlignmentOptions.Center;
+        startText.color = Color.white; // Crisp white text
+        RectTransform startTextRect = startTxtObj.GetComponent<RectTransform>();
         startTextRect.anchorMin = Vector2.zero;
         startTextRect.anchorMax = Vector2.one;
         startTextRect.sizeDelta = Vector2.zero;
- 
-        // Attach XR Button Selection to Start Button and hook events
+
+        // Attach XRButtonSelection for hover animation and click handlers
         XRButtonSelection startSelection = startBtn.AddComponent<XRButtonSelection>();
         startSelection.buttonImage = startImg;
         startSelection.scaleTarget = startBtn.transform;
-        
-        // Add BoxCollider for XRI physics raycasting and physical finger poking (touching)
+        startSelection.normalColor = new Color(0.72f, 0.76f, 0.44f, 0.95f);
+        startSelection.hoverColor = new Color(0.80f, 0.84f, 0.50f, 1.00f);
+        startSelection.hoverScaleMultiplier = 1.06f;
+
+        // Add BoxCollider for XRI raycasts & finger pokes
         BoxCollider startCollider = startBtn.AddComponent<BoxCollider>();
-        startCollider.size = new Vector3(240f, 48f, 15f);
+        startCollider.size = new Vector3(120f, 40f, 15f);
         startCollider.isTrigger = true;
-        
+
         // Link StartButton click programmatically to menuMgr.StartExploration
         UnityEditor.Events.UnityEventTools.AddPersistentListener(startSelection.onClick, menuMgr.StartExploration);
- 
+
         return canvasObj;
     }
 
@@ -801,5 +827,379 @@ public class MuseumSceneSetupEditor : EditorWindow
 
         EditorUtility.SetDirty(mat);
         return mat;
+    }
+
+    private static Material GetOrCreateDottedMaterial(string matName, Color bgColor, Color dotColor, float gridSize, float dotRadius)
+    {
+        string path = $"Assets/Prefabs/{matName}.mat";
+        Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null)
+        {
+            Shader shader = Shader.Find("UI/DottedGrid");
+            if (shader != null)
+            {
+                mat = new Material(shader);
+            }
+            else
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            }
+            AssetDatabase.CreateAsset(mat, path);
+        }
+
+        if (mat.HasProperty("_Color")) mat.SetColor("_Color", bgColor);
+        if (mat.HasProperty("_DotColor")) mat.SetColor("_DotColor", dotColor);
+        if (mat.HasProperty("_DotGridSize")) mat.SetFloat("_DotGridSize", gridSize);
+        if (mat.HasProperty("_DotRadius")) mat.SetFloat("_DotRadius", dotRadius);
+
+        EditorUtility.SetDirty(mat);
+        return mat;
+    }
+
+    private static Material GetOrCreateTranslucentCardMaterial(string matName, Color cardColor, Color dotColor, float gridSize, float dotRadius, float cornerRadius, float aspect)
+    {
+        string path = $"Assets/Prefabs/{matName}.mat";
+        Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null)
+        {
+            Shader shader = Shader.Find("UI/TranslucentDottedCard");
+            if (shader != null)
+            {
+                mat = new Material(shader);
+            }
+            else
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            }
+            AssetDatabase.CreateAsset(mat, path);
+        }
+
+        if (mat.HasProperty("_Color")) mat.SetColor("_Color", cardColor);
+        if (mat.HasProperty("_DotColor")) mat.SetColor("_DotColor", dotColor);
+        if (mat.HasProperty("_DotGridSize")) mat.SetFloat("_DotGridSize", gridSize);
+        if (mat.HasProperty("_DotRadius")) mat.SetFloat("_DotRadius", dotRadius);
+        if (mat.HasProperty("_CornerRadius")) mat.SetFloat("_CornerRadius", cornerRadius);
+        if (mat.HasProperty("_Aspect")) mat.SetFloat("_Aspect", aspect);
+
+        EditorUtility.SetDirty(mat);
+        return mat;
+    }
+
+    private static GameObject BuildWristWatchAndOptionsUI(Camera mainCam, GameObject hudCanvas)
+    {
+        GameObject menuContainerObj = GameObject.Find("WristMenuSystem");
+        if (menuContainerObj != null) DestroyImmediate(menuContainerObj);
+
+        menuContainerObj = new GameObject("WristMenuSystem");
+        WristWatchMenu wristController = menuContainerObj.AddComponent<WristWatchMenu>();
+        wristController.roomHudCanvas = hudCanvas;
+
+        // -------------------------------------------------------------
+        // 1. WRIST WATCH BUTTON (Image 1 - Circular List Icon Button)
+        // -------------------------------------------------------------
+        GameObject watchCanvasObj = new GameObject("WristWatchButtonCanvas");
+        watchCanvasObj.transform.SetParent(menuContainerObj.transform, false);
+
+        Canvas watchCanvas = watchCanvasObj.AddComponent<Canvas>();
+        watchCanvas.renderMode = RenderMode.WorldSpace;
+        watchCanvas.worldCamera = mainCam;
+        watchCanvasObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
+        RectTransform watchRect = watchCanvasObj.GetComponent<RectTransform>();
+        watchRect.sizeDelta = new Vector2(80, 80);
+        watchCanvasObj.transform.localScale = Vector3.one * 0.0008f; // ~6.4cm diameter
+
+        // Circular Button Image
+        Image watchImg = watchCanvasObj.AddComponent<Image>();
+        Material watchMat = GetOrCreateRoundedMaterial("Mat_WristWatchButton",
+            new Color(0.35f, 0.38f, 0.31f, 0.92f), // Dark olive sage green fill (#5A6050)
+            new Color(0.48f, 0.52f, 0.43f, 0.95f), // Subtle border
+            0.015f,
+            0.50f, // Perfect circle
+            1.0f
+        );
+        watchImg.material = watchMat;
+
+        // Inside Icon: 3 bullet dots + 3 horizontal bars (pale yellow #E5EE9C)
+        Color iconColor = new Color(0.89f, 0.93f, 0.61f, 1.0f);
+        Material barMat = GetOrCreateRoundedMaterial("Mat_WatchIconBar", iconColor, iconColor, 0f, 0.4f, 4.0f);
+
+        float[] yPositions = new float[] { 18f, 0f, -18f };
+        for (int i = 0; i < 3; i++)
+        {
+            float y = yPositions[i];
+            
+            // Bullet dot (Left)
+            GameObject dotObj = new GameObject($"Dot_{i}");
+            dotObj.transform.SetParent(watchCanvasObj.transform, false);
+            Image dotImg = dotObj.AddComponent<Image>();
+            dotImg.material = GetOrCreateRoundedMaterial("Mat_WatchDot", iconColor, iconColor, 0f, 0.5f, 1.0f);
+            RectTransform dotRect = dotObj.GetComponent<RectTransform>();
+            dotRect.anchorMin = new Vector2(0.20f, 0.5f);
+            dotRect.anchorMax = new Vector2(0.20f, 0.5f);
+            dotRect.sizeDelta = new Vector2(10, 10);
+            dotRect.anchoredPosition = new Vector2(14f, y);
+
+            // Horizontal bar (Right)
+            GameObject barObj = new GameObject($"Bar_{i}");
+            barObj.transform.SetParent(watchCanvasObj.transform, false);
+            Image barImg = barObj.AddComponent<Image>();
+            barImg.material = barMat;
+            RectTransform barRect = barObj.GetComponent<RectTransform>();
+            barRect.anchorMin = new Vector2(0.38f, 0.5f);
+            barRect.anchorMax = new Vector2(0.38f, 0.5f);
+            barRect.sizeDelta = new Vector2(38, 8);
+            barRect.anchoredPosition = new Vector2(40f, y);
+        }
+
+        // Attach XRButtonSelection & BoxCollider for interaction
+        XRButtonSelection watchSelection = watchCanvasObj.AddComponent<XRButtonSelection>();
+        watchSelection.buttonImage = watchImg;
+        watchSelection.scaleTarget = watchCanvasObj.transform;
+        watchSelection.normalColor = new Color(0.35f, 0.38f, 0.31f, 0.92f);
+        watchSelection.hoverColor = new Color(0.44f, 0.48f, 0.38f, 0.98f);
+        watchSelection.hoverScaleMultiplier = 1.10f;
+
+        BoxCollider watchCollider = watchCanvasObj.AddComponent<BoxCollider>();
+        watchCollider.size = new Vector3(80f, 80f, 15f);
+        watchCollider.isTrigger = true;
+
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(watchSelection.onClick, wristController.ToggleOptionsPanel);
+
+        // -------------------------------------------------------------
+        // 2. FLOATING OPTIONS PANEL (Image 2 - Options Card)
+        // -------------------------------------------------------------
+        GameObject optionsCanvasObj = new GameObject("OptionsPanelCanvas");
+        optionsCanvasObj.transform.SetParent(menuContainerObj.transform, false);
+
+        Canvas optionsCanvas = optionsCanvasObj.AddComponent<Canvas>();
+        optionsCanvas.renderMode = RenderMode.WorldSpace;
+        optionsCanvas.worldCamera = mainCam;
+        optionsCanvasObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
+        RectTransform optionsRect = optionsCanvasObj.GetComponent<RectTransform>();
+        optionsRect.sizeDelta = new Vector2(320, 210);
+        optionsCanvasObj.transform.localScale = Vector3.one * 0.0012f;
+
+        // Translucent Card Background with Dot Matrix
+        Image optionsBgImg = optionsCanvasObj.AddComponent<Image>();
+        Material cardMat = GetOrCreateTranslucentCardMaterial("Mat_OptionsCardBackground",
+            new Color(0.43f, 0.46f, 0.38f, 0.88f), // Translucent dark sage green (#6E7562)
+            new Color(0.28f, 0.30f, 0.25f, 0.50f), // Darker sage dot grid
+            14.0f,
+            0.07f,
+            0.08f,
+            320f / 210f
+        );
+        optionsBgImg.material = cardMat;
+
+        // Header Title: "Options"
+        GameObject titleObj = new GameObject("TitleText");
+        titleObj.transform.SetParent(optionsCanvasObj.transform, false);
+        TextMeshProUGUI titleText = titleObj.AddComponent<TextMeshProUGUI>();
+        titleText.text = "Options";
+        titleText.fontSize = 26;
+        titleText.fontStyle = FontStyles.Bold;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.color = Color.white;
+        RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.15f, 0.78f);
+        titleRect.anchorMax = new Vector2(0.85f, 0.95f);
+        titleRect.sizeDelta = Vector2.zero;
+
+        // Close Button ("X") on Top Right
+        GameObject closeBtn = new GameObject("CloseButton");
+        closeBtn.transform.SetParent(optionsCanvasObj.transform, false);
+        Image closeImg = closeBtn.AddComponent<Image>();
+        closeImg.material = GetOrCreateRoundedMaterial("Mat_CloseBtn",
+            new Color(0.22f, 0.24f, 0.20f, 0.90f),
+            new Color(0.90f, 0.90f, 0.90f, 0.90f),
+            0.04f,
+            0.50f, // Circular
+            1.0f
+        );
+        RectTransform closeRect = closeBtn.GetComponent<RectTransform>();
+        closeRect.anchorMin = new Vector2(0.86f, 0.78f);
+        closeRect.anchorMax = new Vector2(0.95f, 0.93f);
+        closeRect.sizeDelta = Vector2.zero;
+
+        GameObject closeTxtObj = new GameObject("Text");
+        closeTxtObj.transform.SetParent(closeBtn.transform, false);
+        TextMeshProUGUI closeText = closeTxtObj.AddComponent<TextMeshProUGUI>();
+        closeText.text = "✕";
+        closeText.fontSize = 16;
+        closeText.alignment = TextAlignmentOptions.Center;
+        closeText.color = Color.white;
+        RectTransform closeTxtRect = closeTxtObj.GetComponent<RectTransform>();
+        closeTxtRect.anchorMin = Vector2.zero;
+        closeTxtRect.anchorMax = Vector2.one;
+        closeTxtRect.sizeDelta = Vector2.zero;
+
+        XRButtonSelection closeSelection = closeBtn.AddComponent<XRButtonSelection>();
+        closeSelection.buttonImage = closeImg;
+        closeSelection.scaleTarget = closeBtn.transform;
+        closeSelection.hoverScaleMultiplier = 1.10f;
+        BoxCollider closeCollider = closeBtn.AddComponent<BoxCollider>();
+        closeCollider.size = new Vector3(30f, 30f, 15f);
+        closeCollider.isTrigger = true;
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(closeSelection.onClick, wristController.CloseOptionsPanel);
+
+        // Row Helper Function to build "Ruang" and "Artefak" option cards
+        Material rowMat = GetOrCreateRoundedMaterial("Mat_OptionRow",
+            new Color(0.35f, 0.38f, 0.31f, 0.65f), // Translucent inner row (#505646)
+            new Color(0.48f, 0.52f, 0.43f, 0.80f),
+            0.015f,
+            0.12f,
+            280f / 56f
+        );
+
+        Material actionBtnMat = GetOrCreateRoundedMaterial("Mat_ActionBtn",
+            new Color(0.25f, 0.28f, 0.23f, 0.90f),
+            new Color(0.85f, 0.88f, 0.80f, 0.85f),
+            0.03f,
+            0.50f, // Circular button
+            1.0f
+        );
+
+        // --- ROW 1: "Ruang" (Gallery Rooms) ---
+        GameObject row1 = new GameObject("Row_Ruang");
+        row1.transform.SetParent(optionsCanvasObj.transform, false);
+        Image row1Img = row1.AddComponent<Image>();
+        row1Img.material = rowMat;
+        RectTransform row1Rect = row1.GetComponent<RectTransform>();
+        row1Rect.anchorMin = new Vector2(0.06f, 0.44f);
+        row1Rect.anchorMax = new Vector2(0.94f, 0.72f);
+        row1Rect.sizeDelta = Vector2.zero;
+
+        // Row 1 Icon: Museum Building Temple Icon (🏛)
+        GameObject row1IconObj = new GameObject("Icon");
+        row1IconObj.transform.SetParent(row1.transform, false);
+        TextMeshProUGUI row1Icon = row1IconObj.AddComponent<TextMeshProUGUI>();
+        row1Icon.text = "🏛";
+        row1Icon.fontSize = 28;
+        row1Icon.alignment = TextAlignmentOptions.Center;
+        row1Icon.color = iconColor; // Pale yellow #E5EE9C
+        RectTransform row1IconRect = row1IconObj.GetComponent<RectTransform>();
+        row1IconRect.anchorMin = new Vector2(0.04f, 0.1f);
+        row1IconRect.anchorMax = new Vector2(0.22f, 0.9f);
+        row1IconRect.sizeDelta = Vector2.zero;
+
+        // Row 1 Label: "Ruang"
+        GameObject row1TxtObj = new GameObject("Label");
+        row1TxtObj.transform.SetParent(row1.transform, false);
+        TextMeshProUGUI row1Text = row1TxtObj.AddComponent<TextMeshProUGUI>();
+        row1Text.text = "Ruang";
+        row1Text.fontSize = 22;
+        row1Text.fontStyle = FontStyles.Bold;
+        row1Text.alignment = TextAlignmentOptions.Left;
+        row1Text.color = Color.white;
+        RectTransform row1TxtRect = row1TxtObj.GetComponent<RectTransform>();
+        row1TxtRect.anchorMin = new Vector2(0.25f, 0.1f);
+        row1TxtRect.anchorMax = new Vector2(0.70f, 0.9f);
+        row1TxtRect.sizeDelta = Vector2.zero;
+
+        // Row 1 Action Expand Button
+        GameObject row1Btn = new GameObject("ActionButton");
+        row1Btn.transform.SetParent(row1.transform, false);
+        Image row1BtnImg = row1Btn.AddComponent<Image>();
+        row1BtnImg.material = actionBtnMat;
+        RectTransform row1BtnRect = row1Btn.GetComponent<RectTransform>();
+        row1BtnRect.anchorMin = new Vector2(0.80f, 0.15f);
+        row1BtnRect.anchorMax = new Vector2(0.95f, 0.85f);
+        row1BtnRect.sizeDelta = Vector2.zero;
+
+        GameObject row1BtnTxtObj = new GameObject("Text");
+        row1BtnTxtObj.transform.SetParent(row1Btn.transform, false);
+        TextMeshProUGUI row1BtnTxt = row1BtnTxtObj.AddComponent<TextMeshProUGUI>();
+        row1BtnTxt.text = "⤢";
+        row1BtnTxt.fontSize = 18;
+        row1BtnTxt.alignment = TextAlignmentOptions.Center;
+        row1BtnTxt.color = Color.white;
+        RectTransform row1BtnTxtRect = row1BtnTxtObj.GetComponent<RectTransform>();
+        row1BtnTxtRect.anchorMin = Vector2.zero;
+        row1BtnTxtRect.anchorMax = Vector2.one;
+        row1BtnTxtRect.sizeDelta = Vector2.zero;
+
+        XRButtonSelection row1Selection = row1Btn.AddComponent<XRButtonSelection>();
+        row1Selection.buttonImage = row1BtnImg;
+        row1Selection.scaleTarget = row1Btn.transform;
+        row1Selection.hoverScaleMultiplier = 1.10f;
+        BoxCollider row1Collider = row1Btn.AddComponent<BoxCollider>();
+        row1Collider.size = new Vector3(40f, 40f, 15f);
+        row1Collider.isTrigger = true;
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(row1Selection.onClick, wristController.OnClickRuang);
+
+
+        // --- ROW 2: "Artefak" (Artifact Details) ---
+        GameObject row2 = new GameObject("Row_Artefak");
+        row2.transform.SetParent(optionsCanvasObj.transform, false);
+        Image row2Img = row2.AddComponent<Image>();
+        row2Img.material = rowMat;
+        RectTransform row2Rect = row2.GetComponent<RectTransform>();
+        row2Rect.anchorMin = new Vector2(0.06f, 0.10f);
+        row2Rect.anchorMax = new Vector2(0.94f, 0.38f);
+        row2Rect.sizeDelta = Vector2.zero;
+
+        // Row 2 Icon: Urn / Vase Artifact Icon (🏺)
+        GameObject row2IconObj = new GameObject("Icon");
+        row2IconObj.transform.SetParent(row2.transform, false);
+        TextMeshProUGUI row2Icon = row2IconObj.AddComponent<TextMeshProUGUI>();
+        row2Icon.text = "🏺";
+        row2Icon.fontSize = 28;
+        row2Icon.alignment = TextAlignmentOptions.Center;
+        row2Icon.color = iconColor; // Pale yellow #E5EE9C
+        RectTransform row2IconRect = row2IconObj.GetComponent<RectTransform>();
+        row2IconRect.anchorMin = new Vector2(0.04f, 0.1f);
+        row2IconRect.anchorMax = new Vector2(0.22f, 0.9f);
+        row2IconRect.sizeDelta = Vector2.zero;
+
+        // Row 2 Label: "Artefak"
+        GameObject row2TxtObj = new GameObject("Label");
+        row2TxtObj.transform.SetParent(row2.transform, false);
+        TextMeshProUGUI row2Text = row2TxtObj.AddComponent<TextMeshProUGUI>();
+        row2Text.text = "Artefak";
+        row2Text.fontSize = 22;
+        row2Text.fontStyle = FontStyles.Bold;
+        row2Text.alignment = TextAlignmentOptions.Left;
+        row2Text.color = Color.white;
+        RectTransform row2TxtRect = row2TxtObj.GetComponent<RectTransform>();
+        row2TxtRect.anchorMin = new Vector2(0.25f, 0.1f);
+        row2TxtRect.anchorMax = new Vector2(0.70f, 0.9f);
+        row2TxtRect.sizeDelta = Vector2.zero;
+
+        // Row 2 Action Expand Button
+        GameObject row2Btn = new GameObject("ActionButton");
+        row2Btn.transform.SetParent(row2.transform, false);
+        Image row2BtnImg = row2Btn.AddComponent<Image>();
+        row2BtnImg.material = actionBtnMat;
+        RectTransform row2BtnRect = row2Btn.GetComponent<RectTransform>();
+        row2BtnRect.anchorMin = new Vector2(0.80f, 0.15f);
+        row2BtnRect.anchorMax = new Vector2(0.95f, 0.85f);
+        row2BtnRect.sizeDelta = Vector2.zero;
+
+        GameObject row2BtnTxtObj = new GameObject("Text");
+        row2BtnTxtObj.transform.SetParent(row2Btn.transform, false);
+        TextMeshProUGUI row2BtnTxt = row2BtnTxtObj.AddComponent<TextMeshProUGUI>();
+        row2BtnTxt.text = "⤢";
+        row2BtnTxt.fontSize = 18;
+        row2BtnTxt.alignment = TextAlignmentOptions.Center;
+        row2BtnTxt.color = Color.white;
+        RectTransform row2BtnTxtRect = row2BtnTxtObj.GetComponent<RectTransform>();
+        row2BtnTxtRect.anchorMin = Vector2.zero;
+        row2BtnTxtRect.anchorMax = Vector2.one;
+        row2BtnTxtRect.sizeDelta = Vector2.zero;
+
+        XRButtonSelection row2Selection = row2Btn.AddComponent<XRButtonSelection>();
+        row2Selection.buttonImage = row2BtnImg;
+        row2Selection.scaleTarget = row2Btn.transform;
+        row2Selection.hoverScaleMultiplier = 1.10f;
+        BoxCollider row2Collider = row2Btn.AddComponent<BoxCollider>();
+        row2Collider.size = new Vector3(40f, 40f, 15f);
+        row2Collider.isTrigger = true;
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(row2Selection.onClick, wristController.OnClickArtefak);
+
+        // Link controller references
+        wristController.wristWatchButtonObj = watchCanvasObj;
+        wristController.optionsPanelObj = optionsCanvasObj;
+
+        return menuContainerObj;
     }
 }
