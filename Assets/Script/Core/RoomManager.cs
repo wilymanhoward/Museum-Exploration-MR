@@ -72,6 +72,25 @@ public class RoomManager : MonoBehaviour
             }
         }
 
+        // Apply rounded corner material to roomHudContainer background panel if missing
+        if (roomHudContainer != null)
+        {
+            UnityEngine.UI.Image containerBg = roomHudContainer.GetComponent<UnityEngine.UI.Image>();
+            if (containerBg == null) containerBg = roomHudContainer.transform.Find("Background")?.GetComponent<UnityEngine.UI.Image>();
+            if (containerBg == null) containerBg = roomHudContainer.GetComponentInChildren<UnityEngine.UI.Image>();
+            if (containerBg != null && (containerBg.material == null || containerBg.material.name == "Default UI"))
+            {
+                foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+                {
+                    if (m != null && (m.name == "Mat_RoomHUD" || m.name == "Mat_OptionsCardBackground"))
+                    {
+                        containerBg.material = m;
+                        break;
+                    }
+                }
+            }
+        }
+
         // 2. Try to find child references on the RoomHUDCanvas / RoomCanvas
         if (roomHudContainer != null)
         {
@@ -145,20 +164,47 @@ public class RoomManager : MonoBehaviour
             }
         }
 
-        // 4. Editor auto-healing lookup for missing assets (always run to ensure complete list)
-#if UNITY_EDITOR
-        rooms = new List<RoomData>();
-        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:RoomData");
-        foreach (string guid in guids)
+        // 4. Runtime & Editor auto-healing lookup for missing assets
+        if (rowCardMaterial == null)
         {
-            string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            RoomData r = UnityEditor.AssetDatabase.LoadAssetAtPath<RoomData>(path);
-            if (r != null && !rooms.Contains(r))
+            foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
             {
-                rooms.Add(r);
+                if (m != null && m.name == "Mat_OptionsRowCard")
+                {
+                    rowCardMaterial = m;
+                    break;
+                }
             }
         }
-        Debug.Log($"RoomManager: Automatically loaded {rooms.Count} RoomData assets in Editor.");
+
+        if (artifactListItemPrefab == null)
+        {
+            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go != null && go.name == "ArtifactListItemPrefab")
+                {
+                    artifactListItemPrefab = go;
+                    break;
+                }
+            }
+        }
+
+#if UNITY_EDITOR
+        if (rooms == null || rooms.Count == 0)
+        {
+            rooms = new List<RoomData>();
+            string[] guids = UnityEditor.AssetDatabase.FindAssets("t:RoomData");
+            foreach (string guid in guids)
+            {
+                string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                RoomData r = UnityEditor.AssetDatabase.LoadAssetAtPath<RoomData>(path);
+                if (r != null && !rooms.Contains(r))
+                {
+                    rooms.Add(r);
+                }
+            }
+            Debug.Log($"RoomManager: Automatically loaded {rooms.Count} RoomData assets in Editor.");
+        }
 
         if (startingRoom == null && rooms.Count > 0)
         {
@@ -435,8 +481,24 @@ public class RoomManager : MonoBehaviour
             bgImage = item.AddComponent<UnityEngine.UI.Image>();
         }
 
-        // Apply rounded card material if assigned or keep prefab material
-        if (rowCardMaterial != null && (bgImage.material == null || bgImage.material.name == "Default UI"))
+        // Set explicit dark translucent sage background color so cards NEVER render as solid white in builds
+        bgImage.color = new Color(0.25f, 0.28f, 0.22f, 0.75f);
+
+        // Auto-resolve rowCardMaterial if missing
+        if (rowCardMaterial == null)
+        {
+            foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+            {
+                if (m != null && m.name == "Mat_OptionsRowCard")
+                {
+                    rowCardMaterial = m;
+                    break;
+                }
+            }
+        }
+
+        // Apply rounded card material if assigned
+        if (rowCardMaterial != null)
         {
             bgImage.material = rowCardMaterial;
         }
@@ -486,7 +548,12 @@ public class RoomManager : MonoBehaviour
             if (artSprite != null)
             {
                 thumbImg.sprite = artSprite;
+                thumbImg.color = Color.white;
                 thumbImg.gameObject.SetActive(true);
+            }
+            else
+            {
+                thumbImg.gameObject.SetActive(false);
             }
         }
 

@@ -137,6 +137,14 @@ public class MiniGameManager : MonoBehaviour
         bgObj.transform.SetParent(activeGameInstance.transform, false);
         UnityEngine.UI.Image bgImg = bgObj.AddComponent<UnityEngine.UI.Image>();
         bgImg.color = new Color(0.537f, 0.557f, 0.478f, 1f); // Sage background (#898E7A)
+        foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+        {
+            if (m != null && (m.name == "Mat_OptionsCardBackground" || m.name == "Mat_RoomHUD" || m.name == "Mat_ArtifactDetailPanel"))
+            {
+                bgImg.material = m;
+                break;
+            }
+        }
         RectTransform bgRect = bgObj.GetComponent<RectTransform>();
         bgRect.anchorMin = Vector2.zero;
         bgRect.anchorMax = Vector2.one;

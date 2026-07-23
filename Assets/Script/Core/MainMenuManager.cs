@@ -62,6 +62,21 @@ public class MainMenuManager : MonoBehaviour
         // Hook InputField selection event and XRI click/pinch event to trigger VR Keyboard
         if (mainMenuCanvas != null)
         {
+            UnityEngine.UI.Image menuBg = mainMenuCanvas.GetComponent<UnityEngine.UI.Image>();
+            if (menuBg == null) menuBg = mainMenuCanvas.transform.Find("Background")?.GetComponent<UnityEngine.UI.Image>();
+            if (menuBg == null) menuBg = mainMenuCanvas.GetComponentInChildren<UnityEngine.UI.Image>();
+            if (menuBg != null && (menuBg.material == null || menuBg.material.name == "Default UI"))
+            {
+                foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+                {
+                    if (m != null && (m.name == "Mat_MainMenu" || m.name == "Mat_OptionsCardBackground"))
+                    {
+                        menuBg.material = m;
+                        break;
+                    }
+                }
+            }
+
             TMP_InputField inputField = mainMenuCanvas.GetComponentInChildren<TMP_InputField>();
             XRSimpleInteractable interactable = mainMenuCanvas.GetComponentInChildren<XRSimpleInteractable>();
 

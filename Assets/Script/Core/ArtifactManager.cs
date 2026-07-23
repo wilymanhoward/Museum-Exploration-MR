@@ -71,6 +71,21 @@ public class ArtifactManager : MonoBehaviour
                 artifactInteraction = artifactUiCanvas.GetComponentInChildren<ArtifactPanel>(true);
             }
 
+            UnityEngine.UI.Image canvasBg = artifactUiCanvas.GetComponent<UnityEngine.UI.Image>();
+            if (canvasBg == null) canvasBg = artifactUiCanvas.transform.Find("Background")?.GetComponent<UnityEngine.UI.Image>();
+            if (canvasBg == null) canvasBg = artifactUiCanvas.GetComponentInChildren<UnityEngine.UI.Image>();
+            if (canvasBg != null && (canvasBg.material == null || canvasBg.material.name == "Default UI"))
+            {
+                foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+                {
+                    if (m != null && (m.name == "Mat_ArtifactDetailPanel" || m.name == "Mat_OptionsCardBackground"))
+                    {
+                        canvasBg.material = m;
+                        break;
+                    }
+                }
+            }
+
             // Hide the canvas initially
             artifactUiCanvas.SetActive(false);
         }

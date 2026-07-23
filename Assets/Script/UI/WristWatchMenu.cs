@@ -53,6 +53,20 @@ public class WristWatchMenu : MonoBehaviour
         if (optionsPanelObj != null)
         {
             optionsPanelObj.SetActive(false);
+            UnityEngine.UI.Image panelBg = optionsPanelObj.GetComponent<UnityEngine.UI.Image>();
+            if (panelBg == null) panelBg = optionsPanelObj.transform.Find("Background")?.GetComponent<UnityEngine.UI.Image>();
+            if (panelBg == null) panelBg = optionsPanelObj.GetComponentInChildren<UnityEngine.UI.Image>();
+            if (panelBg != null && (panelBg.material == null || panelBg.material.name == "Default UI"))
+            {
+                foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+                {
+                    if (m != null && (m.name == "Mat_OptionsCardBackground" || m.name == "Mat_RoomHUD"))
+                    {
+                        panelBg.material = m;
+                        break;
+                    }
+                }
+            }
         }
 
         if (roomHudCanvas == null)
