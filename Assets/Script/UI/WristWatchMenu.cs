@@ -237,9 +237,26 @@ public class WristWatchMenu : MonoBehaviour
         if (optionsPanelObj != null)
         {
             optionsPanelObj.SetActive(optionsPanelActive);
-            if (optionsPanelActive && hasAnchorPose)
+            if (optionsPanelActive)
             {
-                optionsPanelObj.transform.position = AnchorTransformPoint(panelOffset);
+                // Ensure Room HUD Canvas (gallery list panel) is hidden so both never appear at once
+                if (roomHudCanvas != null)
+                {
+                    roomHudCanvas.SetActive(false);
+                }
+
+                if (hasAnchorPose)
+                {
+                    optionsPanelObj.transform.position = AnchorTransformPoint(panelOffset);
+                }
+            }
+        }
+        else if (!optionsPanelActive)
+        {
+            // If turning off options panel, also hide room HUD canvas if open
+            if (roomHudCanvas != null)
+            {
+                roomHudCanvas.SetActive(false);
             }
         }
         Debug.Log($"WristWatchMenu: Options Panel Toggled -> {optionsPanelActive}");
@@ -270,9 +287,11 @@ public class WristWatchMenu : MonoBehaviour
             roomHudCanvas = GameObject.Find("RoomHUDCanvas");
         }
 
+        // Hide Options Panel so both panels never appear at once
+        CloseOptionsPanel();
+
         if (roomHudCanvas != null)
         {
-            CloseOptionsPanel();
             roomHudCanvas.SetActive(true);
             if (hasAnchorPose)
             {

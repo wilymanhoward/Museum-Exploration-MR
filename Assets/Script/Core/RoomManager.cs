@@ -278,9 +278,10 @@ public class RoomManager : MonoBehaviour
     /// </summary>
     public void StartExploration()
     {
+        // Keep roomHudContainer hidden at launch; it only appears when player taps the Ruang button in the Options panel
         if (roomHudContainer != null)
         {
-            roomHudContainer.SetActive(true);
+            roomHudContainer.SetActive(false);
         }
 
         if (currentRoom == null && rooms.Count > 0)
@@ -310,11 +311,11 @@ public class RoomManager : MonoBehaviour
             ArtifactManager.Instance.CloseActivePanel();
         }
 
-        // Make sure the room canvas is active when a room is entered/changed
-        if (roomHudContainer != null && !roomHudContainer.activeSelf)
-        {
-            roomHudContainer.SetActive(true);
-        }
+        // Do NOT force the room canvas visible here. Its content (room name, checklist) is
+        // rebuilt below regardless, but visibility is owned solely by the 'Ruang' button in the
+        // Options panel (WristWatchMenu.OnClickRuang). Auto-showing it on room change/startup is
+        // what previously made the artifact list pop up the moment exploration began. If the
+        // panel is already open it stays open; if closed it stays closed until the player opens it.
 
         // Update UI Text
         if (roomNameText != null)

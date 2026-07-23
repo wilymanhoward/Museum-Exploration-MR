@@ -412,8 +412,8 @@ MonoBehaviour:
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
   m_TreatSelectionAsValidState: 1
-  m_SmoothMovement: 0
-  m_FollowTightness: 10
+  m_SmoothMovement: 1
+  m_FollowTightness: 5
   m_SnapThresholdDistance: 10
   m_Reticle: {fileID: 0}
   m_BlockedReticle: {fileID: 0}

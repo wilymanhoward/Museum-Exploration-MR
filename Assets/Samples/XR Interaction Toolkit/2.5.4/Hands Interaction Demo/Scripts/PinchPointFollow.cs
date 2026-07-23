@@ -92,16 +92,20 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.Hands
             // Hand pose data is in local space relative to the xr origin.
             transform.localPosition = filteredTargetPos;
 
-            if (m_HasTargetRotationTransform && m_HasRayInteractor)
+            if (m_HasTargetRotationTransform)
             {
-                // Given that the ray endpoint is in worldspace, we need to use the worldspace transform of this point to determine the target rotation.
-                // This allows us to keep orientation consistent when moving the xr origin for locomotion.
-                var targetDir = (m_RayInteractor.rayEndPoint - transform.position).normalized;
-                var targetRot = Quaternion.LookRotation(targetDir);
-                
-                // If there aren't any major swings in rotation, follow the target rotation.
-                if (Vector3.Dot(m_TargetRotation.forward, targetDir) > 0.5f)
-                    m_QuaternionTweenableVariable.target = targetRot;
+                Quaternion targetRot = m_TargetRotation.rotation;
+                if (m_HasRayInteractor && m_RayInteractor != null)
+                {
+                    Vector3 targetDir = (m_RayInteractor.rayEndPoint - transform.position).normalized;
+                    if (targetDir.sqrMagnitude > 0.001f && Vector3.Dot(m_TargetRotation.forward, targetDir) > 0.1f)
+                    {
+                        Quaternion rayTargetRot = Quaternion.LookRotation(targetDir);
+                        // Smoothly blend between natural hand rotation and ray endpoint rotation to prevent frame-by-frame jitter
+                        targetRot = Quaternion.Slerp(m_TargetRotation.rotation, rayTargetRot, 0.5f);
+                    }
+                }
+                m_QuaternionTweenableVariable.target = targetRot;
             }
 
             var tweenTarget = m_RotationSmoothingSpeed > 0f ? m_RotationSmoothingSpeed * Time.deltaTime : 1f;

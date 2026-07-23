@@ -15,6 +15,10 @@ public class HandModalityForcer : MonoBehaviour
     private XRHandSubsystem m_HandSubsystem;
     private static List<XRHandSubsystem> s_Subsystems = new List<XRHandSubsystem>();
 
+    private float m_LeftHandUntrackedTimer = 0f;
+    private float m_RightHandUntrackedTimer = 0f;
+    private const float SwitchDelay = 0.3f; // 300ms delay to prevent rapid controller/hand fighting jitter
+
     private void Update()
     {
         // 1. Find the running XRHandSubsystem if not cached
@@ -32,7 +36,7 @@ public class HandModalityForcer : MonoBehaviour
             }
         }
 
-        // 2. Query tracking state and switch GameObjects
+        // 2. Query tracking state and switch GameObjects with hysteresis
         if (m_HandSubsystem != null && m_HandSubsystem.running)
         {
             bool leftHandTracked = m_HandSubsystem.leftHand.isTracked;
@@ -40,16 +44,40 @@ public class HandModalityForcer : MonoBehaviour
 
             if (leftHand != null && leftController != null)
             {
-                // Force hand visuals active if tracked, otherwise show controller
-                if (leftHand.activeSelf != leftHandTracked) leftHand.SetActive(leftHandTracked);
-                if (leftController.activeSelf != !leftHandTracked) leftController.SetActive(!leftHandTracked);
+                if (leftHandTracked)
+                {
+                    m_LeftHandUntrackedTimer = 0f;
+                    if (!leftHand.activeSelf) leftHand.SetActive(true);
+                    if (leftController.activeSelf) leftController.SetActive(false);
+                }
+                else
+                {
+                    m_LeftHandUntrackedTimer += Time.deltaTime;
+                    if (m_LeftHandUntrackedTimer >= SwitchDelay)
+                    {
+                        if (leftHand.activeSelf) leftHand.SetActive(false);
+                        if (!leftController.activeSelf) leftController.SetActive(true);
+                    }
+                }
             }
 
             if (rightHand != null && rightController != null)
             {
-                // Force hand visuals active if tracked, otherwise show controller
-                if (rightHand.activeSelf != rightHandTracked) rightHand.SetActive(rightHandTracked);
-                if (rightController.activeSelf != !rightHandTracked) rightController.SetActive(!rightHandTracked);
+                if (rightHandTracked)
+                {
+                    m_RightHandUntrackedTimer = 0f;
+                    if (!rightHand.activeSelf) rightHand.SetActive(true);
+                    if (rightController.activeSelf) rightController.SetActive(false);
+                }
+                else
+                {
+                    m_RightHandUntrackedTimer += Time.deltaTime;
+                    if (m_RightHandUntrackedTimer >= SwitchDelay)
+                    {
+                        if (rightHand.activeSelf) rightHand.SetActive(false);
+                        if (!rightController.activeSelf) rightController.SetActive(true);
+                    }
+                }
             }
         }
         else

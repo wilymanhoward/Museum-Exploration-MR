@@ -244,9 +244,15 @@ public class MainMenuManager : MonoBehaviour
     {
         foreach (var kvp in originalRayDistances)
         {
-            if (kvp.Key != null && kvp.Key.maxRaycastDistance > kvp.Value)
+            if (kvp.Key != null)
             {
-                kvp.Key.maxRaycastDistance = kvp.Value;
+                // Cap raycast distance to a comfortable 2.5 meters for hand interaction precision.
+                // At 10m distance, natural hand micro-tremors sweep large arcs, causing hand ray jitter.
+                float targetDist = Mathf.Min(kvp.Value, 2.5f);
+                if (kvp.Key.maxRaycastDistance > targetDist)
+                {
+                    kvp.Key.maxRaycastDistance = targetDist;
+                }
             }
         }
     }
