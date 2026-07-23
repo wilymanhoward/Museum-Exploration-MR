@@ -425,60 +425,160 @@ public class RoomManager : MonoBehaviour
 
     private void UpdateListItemVisual(GameObject item, ArtifactData artifact, bool isScanned)
     {
-        // New styled row (thumbnail + number + name + visited status), matching the wrist
-        // menu design. Falls back to the legacy single-text layout when those children
-        // are missing.
-        Transform nameT = item.transform.Find("NameText");
-        Transform statusT = item.transform.Find("StatusText");
-        if (nameT != null && statusT != null)
+        // 1. Ensure item background image and styling match screenshot card layout
+        UnityEngine.UI.Image bgImage = item.GetComponent<UnityEngine.UI.Image>();
+        if (bgImage == null)
         {
-            TextMeshProUGUI nameText = nameT.GetComponent<TextMeshProUGUI>();
-            if (nameText != null) nameText.text = artifact.artifactName;
-
-            TextMeshProUGUI statusText = statusT.GetComponent<TextMeshProUGUI>();
-            if (statusText != null)
-            {
-                statusText.text = isScanned ? "Sudah Dikunjung" : "Belum Dikunjung";
-                statusText.color = isScanned ? new Color(0.42f, 0.72f, 0.35f) : new Color(0.16f, 0.16f, 0.16f);
-            }
-
-            Transform numT = item.transform.Find("NumText");
-            if (numT != null)
-            {
-                int index = (currentRoom != null && currentRoom.artifacts != null) ? currentRoom.artifacts.IndexOf(artifact) : -1;
-                TextMeshProUGUI numText = numT.GetComponent<TextMeshProUGUI>();
-                if (numText != null && index >= 0) numText.text = (index + 1).ToString("00");
-            }
-
-            Transform thumbT = item.transform.Find("Thumb");
-            if (thumbT != null)
-            {
-                bool hasImage = artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null;
-                thumbT.gameObject.SetActive(hasImage);
-                if (hasImage)
-                {
-                    UnityEngine.UI.Image thumb = thumbT.GetComponent<UnityEngine.UI.Image>();
-                    if (thumb != null) thumb.sprite = artifact.images[0].sprite;
-                }
-            }
-            return;
+            bgImage = item.AddComponent<UnityEngine.UI.Image>();
         }
 
-        string displayName = isScanned ? $"<color=#4CAF50>{artifact.artifactName}</color>" : $"<color=#EDEBCF>{artifact.artifactName}</color>";
-
-        TextMeshProUGUI textComp = item.GetComponentInChildren<TextMeshProUGUI>();
-        if (textComp != null)
+        // Apply rounded card material or translucent sage color
+#if UNITY_EDITOR
+        Material rowMat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>("Assets/Prefabs/Mat_OptionRow.mat");
+        if (rowMat != null)
         {
-            textComp.text = displayName;
+            bgImage.material = rowMat;
         }
         else
         {
-            UnityEngine.UI.Text legacyText = item.GetComponentInChildren<UnityEngine.UI.Text>();
-            if (legacyText != null)
+            bgImage.color = new Color(0.48f, 0.52f, 0.44f, 0.60f); // Translucent sage gray (#7A8070)
+        }
+#else
+        bgImage.color = new Color(0.48f, 0.52f, 0.44f, 0.60f);
+#endif
+
+        RectTransform itemRect = item.GetComponent<RectTransform>();
+        if (itemRect != null)
+        {
+            itemRect.sizeDelta = new Vector2(itemRect.sizeDelta.x > 0 ? itemRect.sizeDelta.x : 300f, 65f);
+        }
+
+        // Hide legacy single text if present
+        Transform legacyTextT = item.transform.Find("Text");
+        if (legacyTextT != null && legacyTextT.name == "Text")
+        {
+            legacyTextT.gameObject.SetActive(false);
+        }
+
+        Color paleYellow = new Color(0.90f, 0.93f, 0.63f, 1.0f); // #E5EE9C
+        Color visitedGreen = new Color(0.55f, 0.89f, 0.63f, 1.0f); // #8BE4A0
+        Color unvisitedGray = new Color(0.88f, 0.88f, 0.88f, 1.0f); // #E0E0E0
+
+        // 2. Ensure Thumbnail Image (Thumb)
+        Transform thumbT = item.transform.Find("Thumb");
+        UnityEngine.UI.Image thumbImg = null;
+        if (thumbT == null)
+        {
+            GameObject thumbObj = new GameObject("Thumb");
+            thumbObj.transform.SetParent(item.transform, false);
+            thumbT = thumbObj.transform;
+            thumbImg = thumbObj.AddComponent<UnityEngine.UI.Image>();
+            RectTransform tRect = thumbObj.GetComponent<RectTransform>();
+            tRect.anchorMin = new Vector2(0.03f, 0.10f);
+            tRect.anchorMax = new Vector2(0.20f, 0.90f);
+            tRect.sizeDelta = Vector2.zero;
+        }
+        else
+        {
+            thumbImg = thumbT.GetComponent<UnityEngine.UI.Image>();
+        }
+
+        if (thumbImg != null)
+        {
+            Sprite artSprite = (artifact != null && artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null) 
+                ? artifact.images[0].sprite 
+                : null;
+
+            if (artSprite != null)
             {
-                // Strip HTML tags for legacy UI text
-                legacyText.text = artifact.artifactName;
+                thumbImg.sprite = artSprite;
+                thumbImg.gameObject.SetActive(true);
             }
+        }
+
+        // 3. Ensure Number Tag (NumText e.g. "01")
+        Transform numT = item.transform.Find("NumText");
+        TextMeshProUGUI numTextComp = null;
+        if (numT == null)
+        {
+            GameObject numObj = new GameObject("NumText");
+            numObj.transform.SetParent(item.transform, false);
+            numT = numObj.transform;
+            numTextComp = numObj.AddComponent<TextMeshProUGUI>();
+            RectTransform nRect = numObj.GetComponent<RectTransform>();
+            nRect.anchorMin = new Vector2(0.22f, 0.48f);
+            nRect.anchorMax = new Vector2(0.30f, 0.92f);
+            nRect.sizeDelta = Vector2.zero;
+        }
+        else
+        {
+            numTextComp = numT.GetComponent<TextMeshProUGUI>();
+        }
+
+        if (numTextComp != null)
+        {
+            int index = (currentRoom != null && currentRoom.artifacts != null && artifact != null) ? currentRoom.artifacts.IndexOf(artifact) : 0;
+            numTextComp.text = (index >= 0 ? index + 1 : 1).ToString("00");
+            numTextComp.fontSize = 18;
+            numTextComp.fontStyle = FontStyles.Bold;
+            numTextComp.color = paleYellow;
+            numTextComp.alignment = TextAlignmentOptions.Left;
+        }
+
+        // 4. Ensure Artifact Title (NameText e.g. "Mona Lisa")
+        Transform nameT = item.transform.Find("NameText");
+        TextMeshProUGUI nameTextComp = null;
+        if (nameT == null)
+        {
+            GameObject nameObj = new GameObject("NameText");
+            nameObj.transform.SetParent(item.transform, false);
+            nameT = nameObj.transform;
+            nameTextComp = nameObj.AddComponent<TextMeshProUGUI>();
+            RectTransform nRect = nameObj.GetComponent<RectTransform>();
+            nRect.anchorMin = new Vector2(0.31f, 0.48f);
+            nRect.anchorMax = new Vector2(0.96f, 0.92f);
+            nRect.sizeDelta = Vector2.zero;
+        }
+        else
+        {
+            nameTextComp = nameT.GetComponent<TextMeshProUGUI>();
+        }
+
+        if (nameTextComp != null && artifact != null)
+        {
+            nameTextComp.text = artifact.artifactName;
+            nameTextComp.fontSize = 22;
+            nameTextComp.fontStyle = FontStyles.Bold;
+            nameTextComp.color = paleYellow;
+            nameTextComp.alignment = TextAlignmentOptions.Left;
+        }
+
+        // 5. Ensure Visited Status (StatusText e.g. "Sudah Dikunjungi" / "Belum Dikunjungi")
+        Transform statusT = item.transform.Find("StatusText");
+        TextMeshProUGUI statusTextComp = null;
+        if (statusT == null)
+        {
+            GameObject statusObj = new GameObject("StatusText");
+            statusObj.transform.SetParent(item.transform, false);
+            statusT = statusObj.transform;
+            statusTextComp = statusObj.AddComponent<TextMeshProUGUI>();
+            RectTransform sRect = statusObj.GetComponent<RectTransform>();
+            sRect.anchorMin = new Vector2(0.31f, 0.10f);
+            sRect.anchorMax = new Vector2(0.96f, 0.48f);
+            sRect.sizeDelta = Vector2.zero;
+        }
+        else
+        {
+            statusTextComp = statusT.GetComponent<TextMeshProUGUI>();
+        }
+
+        if (statusTextComp != null)
+        {
+            statusTextComp.text = isScanned ? "Sudah Dikunjungi" : "Belum Dikunjungi";
+            statusTextComp.fontSize = 15;
+            statusTextComp.fontStyle = FontStyles.Normal;
+            statusTextComp.color = isScanned ? visitedGreen : unvisitedGray;
+            statusTextComp.alignment = TextAlignmentOptions.Left;
         }
     }
 

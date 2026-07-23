@@ -118,6 +118,24 @@ public class MainMenuManager : MonoBehaviour
 #endif
     }
 
+    // Re-run the "place in front of the player" logic every time this menu is shown, so it
+    // always appears in the player's current gaze instead of at a stale position latched on
+    // frame 0 (before head-tracking has settled) and never updated after HUDManager re-reveals it.
+    private void OnEnable()
+    {
+        menuPositioned = false;
+    }
+
+    // Camera.main is null if the active camera isn't tagged MainCamera (can happen with some
+    // XR rig setups); fall back to any camera so positioning still works on the headset.
+    private Camera cachedCamera;
+    private Transform ResolveCameraTransform()
+    {
+        if (Camera.main != null) return Camera.main.transform;
+        if (cachedCamera == null) cachedCamera = FindObjectOfType<Camera>();
+        return cachedCamera != null ? cachedCamera.transform : null;
+    }
+
     void Update()
     {
         // Gate the ray-extension purely on whether the menu is actually visible right now,
@@ -137,7 +155,7 @@ public class MainMenuManager : MonoBehaviour
         GameObject targetMenu = mainMenuCanvas != null ? mainMenuCanvas : gameObject;
         if (!menuPositioned)
         {
-            Transform camTransform = Camera.main != null ? Camera.main.transform : null;
+            Transform camTransform = ResolveCameraTransform();
             if (camTransform != null && camTransform.position.y > 0.1f)
             {
                 // Spawn exactly 1.0 meter in front of the player gaze at eye level
@@ -150,7 +168,7 @@ public class MainMenuManager : MonoBehaviour
         }
 
         // 2. Continuously rotate the menu to face toward the player as they move around (while keeping world position fixed)
-        Transform currentCam = Camera.main != null ? Camera.main.transform : null;
+        Transform currentCam = ResolveCameraTransform();
         if (currentCam != null && targetMenu != null)
         {
             Vector3 directionToPlayer = currentCam.position - targetMenu.transform.position;

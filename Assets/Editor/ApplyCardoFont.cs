@@ -28,25 +28,38 @@ public static class ApplyCardoFont
 
         int tmpCount = 0, legacyCount = 0, prefabCount = 0;
 
-        // --- 1. Prefabs (skip third-party demo folders) ---
+        // --- 1. Prefabs (only editable project prefabs; skip Packages & third-party demos) ---
         foreach (string guid in AssetDatabase.FindAssets("t:Prefab"))
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);
-            if (path.StartsWith("Assets/Samples/") || path.StartsWith("Assets/Layer Lab/"))
-                continue;
 
-            GameObject root;
+            // Only touch our own writable prefabs. Package prefabs live under "Packages/"
+            // and are immutable (SaveAsPrefabAsset throws on them).
+            if (!path.StartsWith("Assets/")) continue;
+            if (path.StartsWith("Assets/Samples/") || path.StartsWith("Assets/Layer Lab/")) continue;
+
+            GameObject root = null;
             try { root = PrefabUtility.LoadPrefabContents(path); }
             catch { continue; }
 
-            bool changed = false;
-            foreach (var t in root.GetComponentsInChildren<TMP_Text>(true))
-                if (t.font != cardo) { t.font = cardo; changed = true; tmpCount++; }
-            foreach (var t in root.GetComponentsInChildren<Text>(true))
-                if (cardoTtf != null && t.font != cardoTtf) { t.font = cardoTtf; changed = true; legacyCount++; }
+            try
+            {
+                bool changed = false;
+                foreach (var t in root.GetComponentsInChildren<TMP_Text>(true))
+                    if (t.font != cardo) { t.font = cardo; changed = true; tmpCount++; }
+                foreach (var t in root.GetComponentsInChildren<Text>(true))
+                    if (cardoTtf != null && t.font != cardoTtf) { t.font = cardoTtf; changed = true; legacyCount++; }
 
-            if (changed) { PrefabUtility.SaveAsPrefabAsset(root, path); prefabCount++; }
-            PrefabUtility.UnloadPrefabContents(root);
+                if (changed) { PrefabUtility.SaveAsPrefabAsset(root, path); prefabCount++; }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[Cardo] Skipped prefab '{path}': {e.Message}");
+            }
+            finally
+            {
+                if (root != null) PrefabUtility.UnloadPrefabContents(root);
+            }
         }
 
         // --- 2. All currently-open scenes ---
