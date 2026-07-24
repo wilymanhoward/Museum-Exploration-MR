@@ -109,6 +109,8 @@ public class ArtifactManager : MonoBehaviour
         UpdateArtifact(artifact, CalculateDefaultPose());
     }
 
+    private readonly System.Collections.Generic.HashSet<string> scannedArtifactIds = new System.Collections.Generic.HashSet<string>();
+
     /// <summary>
     /// Updates the selected artifact, syncs the UI panel to display it, and repositions the panel to the given pose.
     /// </summary>
@@ -121,6 +123,11 @@ public class ArtifactManager : MonoBehaviour
         {
             CloseActivePanel();
             return;
+        }
+
+        if (!string.IsNullOrEmpty(artifact.artifactId))
+        {
+            scannedArtifactIds.Add(artifact.artifactId.Trim().ToLower());
         }
 
         // If a panel is already open, update its details and position directly
@@ -409,6 +416,200 @@ public class ArtifactManager : MonoBehaviour
         if (RoomManager.Instance != null)
         {
             RoomManager.Instance.MarkArtifactInteracted(artifactId);
+        }
+    }
+
+    public bool IsArtifactScanned(ArtifactData data)
+    {
+        if (data == null || string.IsNullOrEmpty(data.artifactId)) return false;
+        return scannedArtifactIds.Contains(data.artifactId.Trim().ToLower());
+    }
+
+    public System.Collections.Generic.List<ArtifactData> GetAllMuseumArtifacts()
+    {
+        var allList = new System.Collections.Generic.List<ArtifactData>();
+        var seenIds = new System.Collections.Generic.HashSet<string>();
+
+        void AddIfUnique(ArtifactData art)
+        {
+            if (art == null || string.IsNullOrEmpty(art.artifactId)) return;
+            string key = art.artifactId.Trim().ToLower();
+            if (!seenIds.Contains(key))
+            {
+                seenIds.Add(key);
+                allList.Add(art);
+            }
+        }
+
+        if (RoomManager.Instance != null && RoomManager.Instance.rooms != null)
+        {
+            foreach (var room in RoomManager.Instance.rooms)
+            {
+                if (room != null && room.artifacts != null)
+                {
+                    foreach (var art in room.artifacts) AddIfUnique(art);
+                }
+            }
+        }
+
+        ArtifactData[] resourceArtifacts = Resources.LoadAll<ArtifactData>("MuseumData");
+        if (resourceArtifacts != null)
+        {
+            foreach (var art in resourceArtifacts) AddIfUnique(art);
+        }
+
+        foreach (ArtifactData art in Resources.FindObjectsOfTypeAll<ArtifactData>())
+        {
+            AddIfUnique(art);
+        }
+
+        return allList;
+    }
+
+    public void PopulateArtifactHUDList()
+    {
+        GameObject hudCanvas = GameObject.Find("ArtifactHUDCanvas");
+        if (hudCanvas == null)
+        {
+            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go.name == "ArtifactHUDCanvas" && go.scene.isLoaded)
+                {
+                    hudCanvas = go;
+                    break;
+                }
+            }
+        }
+
+        if (hudCanvas == null) return;
+
+        Transform listContainer = hudCanvas.transform.Find("ArtifactList");
+        if (listContainer == null)
+        {
+            listContainer = hudCanvas.transform.Find("Content/ArtifactList") ?? hudCanvas.GetComponentInChildren<UnityEngine.UI.VerticalLayoutGroup>()?.transform;
+        }
+
+        if (listContainer == null) return;
+
+        var countText = hudCanvas.transform.Find("ArtifactCountText")?.GetComponent<TMPro.TextMeshProUGUI>();
+        if (countText == null) countText = hudCanvas.GetComponentInChildren<TMPro.TextMeshProUGUI>();
+
+        var allArtifacts = GetAllMuseumArtifacts();
+        if (countText != null)
+        {
+            countText.text = $"Jumlah Artefak: {allArtifacts.Count}";
+        }
+
+        GameObject itemPrefab = RoomManager.Instance != null ? RoomManager.Instance.artifactListItemPrefab : null;
+        if (itemPrefab == null)
+        {
+            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go.name == "ArtifactListItemPrefab") { itemPrefab = go; break; }
+            }
+        }
+
+        foreach (Transform child in listContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+        for (int i = 0; i < allArtifacts.Count; i++)
+        {
+            ArtifactData art = allArtifacts[i];
+            int index = i + 1;
+
+            GameObject item = itemPrefab != null ? Instantiate(itemPrefab, listContainer) : new GameObject($"ArtifactItem_{index}");
+            if (itemPrefab == null) item.transform.SetParent(listContainer, false);
+
+            item.name = $"ArtifactItem_{index}";
+            item.SetActive(true);
+
+            ConfigureArtifactHUDItem(item, art, index);
+        }
+    }
+
+    private void ConfigureArtifactHUDItem(GameObject item, ArtifactData artifact, int index)
+    {
+        if (item == null || artifact == null) return;
+
+        UnityEngine.UI.Image bgImg = item.GetComponent<UnityEngine.UI.Image>();
+        if (bgImg == null) bgImg = item.AddComponent<UnityEngine.UI.Image>();
+        bgImg.color = new Color(0.25f, 0.28f, 0.22f, 0.75f);
+
+        if (RoomManager.Instance != null && RoomManager.Instance.rowCardMaterial != null)
+        {
+            bgImg.material = RoomManager.Instance.rowCardMaterial;
+        }
+
+        UnityEngine.UI.Button btn = item.GetComponent<UnityEngine.UI.Button>();
+        if (btn == null) btn = item.AddComponent<UnityEngine.UI.Button>();
+
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() => {
+            Debug.Log($"Artifact HUD Item clicked: {artifact.artifactName}");
+
+            GameObject artifactHud = GameObject.Find("ArtifactHUDCanvas");
+            if (artifactHud != null) artifactHud.SetActive(false);
+
+            GameObject optionsPanel = GameObject.Find("OptionsPanelCanvas");
+            if (optionsPanel != null) optionsPanel.SetActive(false);
+
+            UpdateArtifact(artifact);
+        });
+
+        XRButtonSelection selection = item.GetComponent<XRButtonSelection>();
+        if (selection == null) selection = item.AddComponent<XRButtonSelection>();
+        selection.onClick.RemoveAllListeners();
+        selection.onClick.AddListener(() => {
+            btn.onClick.Invoke();
+        });
+
+        UnityEngine.UI.Image thumbImg = item.transform.Find("Thumb")?.GetComponent<UnityEngine.UI.Image>();
+        if (thumbImg != null)
+        {
+            if (artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null)
+            {
+                thumbImg.sprite = artifact.images[0].sprite;
+                thumbImg.color = Color.white;
+                thumbImg.gameObject.SetActive(true);
+            }
+            else
+            {
+                thumbImg.gameObject.SetActive(false);
+            }
+        }
+
+        var numText = item.transform.Find("NumText")?.GetComponent<TMPro.TextMeshProUGUI>();
+        if (numText != null)
+        {
+            numText.text = index.ToString("D2");
+        }
+
+        var nameText = item.transform.Find("NameText")?.GetComponent<TMPro.TextMeshProUGUI>();
+        if (nameText != null)
+        {
+            nameText.text = artifact.artifactName;
+            nameText.enableAutoSizing = true;
+            nameText.fontSizeMin = 10f;
+            nameText.fontSizeMax = 20f;
+            nameText.overflowMode = TMPro.TextOverflowModes.Ellipsis;
+        }
+
+        var statusText = item.transform.Find("StatusText")?.GetComponent<TMPro.TextMeshProUGUI>();
+        if (statusText != null)
+        {
+            bool isScanned = IsArtifactScanned(artifact);
+            if (isScanned)
+            {
+                statusText.text = "Sudah Dikunjung";
+                statusText.color = new Color(0.486f, 1f, 0.541f);
+            }
+            else
+            {
+                statusText.text = "Belum Dikunjung";
+                statusText.color = new Color(0.816f, 0.835f, 0.8f);
+            }
         }
     }
 }
