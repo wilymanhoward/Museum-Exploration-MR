@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 public class ArtifactPanel : MonoBehaviour
 {
@@ -18,7 +19,6 @@ public class ArtifactPanel : MonoBehaviour
     [Header("UI Image Gallery Fields")]
     public UnityEngine.UI.Image displayImage;
     public TextMeshProUGUI noImagesText;
-    public TextMeshProUGUI imageIndexText; // displays image title
 
     [Header("Object Spawner Reference")]
     [Tooltip("The Empty Object where the 3D model prefab will be instantiated.")]
@@ -31,16 +31,79 @@ public class ArtifactPanel : MonoBehaviour
     [Tooltip("If true, rotates the panel 180 degrees relative to the player direction.")]
     public bool invertRotation = false;
 
+    [Header("Exploration Canvas Flow References")]
+    [Tooltip("The canvas GameObject to hide. If null, will automatically find the parent Canvas's GameObject.")]
+    public GameObject canvasObject;
+    public GameObject twoDViewPanel;
+    public GameObject threeDViewPanel;
+
+    [Header("View Toggle Buttons")]
+    public Button imagesButton;
+    public XRButtonSelection imagesButtonXR;
+    public Button threeDViewButton;
+    public XRButtonSelection threeDViewButtonXR;
+
+    [Header("Close Buttons (Hides entire Canvas)")]
+    public Button closeButton;
+    public XRButtonSelection closeButtonXR;
+
+    [Header("Back Buttons (Goes back to Room Panel)")]
+    public Button backButton;
+    public XRButtonSelection backButtonXR;
+
     [HideInInspector] public ArtifactData artifactData;
     private GameObject spawnedModel;
     private Action onCloseCallback;
     private int currentImageIndex = 0;
     private Transform trackedPlayer;
+    private RoomPanel previousRoomPanel;
 
     private void Awake()
     {
         // Ensure detail panel is hidden at startup until opened by scan or menu
         gameObject.SetActive(false);
+    }
+
+    private void Start()
+    {
+        // Hook view toggle buttons
+        if (imagesButton != null)
+        {
+            imagesButton.onClick.AddListener(() => SetViewMode(true));
+        }
+        if (imagesButtonXR != null)
+        {
+            imagesButtonXR.onClick.AddListener(() => SetViewMode(true));
+        }
+
+        if (threeDViewButton != null)
+        {
+            threeDViewButton.onClick.AddListener(() => SetViewMode(false));
+        }
+        if (threeDViewButtonXR != null)
+        {
+            threeDViewButtonXR.onClick.AddListener(() => SetViewMode(false));
+        }
+
+        // Hook close button click to hide the canvas
+        if (closeButton != null)
+        {
+            closeButton.onClick.AddListener(CloseCanvas);
+        }
+        if (closeButtonXR != null)
+        {
+            closeButtonXR.onClick.AddListener(CloseCanvas);
+        }
+
+        // Hook back button click to return to the room panel
+        if (backButton != null)
+        {
+            backButton.onClick.AddListener(OnBackPressed);
+        }
+        if (backButtonXR != null)
+        {
+            backButtonXR.onClick.AddListener(OnBackPressed);
+        }
     }
 
     private void OnEnable()
@@ -214,7 +277,6 @@ public class ArtifactPanel : MonoBehaviour
             displayImage.gameObject.SetActive(false);
         }
         if (noImagesText != null) noImagesText.gameObject.SetActive(false);
-        if (imageIndexText != null) imageIndexText.gameObject.SetActive(false);
 
         // Clean up previous model if present
         ClearSpawnedModelSilently();
@@ -392,7 +454,6 @@ public class ArtifactPanel : MonoBehaviour
             displayImage.gameObject.SetActive(true);
         }
         if (noImagesText != null) noImagesText.gameObject.SetActive(true);
-        if (imageIndexText != null) imageIndexText.gameObject.SetActive(true);
     }
 
     #region Image Gallery Functions
@@ -435,10 +496,6 @@ public class ArtifactPanel : MonoBehaviour
             {
                 noImagesText.gameObject.SetActive(false);
             }
-            if (imageIndexText != null)
-            {
-                imageIndexText.text = artifactData.images[currentImageIndex].title;
-            }
         }
         else
         {
@@ -450,10 +507,6 @@ public class ArtifactPanel : MonoBehaviour
             {
                 noImagesText.gameObject.SetActive(true);
                 noImagesText.text = "Artefak tidak ada Gambar";
-            }
-            if (imageIndexText != null)
-            {
-                imageIndexText.text = "No Image";
             }
         }
     }
@@ -508,5 +561,83 @@ public class ArtifactPanel : MonoBehaviour
         }
 
         Debug.Log($"Updated detail panel with new artifact data: {data.artifactName}");
+    }
+
+    /// <summary>
+    /// Displays the detailed information of the specified artifact for the Exploration Canvas flow.
+    /// </summary>
+    public void ShowArtifact(ArtifactData data, RoomPanel previousPanel)
+    {
+        previousRoomPanel = previousPanel;
+        gameObject.SetActive(true);
+
+        if (previousRoomPanel != null)
+        {
+            previousRoomPanel.gameObject.SetActive(false);
+        }
+
+        UpdateDetails(data);
+
+        // Default to 2D view
+        SetViewMode(true);
+    }
+
+    private void SetViewMode(bool show2D)
+    {
+        if (twoDViewPanel != null)
+        {
+            twoDViewPanel.SetActive(show2D);
+        }
+        if (threeDViewPanel != null)
+        {
+            threeDViewPanel.SetActive(!show2D);
+        }
+
+        if (twoDViewPanel != null || threeDViewPanel != null)
+        {
+            if (displayImage != null)
+            {
+                displayImage.gameObject.SetActive(show2D);
+            }
+            if (noImagesText != null) noImagesText.gameObject.SetActive(show2D && (artifactData == null || artifactData.images == null || artifactData.images.Length == 0));
+        }
+    }
+
+    private void OnBackPressed()
+    {
+        ClearSpawnedModel();
+
+        if (previousRoomPanel != null)
+        {
+            previousRoomPanel.gameObject.SetActive(true);
+        }
+        gameObject.SetActive(false);
+    }
+
+    /// <summary>
+    /// Hides the canvas/parent canvas. This function can be called from UnityEvents.
+    /// Since the panel state is not altered, revealing the canvas again will show the last active panel.
+    /// </summary>
+    public void CloseCanvas()
+    {
+        if (canvasObject != null)
+        {
+            canvasObject.SetActive(false);
+        }
+        else
+        {
+            Canvas parentCanvas = GetComponentInParent<Canvas>();
+            if (parentCanvas != null)
+            {
+                parentCanvas.gameObject.SetActive(false);
+            }
+            else
+            {
+                if (transform.parent != null)
+                {
+                    transform.parent.gameObject.SetActive(false);
+                }
+            }
+        }
     }
 }

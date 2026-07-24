@@ -691,7 +691,6 @@ public class MuseumSceneSetupEditor : EditorWindow
         panelComp.dimensionText = dimTxt;
         panelComp.materialText = matTxt;
         panelComp.displayImage = dispImg;
-        panelComp.imageIndexText = navText;
         panelComp.objectSpawner = spawnerObj.transform;
 
         return panelObj;
