@@ -16,6 +16,7 @@ public class WristWatchMenu : MonoBehaviour
     [Header("Options Targets")]
     public GameObject roomHudCanvas;
     public GameObject artifactContainerObj;
+    public GameObject artifactHudCanvas;
 
     [Header("Offsets")]
     [Tooltip("World-space offset for the watch button relative to the left wrist (Y = up), so the icon hovers on top of the hand regardless of wrist rotation.")]
@@ -256,11 +257,9 @@ public class WristWatchMenu : MonoBehaviour
             optionsPanelObj.SetActive(optionsPanelActive);
             if (optionsPanelActive)
             {
-                // Ensure Room HUD Canvas (gallery list panel) is hidden so both never appear at once
-                if (roomHudCanvas != null)
-                {
-                    roomHudCanvas.SetActive(false);
-                }
+                // Ensure other list panels are hidden so both never appear at once
+                if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+                if (artifactHudCanvas != null) artifactHudCanvas.SetActive(false);
 
                 if (hasAnchorPose)
                 {
@@ -270,11 +269,8 @@ public class WristWatchMenu : MonoBehaviour
         }
         else if (!optionsPanelActive)
         {
-            // If turning off options panel, also hide room HUD canvas if open
-            if (roomHudCanvas != null)
-            {
-                roomHudCanvas.SetActive(false);
-            }
+            if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+            if (artifactHudCanvas != null) artifactHudCanvas.SetActive(false);
         }
         Debug.Log($"WristWatchMenu: Options Panel Toggled -> {optionsPanelActive}");
     }
@@ -304,15 +300,14 @@ public class WristWatchMenu : MonoBehaviour
             roomHudCanvas = GameObject.Find("RoomHUDCanvas");
         }
 
-        // Hide Options Panel so both panels never appear at once
         CloseOptionsPanel();
+        if (artifactHudCanvas != null) artifactHudCanvas.SetActive(false);
 
         if (roomHudCanvas != null)
         {
             roomHudCanvas.SetActive(true);
             if (hasAnchorPose)
             {
-                // Snap to the hand so it doesn't lerp in from wherever it last was
                 roomHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
             }
         }
@@ -332,22 +327,43 @@ public class WristWatchMenu : MonoBehaviour
 
     /// <summary>
     /// Invoked when player taps the 'Artefak' (Artifacts) row in Options Panel.
+    /// Swaps options panel for the All Artifacts List panel (ArtifactHUDCanvas).
     /// </summary>
     public void OnClickArtefak()
     {
         Debug.Log("WristWatchMenu: 'Artefak' button clicked!");
-        if (artifactContainerObj != null)
+        if (artifactHudCanvas == null)
         {
-            artifactContainerObj.SetActive(!artifactContainerObj.activeSelf);
+            artifactHudCanvas = GameObject.Find("ArtifactHUDCanvas");
         }
-        else
+
+        CloseOptionsPanel();
+        if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+
+        if (artifactHudCanvas != null)
         {
-            // Toggle Artifact Panel inside current scene
-            GameObject artifactPanel = GameObject.Find("ArtifactDetailPanel") ?? GameObject.Find("ArtifactPanelPrefab");
-            if (artifactPanel != null)
+            artifactHudCanvas.SetActive(true);
+            if (hasAnchorPose)
             {
-                artifactPanel.SetActive(!artifactPanel.activeSelf);
+                artifactHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
+            }
+
+            if (ArtifactManager.Instance != null)
+            {
+                ArtifactManager.Instance.PopulateArtifactHUDList();
             }
         }
+    }
+
+    /// <summary>
+    /// Invoked when player taps the Close ('X') button on the Artifact HUD panel.
+    /// </summary>
+    public void CloseArtifactHUDPanel()
+    {
+        if (artifactHudCanvas != null)
+        {
+            artifactHudCanvas.SetActive(false);
+        }
+        Debug.Log("WristWatchMenu: Artifact HUD Panel Closed.");
     }
 }
