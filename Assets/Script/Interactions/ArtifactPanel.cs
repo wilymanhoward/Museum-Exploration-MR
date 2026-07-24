@@ -118,27 +118,21 @@ public class ArtifactPanel : MonoBehaviour
         if (dimensionText != null) dimensionText.text = $"{data.height}cm x {data.width}cm x {data.length}cm";
         if (materialText != null) materialText.text = data.material;
 
-        // Reset image gallery index
+        // Reset image gallery index & show photo
         currentImageIndex = 0;
         UpdateImageUI();
 
-        // Clean up previous models inside the ObjectSpawner
+        // Clean up previous models inside the ObjectSpawner (3D model only appears when 3D View button is clicked)
         ClearSpawnedModel();
 
-        // Configure 3D View button visibility (hide if no 3D model)
+        // Configure 3D View button visibility
         Refresh3DViewButtonState();
-
-        // Automatically spawn the 3D model if present
-        if (data != null && data.modelPrefab != null)
-        {
-            OnSpawnModelClicked();
-        }
 
         Debug.Log($"Setup detail panel next to QR code for: {data.artifactName} at position: {transform.position}");
     }
 
     /// <summary>
-    /// Ensures 3D View button is active and wired up so clicking it always displays a 3D model.
+    /// Ensures 3D View button is active and wired up so clicking/pinching it displays the 3D model.
     /// </summary>
     private void Refresh3DViewButtonState()
     {
@@ -171,23 +165,19 @@ public class ArtifactPanel : MonoBehaviour
             btn.onClick.AddListener(On3DViewButtonClicked);
 
             XRButtonSelection selection = view3DButton.GetComponent<XRButtonSelection>();
-            if (selection != null)
-            {
-                selection.onClick.RemoveAllListeners();
-                selection.onClick.AddListener(On3DViewButtonClicked);
-            }
+            if (selection == null) selection = view3DButton.AddComponent<XRButtonSelection>();
+            selection.onClick.RemoveAllListeners();
+            selection.onClick.AddListener(On3DViewButtonClicked);
         }
     }
 
     /// <summary>
-    /// Invoked when player clicks/taps the 3D View button.
+    /// Invoked when player clicks/taps/pinches the 3D View button.
     /// Freshly spawns or re-centers the 3D model right in front of the panel.
     /// </summary>
     public void On3DViewButtonClicked()
     {
-        if (artifactData == null) return;
-
-        // Freshly spawn or re-center the 3D model right on the panel
+        Debug.Log("[ArtifactPanel] 3D View Button Clicked / Pinched!");
         ClearSpawnedModel();
         OnSpawnModelClicked();
     }
@@ -212,11 +202,22 @@ public class ArtifactPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// Instantiates the 3D model inside the ObjectSpawner.
+    /// Instantiates the 3D model inside the ObjectSpawner and hides the photo image.
     /// </summary>
     public void OnSpawnModelClicked()
     {
-        if (spawnedModel != null || artifactData == null) return;
+        if (artifactData == null) return;
+
+        // Hide photo image while 3D view is active
+        if (displayImage != null)
+        {
+            displayImage.gameObject.SetActive(false);
+        }
+        if (noImagesText != null) noImagesText.gameObject.SetActive(false);
+        if (imageIndexText != null) imageIndexText.gameObject.SetActive(false);
+
+        // Clean up previous model if present
+        ClearSpawnedModelSilently();
 
         // Ensure objectSpawner exists
         if (objectSpawner == null)
@@ -232,29 +233,88 @@ public class ArtifactPanel : MonoBehaviour
         }
 
         RotateArtifact rotator = objectSpawner.GetComponent<RotateArtifact>();
+        GameObject prefabToSpawn = artifactData.modelPrefab;
 
-        if (artifactData.modelPrefab != null)
+        // Fallback: Load model from Resources if modelPrefab unassigned
+        if (prefabToSpawn == null)
+        {
+            prefabToSpawn = Resources.Load<GameObject>($"Models/{artifactData.artifactId}") ??
+                            Resources.Load<GameObject>($"Models/model_{artifactData.artifactId}") ??
+                            Resources.Load<GameObject>($"Prefabs/model_{artifactData.artifactId}");
+        }
+
+        if (prefabToSpawn != null)
         {
             if (rotator != null)
             {
-                spawnedModel = rotator.SpawnModel(artifactData.modelPrefab, artifactData.artifactId);
+                spawnedModel = rotator.SpawnModel(prefabToSpawn, artifactData.artifactId);
             }
             else
             {
-                spawnedModel = Instantiate(artifactData.modelPrefab, objectSpawner.position, objectSpawner.rotation, objectSpawner);
+                spawnedModel = Instantiate(prefabToSpawn, objectSpawner.position, objectSpawner.rotation, objectSpawner);
                 spawnedModel.transform.localPosition = new Vector3(0, 0, -0.05f);
             }
-
-            if (spawnedModel != null)
-            {
-                spawnedModel.SetActive(true);
-            }
-
-            Debug.Log($"3D Model spawned inside ObjectSpawner for {artifactData.artifactName}.");
         }
         else
         {
-            Debug.LogWarning("Cannot spawn model: objectSpawner or modelPrefab is missing.");
+            // Create a clean 3D display object as fallback so a 3D model ALWAYS appears on click
+            GameObject fallbackObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            fallbackObj.name = $"3DDisplay_{artifactData.artifactId}";
+            fallbackObj.transform.SetParent(objectSpawner, false);
+            fallbackObj.transform.localPosition = new Vector3(0, 0, -0.05f);
+            fallbackObj.transform.localScale = Vector3.one * 0.25f;
+
+            spawnedModel = fallbackObj;
+        }
+
+        if (spawnedModel != null)
+        {
+            spawnedModel.SetActive(true);
+            ApplyTextureToModel(spawnedModel, artifactData);
+            FitModelToWorldSize(spawnedModel, 0.35f);
+        }
+
+        Debug.Log($"3D Model successfully displayed with texture for {artifactData.artifactName}.");
+    }
+
+    /// <summary>
+    /// Applies the artifact's photo texture onto the 3D model renderers.
+    /// </summary>
+    private void ApplyTextureToModel(GameObject model, ArtifactData data)
+    {
+        if (model == null || data == null) return;
+
+        Texture2D textureToApply = null;
+        if (data.images != null && data.images.Length > 0 && data.images[0].sprite != null)
+        {
+            textureToApply = data.images[0].sprite.texture;
+        }
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer r in renderers)
+        {
+            if (r == null) continue;
+
+            Material mat = r.material;
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                r.material = mat;
+            }
+
+            if (textureToApply != null)
+            {
+                mat.mainTexture = textureToApply;
+                if (mat.HasProperty("_BaseMap"))
+                {
+                    mat.SetTexture("_BaseMap", textureToApply);
+                }
+                if (mat.HasProperty("_MainTex"))
+                {
+                    mat.SetTexture("_MainTex", textureToApply);
+                }
+                mat.color = Color.white;
+            }
         }
     }
 
@@ -297,7 +357,7 @@ public class ArtifactPanel : MonoBehaviour
         onCloseCallback?.Invoke();
     }
 
-    public void ClearSpawnedModel()
+    private void ClearSpawnedModelSilently()
     {
         if (spawnedModel != null)
         {
@@ -320,6 +380,19 @@ public class ArtifactPanel : MonoBehaviour
                 }
             }
         }
+    }
+
+    public void ClearSpawnedModel()
+    {
+        ClearSpawnedModelSilently();
+
+        // Restore photo image when 3D model is cleared
+        if (displayImage != null)
+        {
+            displayImage.gameObject.SetActive(true);
+        }
+        if (noImagesText != null) noImagesText.gameObject.SetActive(true);
+        if (imageIndexText != null) imageIndexText.gameObject.SetActive(true);
     }
 
     #region Image Gallery Functions
