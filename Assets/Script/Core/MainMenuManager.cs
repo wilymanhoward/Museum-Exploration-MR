@@ -2,11 +2,19 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.Video;
 
 public class MainMenuManager : MonoBehaviour
 {
     [Header("UI References")]
     public GameObject mainMenuCanvas;
+
+    [Header("Video Intro References")]
+    public GameObject introVideoPanel;
+    public GameObject enterNamePanel;
+    public VideoPlayer videoPlayer;
+    public XRButtonSelection skipButtonXR;
+    public Button skipButton;
 
     [Header("Exploration References")]
     public GameObject wayfindingSystem;
@@ -38,6 +46,58 @@ public class MainMenuManager : MonoBehaviour
         // Ensure the exploration-specific visuals are disabled at startup
         if (wayfindingSystem != null) wayfindingSystem.SetActive(false);
         if (artifactsContainer != null) artifactsContainer.SetActive(false);
+
+        // Resolve video/panels if null
+        if (introVideoPanel == null && mainMenuCanvas != null)
+        {
+            Transform t = mainMenuCanvas.transform.Find("IntoVideoPanel");
+            if (t != null) introVideoPanel = t.gameObject;
+        }
+        if (enterNamePanel == null && mainMenuCanvas != null)
+        {
+            Transform t = mainMenuCanvas.transform.Find("EnterNamePanel");
+            if (t != null) enterNamePanel = t.gameObject;
+        }
+        if (videoPlayer == null && introVideoPanel != null)
+        {
+            videoPlayer = introVideoPanel.GetComponentInChildren<VideoPlayer>(true);
+        }
+        if (skipButton == null && introVideoPanel != null)
+        {
+            Transform t = introVideoPanel.transform.Find("SkipButton");
+            if (t != null) skipButton = t.GetComponent<Button>();
+            if (skipButton == null) skipButton = introVideoPanel.GetComponentInChildren<Button>(true);
+        }
+        if (skipButtonXR == null && introVideoPanel != null)
+        {
+            Transform t = introVideoPanel.transform.Find("SkipButton");
+            if (t != null) skipButtonXR = t.GetComponent<XRButtonSelection>();
+            if (skipButtonXR == null) skipButtonXR = introVideoPanel.GetComponentInChildren<XRButtonSelection>(true);
+        }
+
+        // Hook video events
+        if (videoPlayer != null)
+        {
+            videoPlayer.loopPointReached += OnVideoFinished;
+        }
+        if (skipButton != null)
+        {
+            skipButton.onClick.AddListener(EndVideoAndShowNameEntry);
+        }
+        if (skipButtonXR != null)
+        {
+            skipButtonXR.onClick.AddListener(EndVideoAndShowNameEntry);
+        }
+
+        // Initialize panel state: show video first, hide name entry
+        if (introVideoPanel != null)
+        {
+            introVideoPanel.SetActive(true);
+        }
+        if (enterNamePanel != null)
+        {
+            enterNamePanel.SetActive(false);
+        }
 
         // Automatically extend all hand/controller raycast pointer lengths in the scene (including inactive ones) so players can reach the menu.
         // Remember each one's original distance so it can be restored once exploration/gameplay starts -
@@ -77,8 +137,8 @@ public class MainMenuManager : MonoBehaviour
                 }
             }
 
-            TMP_InputField inputField = mainMenuCanvas.GetComponentInChildren<TMP_InputField>();
-            XRSimpleInteractable interactable = mainMenuCanvas.GetComponentInChildren<XRSimpleInteractable>();
+            TMP_InputField inputField = mainMenuCanvas.GetComponentInChildren<TMP_InputField>(true);
+            XRSimpleInteractable interactable = mainMenuCanvas.GetComponentInChildren<XRSimpleInteractable>(true);
 
             if (inputField != null)
             {
@@ -323,6 +383,29 @@ public class MainMenuManager : MonoBehaviour
         if (RoomManager.Instance != null)
         {
             RoomManager.Instance.StartExploration();
+        }
+    }
+
+    private void OnVideoFinished(VideoPlayer source)
+    {
+        EndVideoAndShowNameEntry();
+    }
+
+    private void EndVideoAndShowNameEntry()
+    {
+        if (videoPlayer != null)
+        {
+            videoPlayer.Stop();
+        }
+
+        if (introVideoPanel != null)
+        {
+            introVideoPanel.SetActive(false);
+        }
+
+        if (enterNamePanel != null)
+        {
+            enterNamePanel.SetActive(true);
         }
     }
 }

@@ -901,7 +901,6 @@ GameObject:
   - component: {fileID: 59905073}
   - component: {fileID: 59905072}
   - component: {fileID: 59905071}
-  - component: {fileID: 59905070}
   m_Layer: 0
   m_Name: ArtifactPanelPrefab(Clone)
   m_TagString: Untagged
@@ -909,26 +908,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 0
---- !u!114 &59905070
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 59905069}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9c67b44ac5bdf6a46bda9edcacea3cee, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  customFont: {fileID: 0}
-  customSlotsContainer: {fileID: 0}
-  customTrayContainer: {fileID: 0}
-  customCardPrefab: {fileID: 0}
-  customCheckAnswerButton: {fileID: 0}
-  customTitleText: {fileID: 0}
-  customFeedbackText: {fileID: 0}
-  customCloseButton: {fileID: 0}
 --- !u!114 &59905071
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -955,6 +934,7 @@ MonoBehaviour:
   panelOffset: {x: 0.45, y: 0, z: 0.05}
   invertRotation: 0
   artifactData: {fileID: 0}
+  view3DButton: {fileID: 0}
 --- !u!114 &59905072
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9677,6 +9657,7 @@ MonoBehaviour:
   panelOffset: {x: 0.45, y: 0, z: 0.05}
   invertRotation: 0
   artifactData: {fileID: 0}
+  view3DButton: {fileID: 0}
 --- !u!114 &1027367754
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11097,7 +11078,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1178110541
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11144,6 +11125,7 @@ MonoBehaviour:
   panelOffset: {x: 0.45, y: 0, z: 0.05}
   invertRotation: 0
   artifactData: {fileID: 0}
+  view3DButton: {fileID: 0}
 --- !u!114 &1178110543
 MonoBehaviour:
   m_ObjectHideFlags: 0
