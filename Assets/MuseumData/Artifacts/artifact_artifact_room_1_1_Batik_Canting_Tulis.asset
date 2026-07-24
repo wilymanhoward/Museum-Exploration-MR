@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc55c5d32fd5a2c4cae7404cd20bacc0, type: 3}
+  m_Name: artifact_artifact_room_1_1_Batik_Canting_Tulis
+  m_EditorClassIdentifier: 
+  artifactId: artifact_room_1_1
+  artifactName: Batik Canting/Tulis
+  artist: 
+  year: 
+  timePeriod: Abad 12-13
+  location: Batik Kraton Jawa
+  height: 0
+  width: 0
+  length: 0
+  material: Kain & Lilin
+  description: Batik Canting is a traditional Javanese art where intricate patterns
+    are hand-drawn onto fabric using melted wax. The textile is dyed and then boiled
+    to remove the wax, revealing detailed floral, geometric, or  abstract designs.
+    This finished material is commonly used to create clothing for both men and women.
+  modelPrefab: {fileID: 0}
+  images:
+  - sprite: {fileID: 21300000, guid: 5b68708f6fd823a4b9ef12c704235047, type: 3}
+    title: Batik Canting/Tulis

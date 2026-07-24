@@ -608,10 +608,13 @@ public class RoomManager : MonoBehaviour
         if (nameTextComp != null && artifact != null)
         {
             nameTextComp.text = artifact.artifactName;
-            nameTextComp.fontSize = 22;
+            nameTextComp.enableAutoSizing = true;
+            nameTextComp.fontSizeMin = 10f;
+            nameTextComp.fontSizeMax = 20f;
             nameTextComp.fontStyle = FontStyles.Bold;
             nameTextComp.color = paleYellow;
             nameTextComp.alignment = TextAlignmentOptions.Left;
+            nameTextComp.overflowMode = TextOverflowModes.Ellipsis;
         }
 
         // 5. Ensure Visited Status (StatusText e.g. "Sudah Dikunjungi" / "Belum Dikunjungi")
@@ -708,8 +711,46 @@ public class RoomManager : MonoBehaviour
 
         Debug.Log($"RoomManager received QR scan payload: '{payload}'");
 
-        // Search for the room in our loaded list, or use editor fallback
-        RoomData roomMatch = rooms.Find(r => r.roomId == payload);
+        string cleanPayload = payload.Trim().ToLower();
+        bool MatchesRoom(RoomData r)
+        {
+            if (r == null || string.IsNullOrEmpty(r.roomId)) return false;
+            string rId = r.roomId.Trim().ToLower();
+            return rId == cleanPayload || cleanPayload.Contains(rId) || rId.Contains(cleanPayload);
+        }
+
+        // Search for the room in our loaded list, Resources folder, memory fallback, or editor fallback
+        RoomData roomMatch = (rooms != null) ? rooms.Find(MatchesRoom) : null;
+
+        if (roomMatch == null)
+        {
+            RoomData[] resourceRooms = Resources.LoadAll<RoomData>("MuseumData/Rooms");
+            if (resourceRooms != null)
+            {
+                foreach (RoomData r in resourceRooms)
+                {
+                    if (MatchesRoom(r))
+                    {
+                        roomMatch = r;
+                        if (rooms != null && !rooms.Contains(r)) rooms.Add(r);
+                        break;
+                    }
+                }
+            }
+
+            if (roomMatch == null)
+            {
+                foreach (RoomData r in Resources.FindObjectsOfTypeAll<RoomData>())
+                {
+                    if (MatchesRoom(r))
+                    {
+                        roomMatch = r;
+                        if (rooms != null && !rooms.Contains(r)) rooms.Add(r);
+                        break;
+                    }
+                }
+            }
+        }
 
 #if UNITY_EDITOR
         if (roomMatch == null)
@@ -719,10 +760,10 @@ public class RoomManager : MonoBehaviour
             {
                 string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
                 RoomData r = UnityEditor.AssetDatabase.LoadAssetAtPath<RoomData>(path);
-                if (r != null && r.roomId == payload)
+                if (MatchesRoom(r))
                 {
                     roomMatch = r;
-                    if (!rooms.Contains(r)) rooms.Add(r);
+                    if (rooms != null && !rooms.Contains(r)) rooms.Add(r);
                     break;
                 }
             }

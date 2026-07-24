@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-#if META_XR_SDK_PRESENT
 using Meta.XR.MRUtilityKit;
-#endif
 
 public class QRCodeScanner : MonoBehaviour
 {
@@ -45,8 +43,7 @@ public class QRCodeScanner : MonoBehaviour
 
     private void Start()
     {
-#if META_XR_SDK_PRESENT
-        // Register MRUK QR code tracking callbacks if using Meta XR SDK
+        // Register MRUK QR code tracking callbacks
         if (MRUK.Instance != null && MRUK.Instance.SceneSettings != null)
         {
             MRUK.Instance.SceneSettings.TrackableAdded.AddListener(OnMRUKTrackableAdded);
@@ -55,22 +52,17 @@ public class QRCodeScanner : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("QR Code Scanner: MRUK.Instance or SceneSettings is null.");
+            Debug.LogWarning("QR Code Scanner: MRUK.Instance or SceneSettings is null. Waiting for MRUK initialization.");
         }
-#else
-        Debug.Log("QR Code Scanner: META_XR_SDK_PRESENT define is not active. Running in Editor/Simulation mode.");
-#endif
     }
 
     private void OnDestroy()
     {
-#if META_XR_SDK_PRESENT
         if (MRUK.Instance != null && MRUK.Instance.SceneSettings != null)
         {
             MRUK.Instance.SceneSettings.TrackableAdded.RemoveListener(OnMRUKTrackableAdded);
             MRUK.Instance.SceneSettings.TrackableRemoved.RemoveListener(OnMRUKTrackableRemoved);
         }
-#endif
     }
 
     private void Update()
@@ -81,7 +73,6 @@ public class QRCodeScanner : MonoBehaviour
             hardwareScanCooldown -= Time.deltaTime;
         }
 
-#if META_XR_SDK_PRESENT
         if (MRUK.Instance != null)
         {
             // Do not process hardware QR scans while on the Main Menu screen before pressing MULAI
@@ -137,7 +128,6 @@ public class QRCodeScanner : MonoBehaviour
                 lastHardwarePayload = "";
             }
         }
-#endif
     }
 
     /// <summary>
@@ -184,7 +174,6 @@ public class QRCodeScanner : MonoBehaviour
         OnQRCodeScanned?.Invoke(payload, simulatedPose);
     }
 
-#if META_XR_SDK_PRESENT
     private void OnMRUKTrackableAdded(MRUKTrackable trackable)
     {
         if (trackable.TrackableType == OVRAnchor.TrackableType.QRCode)
@@ -219,5 +208,4 @@ public class QRCodeScanner : MonoBehaviour
             OnQRCodeLost?.Invoke(payload);
         }
     }
-#endif
 }

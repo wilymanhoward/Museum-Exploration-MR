@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc55c5d32fd5a2c4cae7404cd20bacc0, type: 3}
+  m_Name: artifact_artifact_room_2_2_Wayang_Kulit
+  m_EditorClassIdentifier: 
+  artifactId: artifact_room_2_2
+  artifactName: Wayang Kulit
+  artist: 
+  year: 
+  timePeriod: Abad 9-11
+  location: India
+  height: 0
+  width: 0
+  length: 0
+  material: kulit kerbau, kulit lembu, dan tanduk kerbau
+  description: Keterangan ringkas bagi Artefak 2.
+  modelPrefab: {fileID: 919132149155446097, guid: a5d60641a026246418aaaf308e7b5aab,
+    type: 3}
+  images:
+  - sprite: {fileID: 21300000, guid: edc9a6ebd3403f24f8bfac4fe911e6d3, type: 3}
+    title: Wayang Kulit

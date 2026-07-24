@@ -107,48 +107,41 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
         // 3. Instantiate under the spawner
         spawnedModel = Instantiate(prefab, transform.position, transform.rotation, transform);
         
-        // Resolve camera to project model forward (towards the player)
-        if (mainCamera == null)
-        {
-            mainCamera = Camera.main;
-            if (mainCamera == null)
-            {
-                mainCamera = FindObjectOfType<Camera>();
-            }
-        }
-        
-        float zOffset = -150f;
-        if (mainCamera != null)
-        {
-            Vector3 localCameraDirection = transform.InverseTransformDirection(mainCamera.transform.position - transform.position).normalized;
-            zOffset = Mathf.Sign(localCameraDirection.z) * 150f;
-        }
-        
-        spawnedModel.transform.localPosition = new Vector3(0, 0, zOffset);
+        spawnedModel.transform.localPosition = new Vector3(0, 0, -0.05f);
         spawnedModel.transform.localRotation = Quaternion.identity;
+        spawnedModel.transform.localScale = Vector3.one;
 
-        // Compensate for parent canvas scale so the model is rendered at its true physical size (1:1 with prefab scale)
-        Vector3 worldScale = transform.lossyScale;
-        // If the canvas is currently scaling up from zero (pop-in animation), fallback to the target scale (0.0022f) for compensation
-        if (worldScale.x < 0.0001f)
-        {
-            worldScale = new Vector3(0.0022f, 0.0022f, 0.0022f);
-        }
-        
-        Vector3 prefabScale = prefab.transform.localScale;
-        spawnedModel.transform.localScale = new Vector3(
-            worldScale.x != 0 ? prefabScale.x / worldScale.x : prefabScale.x,
-            worldScale.y != 0 ? prefabScale.y / worldScale.y : prefabScale.y,
-            worldScale.z != 0 ? prefabScale.z / worldScale.z : prefabScale.z
-        );
+        // 4. Fit model bounds so it is cleanly sized ~0.3 meters wide in front of the panel
+        FitModelToBounds(spawnedModel, 0.3f);
 
-        // The spawner sits inside a scaled-down UI canvas, so its own lossyScale is tiny
-        // (e.g. ~0.002). The SphereCollider's radius is in that same tiny local space, so
-        // without resizing it here the grab hitbox ends up only millimeters wide in world
-        // space regardless of how large the visually-compensated model looks.
+        // 5. Resize grab collider so the model can be grabbed and rotated with hands
         ResizeGrabCollider(spawnedModel);
 
         return spawnedModel;
+    }
+
+    /// <summary>
+    /// Scales the spawned 3D model so its largest bounding box dimension is targetSizeMeters.
+    /// </summary>
+    private void FitModelToBounds(GameObject model, float targetSizeMeters = 0.3f)
+    {
+        if (model == null) return;
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+
+        Bounds b = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            b.Encapsulate(renderers[i].bounds);
+        }
+
+        float maxDimension = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+        if (maxDimension > 0.0001f)
+        {
+            float scaleFactor = targetSizeMeters / maxDimension;
+            model.transform.localScale *= scaleFactor;
+        }
     }
 
     /// <summary>

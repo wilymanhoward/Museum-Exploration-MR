@@ -40,8 +40,6 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.Hands
         bool m_HasTargetRotationTransform;
 
         OneEuroFilterVector3 m_OneEuroFilterVector3;
-        readonly QuaternionTweenableVariable m_QuaternionTweenableVariable = new QuaternionTweenableVariable();
-        readonly BindingsGroup m_BindingsGroup = new BindingsGroup();
 #endif
 
         /// <summary>
@@ -56,7 +54,6 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.Hands
             m_OneEuroFilterVector3 = new OneEuroFilterVector3(transform.localPosition);
             m_HasRayInteractor = m_RayInteractor != null;
             m_HasTargetRotationTransform = m_TargetRotation != null;
-            m_BindingsGroup.AddBinding(m_QuaternionTweenableVariable.Subscribe(newValue => transform.rotation = newValue));
 #else
             Debug.LogWarning("PinchPointFollow requires XR Hands (com.unity.xr.hands) 1.2.0 or newer. Disabling component.", this);
             enabled = false;
@@ -69,7 +66,6 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.Hands
         void OnDisable()
         {
 #if XR_HANDS_1_2_OR_NEWER
-            m_BindingsGroup.Clear();
             if (m_XRHandTrackingEvents != null)
                 m_XRHandTrackingEvents.jointsUpdated.RemoveListener(OnJointsUpdated);
 #endif
@@ -78,38 +74,8 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.Hands
 #if XR_HANDS_1_2_OR_NEWER
         void OnJointsUpdated(XRHandJointsUpdatedEventArgs args)
         {
-            var thumbTip = args.hand.GetJoint(XRHandJointID.ThumbTip);
-            if (!thumbTip.TryGetPose(out var thumbTipPose))
-                return;
-
-            var indexTip = args.hand.GetJoint(XRHandJointID.IndexTip);
-            if (!indexTip.TryGetPose(out var indexTipPose))
-                return;
-
-            var targetPos = Vector3.Lerp(thumbTipPose.position, indexTipPose.position, 0.5f);
-            var filteredTargetPos = m_OneEuroFilterVector3.Filter(targetPos, Time.deltaTime);
-            
-            // Hand pose data is in local space relative to the xr origin.
-            transform.localPosition = filteredTargetPos;
-
-            if (m_HasTargetRotationTransform)
-            {
-                Quaternion targetRot = m_TargetRotation.rotation;
-                if (m_HasRayInteractor && m_RayInteractor != null)
-                {
-                    Vector3 targetDir = (m_RayInteractor.rayEndPoint - transform.position).normalized;
-                    if (targetDir.sqrMagnitude > 0.001f && Vector3.Dot(m_TargetRotation.forward, targetDir) > 0.1f)
-                    {
-                        Quaternion rayTargetRot = Quaternion.LookRotation(targetDir);
-                        // Smoothly blend between natural hand rotation and ray endpoint rotation to prevent frame-by-frame jitter
-                        targetRot = Quaternion.Slerp(m_TargetRotation.rotation, rayTargetRot, 0.5f);
-                    }
-                }
-                m_QuaternionTweenableVariable.target = targetRot;
-            }
-
-            var tweenTarget = m_RotationSmoothingSpeed > 0f ? m_RotationSmoothingSpeed * Time.deltaTime : 1f;
-            m_QuaternionTweenableVariable.HandleTween(tweenTarget);
+            // Left empty to prevent mid-frame transform competition with native XRI / Meta OpenXR Hand Rays.
+            // Native XRI Hand Tracking drives ray origin positions and rotations smoothly without frame jitter.
         }
 #endif
     }

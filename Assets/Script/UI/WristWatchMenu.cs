@@ -189,7 +189,7 @@ public class WristWatchMenu : MonoBehaviour
         UpdateAnchorPose();
         Transform playerCam = Camera.main != null ? Camera.main.transform : null;
 
-        // 1. Keep Watch Button attached to Left Wrist
+        // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
             if (!hasAnchorPose)
@@ -199,16 +199,19 @@ public class WristWatchMenu : MonoBehaviour
             else
             {
                 if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
-                wristWatchButtonObj.transform.position = AnchorTransformPoint(watchOffset);
 
-                // Billboard the (one-sided) canvas to the player so it is always readable,
-                // regardless of how the wrist is rotated
+                Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
+                wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
+
+                // Billboard the (one-sided) canvas to the player cleanly so it stays upright
                 if (playerCam != null)
                 {
                     Vector3 lookDir = playerCam.position - wristWatchButtonObj.transform.position;
+                    lookDir.y = 0; // Keep canvas upright, preventing rapid tilt/rotation flips
                     if (lookDir.sqrMagnitude > 0.0001f)
                     {
-                        wristWatchButtonObj.transform.rotation = Quaternion.LookRotation(-lookDir, Vector3.up);
+                        Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
+                        wristWatchButtonObj.transform.rotation = Quaternion.Slerp(wristWatchButtonObj.transform.rotation, targetRot, Time.deltaTime * 15f);
                     }
                 }
             }
@@ -228,7 +231,7 @@ public class WristWatchMenu : MonoBehaviour
         if (!hasAnchorPose || panel == null || !panel.activeInHierarchy) return;
 
         Vector3 targetPos = AnchorTransformPoint(panelOffset);
-        panel.transform.position = Vector3.Lerp(panel.transform.position, targetPos, Time.deltaTime * 10f);
+        panel.transform.position = Vector3.Lerp(panel.transform.position, targetPos, Time.deltaTime * 15f);
 
         if (playerCam != null)
         {
@@ -237,7 +240,7 @@ public class WristWatchMenu : MonoBehaviour
             if (lookDir.sqrMagnitude > 0.0001f)
             {
                 Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
-                panel.transform.rotation = Quaternion.Slerp(panel.transform.rotation, targetRot, Time.deltaTime * 10f);
+                panel.transform.rotation = Quaternion.Slerp(panel.transform.rotation, targetRot, Time.deltaTime * 15f);
             }
         }
     }
