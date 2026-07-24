@@ -72,6 +72,10 @@ public class ArtifactPanel : MonoBehaviour
         }
     }
 
+    [Header("3D View Button Reference")]
+    [Tooltip("The 3D View button on the panel. Auto-located if unassigned.")]
+    public GameObject view3DButton;
+
     /// <summary>
     /// Configures the panel with data, references, and callback events.
     /// </summary>
@@ -90,8 +94,22 @@ public class ArtifactPanel : MonoBehaviour
         }
 
         // Populate Text Fields
-        if (topTitleText != null) topTitleText.text = data.artifactName;
-        if (bottomTitleText != null) bottomTitleText.text = $"Artefak:\n\"{data.artifactName}\"";
+        if (topTitleText != null)
+        {
+            topTitleText.text = data.artifactName;
+            topTitleText.enableAutoSizing = true;
+            topTitleText.fontSizeMin = 12f;
+            topTitleText.fontSizeMax = 24f;
+            topTitleText.overflowMode = TextOverflowModes.Ellipsis;
+        }
+        if (bottomTitleText != null)
+        {
+            bottomTitleText.text = $"Artefak:\n\"{data.artifactName}\"";
+            bottomTitleText.enableAutoSizing = true;
+            bottomTitleText.fontSizeMin = 12f;
+            bottomTitleText.fontSizeMax = 20f;
+            bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
+        }
         if (descriptionText != null) descriptionText.text = data.description;
 
         // Populate Details
@@ -107,10 +125,71 @@ public class ArtifactPanel : MonoBehaviour
         // Clean up previous models inside the ObjectSpawner
         ClearSpawnedModel();
 
-        // Automatically spawn the 3D model inside the ObjectSpawner
-        OnSpawnModelClicked();
+        // Configure 3D View button visibility (hide if no 3D model)
+        Refresh3DViewButtonState();
+
+        // Automatically spawn the 3D model if present
+        if (data != null && data.modelPrefab != null)
+        {
+            OnSpawnModelClicked();
+        }
 
         Debug.Log($"Setup detail panel next to QR code for: {data.artifactName} at position: {transform.position}");
+    }
+
+    /// <summary>
+    /// Ensures 3D View button is active and wired up so clicking it always displays a 3D model.
+    /// </summary>
+    private void Refresh3DViewButtonState()
+    {
+        if (view3DButton == null)
+        {
+            Transform btnT = transform.Find("3DViewButton");
+            if (btnT == null)
+            {
+                foreach (Transform t in GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name == "3DViewButton" || t.name == "3DView" || t.name == "View3D")
+                    {
+                        btnT = t;
+                        break;
+                    }
+                }
+            }
+            if (btnT != null) view3DButton = btnT.gameObject;
+        }
+
+        if (view3DButton != null)
+        {
+            view3DButton.SetActive(true);
+
+            UnityEngine.UI.Button btn = view3DButton.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) btn = view3DButton.GetComponentInChildren<UnityEngine.UI.Button>();
+            if (btn == null) btn = view3DButton.AddComponent<UnityEngine.UI.Button>();
+
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(On3DViewButtonClicked);
+
+            XRButtonSelection selection = view3DButton.GetComponent<XRButtonSelection>();
+            if (selection != null)
+            {
+                selection.onClick.RemoveAllListeners();
+                selection.onClick.AddListener(On3DViewButtonClicked);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Invoked when player clicks/taps the 3D View button.
+    /// Freshly spawns or re-centers the 3D model right in front of the panel.
+    /// </summary>
+    public void On3DViewButtonClicked()
+    {
+        if (artifactData == null) return;
+
+        // Freshly spawn or re-center the 3D model right on the panel
+        ClearSpawnedModel();
+        OnSpawnModelClicked();
     }
 
     /// <summary>
@@ -133,15 +212,29 @@ public class ArtifactPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// Instantiates the 3D model.
+    /// Instantiates the 3D model inside the ObjectSpawner.
     /// </summary>
     public void OnSpawnModelClicked()
     {
         if (spawnedModel != null || artifactData == null) return;
 
-        if (objectSpawner != null && artifactData.modelPrefab != null)
+        // Ensure objectSpawner exists
+        if (objectSpawner == null)
         {
-            RotateArtifact rotator = objectSpawner.GetComponent<RotateArtifact>();
+            Transform spawnerT = transform.Find("ObjectSpawner");
+            if (spawnerT != null) objectSpawner = spawnerT;
+            else
+            {
+                GameObject newSpawner = new GameObject("ObjectSpawner");
+                newSpawner.transform.SetParent(transform, false);
+                objectSpawner = newSpawner.transform;
+            }
+        }
+
+        RotateArtifact rotator = objectSpawner.GetComponent<RotateArtifact>();
+
+        if (artifactData.modelPrefab != null)
+        {
             if (rotator != null)
             {
                 spawnedModel = rotator.SpawnModel(artifactData.modelPrefab, artifactData.artifactId);
@@ -149,18 +242,12 @@ public class ArtifactPanel : MonoBehaviour
             else
             {
                 spawnedModel = Instantiate(artifactData.modelPrefab, objectSpawner.position, objectSpawner.rotation, objectSpawner);
-                
-                Camera cam = Camera.main;
-                float zOffset = -150f;
-                if (cam != null)
-                {
-                    Vector3 localCamDir = objectSpawner.InverseTransformDirection(cam.transform.position - objectSpawner.position).normalized;
-                    zOffset = Mathf.Sign(localCamDir.z) * 150f;
-                }
-                
-                spawnedModel.transform.localPosition = new Vector3(0, 0, zOffset);
-                spawnedModel.transform.localRotation = Quaternion.identity;
-                spawnedModel.transform.localScale = Vector3.one;
+                spawnedModel.transform.localPosition = new Vector3(0, 0, -0.05f);
+            }
+
+            if (spawnedModel != null)
+            {
+                spawnedModel.SetActive(true);
             }
 
             Debug.Log($"3D Model spawned inside ObjectSpawner for {artifactData.artifactName}.");
@@ -168,6 +255,36 @@ public class ArtifactPanel : MonoBehaviour
         else
         {
             Debug.LogWarning("Cannot spawn model: objectSpawner or modelPrefab is missing.");
+        }
+    }
+
+    /// <summary>
+    /// Scales the spawned model so its largest world-space bounding-box dimension is
+    /// targetSizeMeters. Works regardless of the parent's scale (e.g. a 0.001 world-space
+    /// canvas), because it measures true world bounds and multiplies the local scale.
+    /// </summary>
+    private void FitModelToWorldSize(GameObject model, float targetSizeMeters)
+    {
+        if (model == null) return;
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0)
+        {
+            Debug.LogWarning("[ArtifactPanel] Spawned model has no renderers to size/display.");
+            return;
+        }
+
+        Bounds b = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            b.Encapsulate(renderers[i].bounds);
+        }
+
+        float maxDimension = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+        if (maxDimension > 0.0001f)
+        {
+            float scaleFactor = targetSizeMeters / maxDimension;
+            model.transform.localScale *= scaleFactor;
         }
     }
 
@@ -277,8 +394,22 @@ public class ArtifactPanel : MonoBehaviour
         artifactData = data;
 
         // Populate Text Fields
-        if (topTitleText != null) topTitleText.text = data.artifactName;
-        if (bottomTitleText != null) bottomTitleText.text = $"Artefak:\n\"{data.artifactName}\"";
+        if (topTitleText != null)
+        {
+            topTitleText.text = data.artifactName;
+            topTitleText.enableAutoSizing = true;
+            topTitleText.fontSizeMin = 12f;
+            topTitleText.fontSizeMax = 24f;
+            topTitleText.overflowMode = TextOverflowModes.Ellipsis;
+        }
+        if (bottomTitleText != null)
+        {
+            bottomTitleText.text = $"Artefak:\n\"{data.artifactName}\"";
+            bottomTitleText.enableAutoSizing = true;
+            bottomTitleText.fontSizeMin = 12f;
+            bottomTitleText.fontSizeMax = 20f;
+            bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
+        }
         if (descriptionText != null) descriptionText.text = data.description;
 
         // Populate Details
@@ -294,8 +425,14 @@ public class ArtifactPanel : MonoBehaviour
         // Clean up previous models inside the ObjectSpawner
         ClearSpawnedModel();
 
-        // Automatically spawn the 3D model inside the ObjectSpawner
-        OnSpawnModelClicked();
+        // Configure 3D View button visibility (hide if no 3D model)
+        Refresh3DViewButtonState();
+
+        // Automatically spawn the 3D model if present
+        if (data != null && data.modelPrefab != null)
+        {
+            OnSpawnModelClicked();
+        }
 
         Debug.Log($"Updated detail panel with new artifact data: {data.artifactName}");
     }

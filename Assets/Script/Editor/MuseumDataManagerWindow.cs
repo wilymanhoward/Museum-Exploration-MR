@@ -321,14 +321,14 @@ public class MuseumDataManagerWindow : EditorWindow
         isGenerating = true;
         statusMessage = "Saving assets and generating QR codes...";
 
-        string roomsFolderPath = "Assets/MuseumData/Rooms";
-        string artifactsFolderPath = "Assets/MuseumData/Artifacts";
+        string roomsFolderPath = "Assets/Resources/MuseumData/Rooms";
+        string artifactsFolderPath = "Assets/Resources/MuseumData/Artifacts";
         string qrFolderPath = Path.Combine(Application.dataPath, "QRCodes");
 
-        if (!Directory.Exists(Path.Combine(Application.dataPath, "MuseumData/Rooms")))
-            Directory.CreateDirectory(Path.Combine(Application.dataPath, "MuseumData/Rooms"));
-        if (!Directory.Exists(Path.Combine(Application.dataPath, "MuseumData/Artifacts")))
-            Directory.CreateDirectory(Path.Combine(Application.dataPath, "MuseumData/Artifacts"));
+        if (!Directory.Exists(Path.Combine(Application.dataPath, "Resources/MuseumData/Rooms")))
+            Directory.CreateDirectory(Path.Combine(Application.dataPath, "Resources/MuseumData/Rooms"));
+        if (!Directory.Exists(Path.Combine(Application.dataPath, "Resources/MuseumData/Artifacts")))
+            Directory.CreateDirectory(Path.Combine(Application.dataPath, "Resources/MuseumData/Artifacts"));
         if (!Directory.Exists(qrFolderPath))
             Directory.CreateDirectory(qrFolderPath);
 

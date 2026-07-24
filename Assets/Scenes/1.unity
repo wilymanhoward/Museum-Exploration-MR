@@ -17206,12 +17206,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rooms:
-  - {fileID: 11400000, guid: 3255f5ad955b7b540bae9bb22e9b47a7, type: 2}
-  - {fileID: 11400000, guid: b90b492a72be69e45b8f89a45949ae60, type: 2}
-  - {fileID: 11400000, guid: 2aa27f992c14f214bbf5ca9ff39817ef, type: 2}
-  - {fileID: 11400000, guid: 0a8e640181d54554aa864163960393b3, type: 2}
-  - {fileID: 11400000, guid: 83fd042e5b18a51429842a0e803bdff8, type: 2}
-  startingRoom: {fileID: 11400000, guid: 3255f5ad955b7b540bae9bb22e9b47a7, type: 2}
+  - {fileID: 11400000, guid: a9bf6d8eee3a2d24a92ab7bf6c46de1a, type: 2}
+  - {fileID: 11400000, guid: 5de4169b31c6ab54e9f74dd140b0c545, type: 2}
+  - {fileID: 11400000, guid: 87e431f8a3d82804b845b74ac3e70e64, type: 2}
+  - {fileID: 11400000, guid: ca3a8f4629a4dc04c83f82b579ba792d, type: 2}
+  - {fileID: 11400000, guid: e377b2df8d3701a49a14e74bbf73f470, type: 2}
+  startingRoom: {fileID: 11400000, guid: a9bf6d8eee3a2d24a92ab7bf6c46de1a, type: 2}
   roomHudContainer: {fileID: 922713077}
   roomNameText: {fileID: 1057655094}
   roomSubtitleText: {fileID: 1192107844}

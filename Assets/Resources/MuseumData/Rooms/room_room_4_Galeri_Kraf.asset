@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c22e3f47b7295d4ea93e94f0fe43f15, type: 3}
+  m_Name: room_room_4_Galeri_Kraf
+  m_EditorClassIdentifier: 
+  roomId: room_4
+  roomName: Galeri Kraf
+  roomSubtitle: Pameran Artefak Galeri Kraf
+  artifacts:
+  - {fileID: 11400000, guid: 3dc025d2230431249ab3960feb953438, type: 2}
+  waypoints: []

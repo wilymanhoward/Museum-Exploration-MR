@@ -780,24 +780,40 @@ public class MuseumSceneSetupEditor : EditorWindow
                     }
                 }
 
-                // Disable default XRInputModalityManager to prevent it from fighting with our custom tracking state logic
-                var modalityManager = rigInstance.GetComponent<UnityEngine.XR.Interaction.Toolkit.Inputs.XRInputModalityManager>();
+                // Enable default XRInputModalityManager to use the native Meta Quest 3 default hand ray system
+                var modalityManager = rigInstance.GetComponentInChildren<UnityEngine.XR.Interaction.Toolkit.Inputs.XRInputModalityManager>(true);
                 if (modalityManager != null)
                 {
-                    modalityManager.enabled = false;
+                    modalityManager.enabled = true;
                 }
 
-                // Add and wire up the custom HandModalityForcer
+                var leftCtrl = rigInstance.transform.Find("Camera Offset/Left Controller")?.gameObject;
+                var rightCtrl = rigInstance.transform.Find("Camera Offset/Right Controller")?.gameObject;
+                if (leftCtrl != null) leftCtrl.SetActive(false);
+                if (rightCtrl != null) rightCtrl.SetActive(false);
+
+                var leftHnd = rigInstance.transform.Find("Camera Offset/Left Hand")?.gameObject;
+                var rightHnd = rigInstance.transform.Find("Camera Offset/Right Hand")?.gameObject;
+                if (leftHnd != null) leftHnd.SetActive(true);
+                if (rightHnd != null) rightHnd.SetActive(true);
+
+                // Configure Hand Ray visuals to match official Meta Quest 3 thin white hand ray style
+                foreach (var lineVis in rigInstance.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.XRInteractorLineVisual>(true))
+                {
+                    lineVis.lineWidth = 0.005f; // Thin Meta Quest default hand ray
+                    lineVis.lineLength = 2.5f;   // Standard Meta Quest 2.5m hand ray length
+                }
+
                 var forcer = rigInstance.GetComponent<HandModalityForcer>();
                 if (forcer == null)
                 {
                     forcer = rigInstance.AddComponent<HandModalityForcer>();
                 }
-                
-                forcer.leftController = rigInstance.transform.Find("Camera Offset/Left Controller")?.gameObject;
-                forcer.rightController = rigInstance.transform.Find("Camera Offset/Right Controller")?.gameObject;
-                forcer.leftHand = rigInstance.transform.Find("Camera Offset/Left Hand")?.gameObject;
-                forcer.rightHand = rigInstance.transform.Find("Camera Offset/Right Hand")?.gameObject;
+
+                forcer.leftController = leftCtrl;
+                forcer.rightController = rightCtrl;
+                forcer.leftHand = leftHnd;
+                forcer.rightHand = rightHnd;
             }
         }
         

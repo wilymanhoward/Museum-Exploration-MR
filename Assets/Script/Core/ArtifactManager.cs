@@ -183,27 +183,70 @@ public class ArtifactManager : MonoBehaviour
 
     private ArtifactData FindArtifactInProject(string id)
     {
+        if (string.IsNullOrEmpty(id)) return null;
+
+        string cleanId = id.Trim().ToLower();
         ArtifactData match = null;
 
-        // 1. Try to find via RoomManager
+        // Helper comparison lambda: matches exact ID, case-insensitive ID, or substring payload
+        bool Matches(ArtifactData a)
+        {
+            if (a == null || string.IsNullOrEmpty(a.artifactId)) return false;
+            string artId = a.artifactId.Trim().ToLower();
+            return artId == cleanId || cleanId.Contains(artId) || artId.Contains(cleanId);
+        }
+
+        // 1. Try to find via RoomManager active room or loaded room list
         if (RoomManager.Instance != null)
         {
-            if (RoomManager.Instance.CurrentRoom != null)
+            if (RoomManager.Instance.CurrentRoom != null && RoomManager.Instance.CurrentRoom.artifacts != null)
             {
-                match = RoomManager.Instance.CurrentRoom.artifacts.Find(a => a.artifactId == id);
+                match = RoomManager.Instance.CurrentRoom.artifacts.Find(Matches);
             }
 
-            if (match == null)
+            if (match == null && RoomManager.Instance.rooms != null)
             {
                 foreach (RoomData room in RoomManager.Instance.rooms)
                 {
-                    match = room.artifacts.Find(a => a.artifactId == id);
-                    if (match != null) break;
+                    if (room != null && room.artifacts != null)
+                    {
+                        match = room.artifacts.Find(Matches);
+                        if (match != null) break;
+                    }
                 }
             }
         }
 
-        // 2. Editor Fallback: Find asset directly in project database
+        // 2. Load directly from Resources folder (works 100% in standalone APK builds on Quest 3!)
+        if (match == null)
+        {
+            ArtifactData[] resourceArtifacts = Resources.LoadAll<ArtifactData>("MuseumData/Artifacts");
+            if (resourceArtifacts != null)
+            {
+                foreach (ArtifactData data in resourceArtifacts)
+                {
+                    if (Matches(data))
+                    {
+                        match = data;
+                        break;
+                    }
+                }
+            }
+
+            if (match == null)
+            {
+                foreach (ArtifactData data in Resources.FindObjectsOfTypeAll<ArtifactData>())
+                {
+                    if (Matches(data))
+                    {
+                        match = data;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Editor Fallback: Find asset directly in project database
 #if UNITY_EDITOR
         if (match == null)
         {
@@ -212,7 +255,7 @@ public class ArtifactManager : MonoBehaviour
             {
                 string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
                 ArtifactData data = UnityEditor.AssetDatabase.LoadAssetAtPath<ArtifactData>(path);
-                if (data != null && data.artifactId == id)
+                if (Matches(data))
                 {
                     match = data;
                     break;
