@@ -14,9 +14,8 @@ public class WristWatchMenu : MonoBehaviour
     public GameObject optionsPanelObj;
 
     [Header("Options Targets")]
-    public GameObject roomHudCanvas;
-    public GameObject artifactContainerObj;
-    public GameObject artifactHudCanvas;
+    public GameObject roomHudCanvas; // Mapped to ExplorationCanvas
+    public GameObject gamesPanel;    // Mapped to Minigames panel/canvas
 
     [Header("Offsets")]
     [Tooltip("World-space offset for the watch button relative to the left wrist (Y = up), so the icon hovers on top of the hand regardless of wrist rotation.")]
@@ -34,6 +33,7 @@ public class WristWatchMenu : MonoBehaviour
     private XRHandSubsystem handSubsystem;
     private static List<XRHandSubsystem> s_Subsystems = new List<XRHandSubsystem>();
     private Transform leftControllerCandidate;
+    private Transform leftHandCandidate;
     private Transform sessionSpaceRoot; // "Camera Offset" object: converts session-space poses to world
     private float nextCandidateSearchTime = 0f;
 
@@ -44,12 +44,6 @@ public class WristWatchMenu : MonoBehaviour
     void Start()
     {
         RefreshAnchorCandidates();
-
-        // Hidden until a wrist pose exists, so the watch never floats at world origin
-        if (wristWatchButtonObj != null)
-        {
-            wristWatchButtonObj.SetActive(false);
-        }
 
         if (optionsPanelObj != null)
         {
@@ -101,6 +95,19 @@ public class WristWatchMenu : MonoBehaviour
                 }
             }
         }
+
+        if (leftHandCandidate == null)
+        {
+            foreach (Transform t in FindObjectsOfType<Transform>(true))
+            {
+                string n = t.name;
+                if ((n == "Left Hand" || n == "LeftHand") && HasAncestorNamed(t, "Camera Offset"))
+                {
+                    leftHandCandidate = t;
+                    break;
+                }
+            }
+        }
     }
 
     private static bool HasAncestorNamed(Transform t, string ancestorName)
@@ -130,12 +137,14 @@ public class WristWatchMenu : MonoBehaviour
 
     /// <summary>
     /// Computes this frame's wrist anchor pose. Priority: Inspector-assigned transform,
-    /// then the tracked hand's wrist joint, then the pose-driven controller transform.
+    /// then the active Left Hand object found in the hierarchy, then the tracked hand's wrist joint,
+    /// and finally the pose-driven controller transform.
     /// </summary>
     private void UpdateAnchorPose()
     {
         hasAnchorPose = false;
 
+        // 1. Try using the inspector-assigned anchor if active
         if (leftHandAnchor != null && leftHandAnchor.gameObject.activeInHierarchy)
         {
             anchorPos = leftHandAnchor.position;
@@ -144,6 +153,16 @@ public class WristWatchMenu : MonoBehaviour
             return;
         }
 
+        // 2. Try the active left hand object found in hierarchy
+        if (leftHandCandidate != null && leftHandCandidate.gameObject.activeInHierarchy)
+        {
+            anchorPos = leftHandCandidate.position;
+            anchorRot = leftHandCandidate.rotation;
+            hasAnchorPose = true;
+            return;
+        }
+
+        // 3. Fallback to native XRHandSubsystem tracking
         FindHandSubsystem();
         if (handSubsystem != null && handSubsystem.running && handSubsystem.leftHand.isTracked)
         {
@@ -165,6 +184,7 @@ public class WristWatchMenu : MonoBehaviour
             }
         }
 
+        // 4. Fallback to active left controller object found in hierarchy
         if (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy)
         {
             anchorPos = leftControllerCandidate.position;
@@ -181,7 +201,7 @@ public class WristWatchMenu : MonoBehaviour
 
     void LateUpdate()
     {
-        if ((sessionSpaceRoot == null || leftControllerCandidate == null) && Time.time >= nextCandidateSearchTime)
+        if ((sessionSpaceRoot == null || leftControllerCandidate == null || leftHandCandidate == null) && Time.time >= nextCandidateSearchTime)
         {
             nextCandidateSearchTime = Time.time + 1f;
             RefreshAnchorCandidates();
@@ -193,14 +213,26 @@ public class WristWatchMenu : MonoBehaviour
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
-            if (!hasAnchorPose)
+            // Ensure all panels are hidden if exploration has not started yet
+            if (!MainMenuManager.IsExplorationStarted)
             {
-                if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
+                if (optionsPanelObj != null && optionsPanelObj.activeSelf)
+                {
+                    optionsPanelObj.SetActive(false);
+                    optionsPanelActive = false;
+                }
+                if (roomHudCanvas != null && roomHudCanvas.activeSelf)
+                {
+                    roomHudCanvas.SetActive(false);
+                }
+                if (gamesPanel != null && gamesPanel.activeSelf)
+                {
+                    gamesPanel.SetActive(false);
+                }
             }
-            else
-            {
-                if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
 
+            if (hasAnchorPose && MainMenuManager.IsExplorationStarted)
+            {
                 Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
                 wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
 
@@ -218,9 +250,10 @@ public class WristWatchMenu : MonoBehaviour
             }
         }
 
-        // 2. Keep hand panels (Options + Room) floating near the hand, facing the player
+        // 2. Keep hand panels (Options + Room + Games) floating near the hand, facing the player
         FollowHand(optionsPanelObj, playerCam);
         FollowHand(roomHudCanvas, playerCam);
+        FollowHand(gamesPanel, playerCam);
     }
 
     /// <summary>
@@ -259,7 +292,7 @@ public class WristWatchMenu : MonoBehaviour
             {
                 // Ensure other list panels are hidden so both never appear at once
                 if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
-                if (artifactHudCanvas != null) artifactHudCanvas.SetActive(false);
+                if (gamesPanel != null) gamesPanel.SetActive(false);
 
                 if (hasAnchorPose)
                 {
@@ -270,7 +303,7 @@ public class WristWatchMenu : MonoBehaviour
         else if (!optionsPanelActive)
         {
             if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
-            if (artifactHudCanvas != null) artifactHudCanvas.SetActive(false);
+            if (gamesPanel != null) gamesPanel.SetActive(false);
         }
         Debug.Log($"WristWatchMenu: Options Panel Toggled -> {optionsPanelActive}");
     }
@@ -289,19 +322,18 @@ public class WristWatchMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Invoked when player taps the 'Ruang' (Rooms) row in Options Panel.
+    /// Invoked when player taps the 'Ruang' (Rooms) / 'Explore' row in Options Panel.
     /// Swaps the options panel for the room panel, which then follows the hand.
     /// </summary>
     public void OnClickRuang()
     {
-        Debug.Log("WristWatchMenu: 'Ruang' button clicked!");
+        Debug.Log("WristWatchMenu: 'Explore' button clicked!");
         if (roomHudCanvas == null)
         {
             roomHudCanvas = GameObject.Find("RoomHUDCanvas");
         }
 
         CloseOptionsPanel();
-        if (artifactHudCanvas != null) artifactHudCanvas.SetActive(false);
 
         if (roomHudCanvas != null)
         {
@@ -326,44 +358,32 @@ public class WristWatchMenu : MonoBehaviour
     }
 
     /// <summary>
-    /// Invoked when player taps the 'Artefak' (Artifacts) row in Options Panel.
-    /// Swaps options panel for the All Artifacts List panel (ArtifactHUDCanvas).
+    /// Invoked when player taps the 'Artefak' (Artifacts) / 'Games' button in Options Panel.
     /// </summary>
     public void OnClickArtefak()
     {
-        Debug.Log("WristWatchMenu: 'Artefak' button clicked!");
-        if (artifactHudCanvas == null)
-        {
-            artifactHudCanvas = GameObject.Find("ArtifactHUDCanvas");
-        }
-
+        Debug.Log("WristWatchMenu: 'Games' button clicked!");
         CloseOptionsPanel();
-        if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
 
-        if (artifactHudCanvas != null)
+        if (gamesPanel != null)
         {
-            artifactHudCanvas.SetActive(true);
+            gamesPanel.SetActive(true);
             if (hasAnchorPose)
             {
-                artifactHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
-            }
-
-            if (ArtifactManager.Instance != null)
-            {
-                ArtifactManager.Instance.PopulateArtifactHUDList();
+                gamesPanel.transform.position = AnchorTransformPoint(panelOffset);
             }
         }
     }
 
     /// <summary>
-    /// Invoked when player taps the Close ('X') button on the Artifact HUD panel.
+    /// Invoked when player taps the Close ('X') button on the Games panel.
     /// </summary>
-    public void CloseArtifactHUDPanel()
+    public void CloseGamesPanel()
     {
-        if (artifactHudCanvas != null)
+        if (gamesPanel != null)
         {
-            artifactHudCanvas.SetActive(false);
+            gamesPanel.SetActive(false);
         }
-        Debug.Log("WristWatchMenu: Artifact HUD Panel Closed.");
+        Debug.Log("WristWatchMenu: Games Panel Closed.");
     }
 }

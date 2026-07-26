@@ -19,12 +19,9 @@ public class MainMenuManager : MonoBehaviour
     [Header("Exploration References")]
     public GameObject wayfindingSystem;
     public GameObject artifactsContainer;
+    public GameObject wristMenuSystem;
 
     [Header("Name Entry")]
-    [Tooltip("Label on the NameButton that displays the player's name. Auto-resolved from the menu canvas if left empty.")]
-    public TextMeshProUGUI nameLabel;
-
-    private const string NameLabelPrefix = "Nama: ";
     private const string DefaultPlayerName = "Pengunjung";
 
     private TMP_InputField activeInputField;
@@ -153,20 +150,6 @@ public class MainMenuManager : MonoBehaviour
                     OpenVRKeyboard(inputField);
                 });
             }
-
-            // Resolve the name label on the NameButton (used when there is no TMP_InputField in the scene)
-            if (nameLabel == null)
-            {
-                foreach (TextMeshProUGUI label in mainMenuCanvas.GetComponentsInChildren<TextMeshProUGUI>(true))
-                {
-                    if (label.transform.parent != null && label.transform.parent.name == "NameButton")
-                    {
-                        nameLabel = label;
-                        break;
-                    }
-                }
-            }
-            RefreshNameLabel();
         }
     }
 
@@ -182,14 +165,6 @@ public class MainMenuManager : MonoBehaviour
 #else
         Debug.Log("StartEditingName: system keyboard only appears on the headset, not in the Editor.");
 #endif
-    }
-
-    private void RefreshNameLabel()
-    {
-        if (nameLabel != null)
-        {
-            nameLabel.text = NameLabelPrefix + currentName;
-        }
     }
 
     private void OpenVRKeyboard(TMP_InputField inputField)
@@ -284,7 +259,6 @@ public class MainMenuManager : MonoBehaviour
             else
             {
                 currentName = keyboard.text;
-                RefreshNameLabel();
             }
 
             if (keyboard.status == TouchScreenKeyboard.Status.Done || keyboard.status == TouchScreenKeyboard.Status.Canceled || !keyboard.active)
@@ -300,7 +274,6 @@ public class MainMenuManager : MonoBehaviour
                 {
                     activeInputField.text = finalName;
                 }
-                RefreshNameLabel();
                 PlayerPrefs.SetString("PlayerName", finalName);
                 PlayerPrefs.Save();
 
@@ -378,6 +351,25 @@ public class MainMenuManager : MonoBehaviour
         // Show standard references if assigned
         if (wayfindingSystem != null) wayfindingSystem.SetActive(true);
         if (artifactsContainer != null) artifactsContainer.SetActive(true);
+
+        // Find and activate the WristMenuSystem
+        if (wristMenuSystem == null)
+        {
+            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go.name == "WristMenuSystem" && go.scene.isLoaded)
+                {
+                    wristMenuSystem = go;
+                    break;
+                }
+            }
+        }
+
+        if (wristMenuSystem != null)
+        {
+            wristMenuSystem.SetActive(true);
+            Debug.Log("MainMenuManager: Activated WristMenuSystem.");
+        }
 
         // Tell the Room Manager to start populating and setting up the wayfinding paths
         if (RoomManager.Instance != null)
