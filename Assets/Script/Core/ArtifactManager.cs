@@ -12,8 +12,8 @@ public class ArtifactManager : MonoBehaviour
     [Tooltip("The persistent parent canvas GameObject in the scene (ArtifactUICanvas).")]
     public GameObject artifactUiCanvas;
 
-    [Tooltip("The script controller (ArtifactPanel) on the panel UI.")]
-    public ArtifactPanel artifactInteraction;
+    [Tooltip("The script controller (Artifact) on the panel UI.")]
+    public Artifact artifactInteraction;
 
     [Header("UI Prefab Fallback (Optional)")]
     [Tooltip("Prefab for the floating detail panel spawned when an artifact QR is scanned (fallback only).")]
@@ -68,7 +68,7 @@ public class ArtifactManager : MonoBehaviour
         {
             if (artifactInteraction == null)
             {
-                artifactInteraction = artifactUiCanvas.GetComponentInChildren<ArtifactPanel>(true);
+                artifactInteraction = artifactUiCanvas.GetComponentInChildren<Artifact>(true);
             }
 
             UnityEngine.UI.Image canvasBg = artifactUiCanvas.GetComponent<UnityEngine.UI.Image>();
@@ -133,10 +133,10 @@ public class ArtifactManager : MonoBehaviour
         // If a panel is already open, update its details and position directly
         if (activePanelInstance != null)
         {
-            ArtifactPanel existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
-            if (existingInteraction != null)
+            Artifact Artifact = activePanelInstance.GetComponentInChildren<Artifact>();
+            if (Artifact != null)
             {
-                existingInteraction.UpdateDetails(artifact);
+                Artifact.UpdateDetails(artifact);
                 return;
             }
         }
@@ -159,7 +159,7 @@ public class ArtifactManager : MonoBehaviour
     private void HandleQRCodeScanned(string payload, Pose pose)
     {
         // Ignore exhibit QR scans until player taps MULAI on the Main Menu
-        if (!MainMenuManager.IsExplorationStarted)
+        if (!MainMenu.IsExplorationStarted)
         {
             Debug.Log("ArtifactManager: Exploration has not started yet. Ignoring QR scan.");
             return;
@@ -168,7 +168,7 @@ public class ArtifactManager : MonoBehaviour
         // Prevent duplicate scanning if this exact artifact detail panel is already open
         if (activePanelInstance != null)
         {
-            ArtifactPanel existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
+            Artifact existingInteraction = activePanelInstance.GetComponentInChildren<Artifact>();
             if (existingInteraction != null && existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == payload)
             {
                 return; // Already showing this exact panel, ignore repeat scan
@@ -279,7 +279,7 @@ public class ArtifactManager : MonoBehaviour
         // When physical QR code is lost, close the panel/canvas
         if (activePanelInstance != null)
         {
-            ArtifactPanel interaction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
+            Artifact interaction = activePanelInstance.GetComponentInChildren<Artifact>();
             if (interaction != null && interaction.artifactData != null && interaction.artifactData.artifactId == payload)
             {
                 CloseActivePanel();
@@ -329,7 +329,7 @@ public class ArtifactManager : MonoBehaviour
             // Fallback to prefab spawning if the persistent canvas is not in the scene
             if (activePanelInstance != null)
             {
-                ArtifactPanel existingInteraction = activePanelInstance.GetComponentInChildren<ArtifactPanel>();
+                Artifact existingInteraction = activePanelInstance.GetComponentInChildren<Artifact>();
                 if (existingInteraction != null)
                 {
                     if (existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == artifact.artifactId)
@@ -360,7 +360,7 @@ public class ArtifactManager : MonoBehaviour
                     canvas.worldCamera = Camera.main;
                 }
 
-                ArtifactPanel interaction = panelInstance.GetComponentInChildren<ArtifactPanel>();
+                Artifact interaction = panelInstance.GetComponentInChildren<Artifact>();
                 if (interaction != null)
                 {
                     interaction.Setup(artifact, playerTransform, pose, () => {
@@ -394,7 +394,7 @@ public class ArtifactManager : MonoBehaviour
             else
             {
                 // Instantiate/Destroy fallback - trigger cleanup and destroy the prefab instance
-                ArtifactPanel interaction = tempInstance.GetComponentInChildren<ArtifactPanel>();
+                Artifact interaction = tempInstance.GetComponentInChildren<Artifact>();
                 if (interaction != null)
                 {
                     interaction.StartClose();

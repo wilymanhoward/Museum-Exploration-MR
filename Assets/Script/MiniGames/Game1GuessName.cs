@@ -513,7 +513,7 @@ public class Game1GuessName : MonoBehaviour
         GameObject replayBtn = CreateStyledButton("Main Lagi", new Vector2(-80f, -60f), new Vector2(130f, 38f), ResetGame);
         replayBtn.transform.SetParent(resultsRoot.transform, false);
 
-        GameObject closeBtn = CreateStyledButton("Tutup", new Vector2(80f, -60f), new Vector2(130f, 38f), () => MiniGameManager.Instance.CloseActiveGame());
+        GameObject closeBtn = CreateStyledButton("Tutup", new Vector2(80f, -60f), new Vector2(130f, 38f), () => Minigames.Instance.CloseActiveGame());
         closeBtn.transform.SetParent(resultsRoot.transform, false);
     }
 
@@ -565,7 +565,7 @@ public class Game1GuessName : MonoBehaviour
         col.size = new Vector3(40f, 40f, 15f);
         col.isTrigger = true;
 
-        select.onClick.AddListener(() => MiniGameManager.Instance.CloseActiveGame());
+        select.onClick.AddListener(() => Minigames.Instance.CloseActiveGame());
     }
 
     private GameObject CreateStyledButton(string label, Vector2 anchoredPosition, Vector2 size, UnityEngine.Events.UnityAction onClickAction)

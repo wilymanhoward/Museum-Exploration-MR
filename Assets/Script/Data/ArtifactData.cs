@@ -36,6 +36,12 @@ public class ArtifactData : ScriptableObject
     [Tooltip("Prefab containing the 3D model of the artifact to spawn near the player when scanned.")]
     public GameObject modelPrefab;
 
+    [Header("Audio")]
+    [Tooltip("Audio clip for artifact narration.")]
+    public AudioClip narrationClip;
+    [Tooltip("Audio clip for instrument sound.")]
+    public AudioClip instrumentClip;
+
     [Header("Visuals")]
     public ArtifactImage[] images;
 }

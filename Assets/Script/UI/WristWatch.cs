@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.XR.Hands;
 using Unity.XR.CoreUtils;
 
-public class WristWatchMenu : MonoBehaviour
+public class WristWatch : MonoBehaviour
 {
     [Header("Hand Tracking Anchors")]
     [Tooltip("Left Hand / Wrist transform. Auto-resolved if left empty.")]
@@ -213,39 +213,54 @@ public class WristWatchMenu : MonoBehaviour
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
-            // Ensure all panels are hidden if exploration has not started yet
-            if (!MainMenuManager.IsExplorationStarted)
+            bool otherCanvasOpen = (roomHudCanvas != null && roomHudCanvas.activeInHierarchy) || (gamesPanel != null && gamesPanel.activeInHierarchy);
+
+            // Ensure all panels and watch button are hidden if exploration has not started or other canvas is open
+            if (!MainMenu.IsExplorationStarted || otherCanvasOpen)
             {
-                if (optionsPanelObj != null && optionsPanelObj.activeSelf)
+                if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
+
+                if (!MainMenu.IsExplorationStarted)
                 {
-                    optionsPanelObj.SetActive(false);
-                    optionsPanelActive = false;
-                }
-                if (roomHudCanvas != null && roomHudCanvas.activeSelf)
-                {
-                    roomHudCanvas.SetActive(false);
-                }
-                if (gamesPanel != null && gamesPanel.activeSelf)
-                {
-                    gamesPanel.SetActive(false);
+                    if (optionsPanelObj != null && optionsPanelObj.activeSelf)
+                    {
+                        optionsPanelObj.SetActive(false);
+                        optionsPanelActive = false;
+                    }
+                    if (roomHudCanvas != null && roomHudCanvas.activeSelf)
+                    {
+                        roomHudCanvas.SetActive(false);
+                    }
+                    if (gamesPanel != null && gamesPanel.activeSelf)
+                    {
+                        gamesPanel.SetActive(false);
+                    }
                 }
             }
-
-            if (hasAnchorPose && MainMenuManager.IsExplorationStarted)
+            else
             {
-                Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
-                wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
-
-                // Billboard the (one-sided) canvas to the player cleanly so it stays upright
-                if (playerCam != null)
+                if (hasAnchorPose)
                 {
-                    Vector3 lookDir = playerCam.position - wristWatchButtonObj.transform.position;
-                    lookDir.y = 0; // Keep canvas upright, preventing rapid tilt/rotation flips
-                    if (lookDir.sqrMagnitude > 0.0001f)
+                    if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
+
+                    Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
+                    wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
+
+                    // Billboard the (one-sided) canvas to the player cleanly so it stays upright
+                    if (playerCam != null)
                     {
-                        Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
-                        wristWatchButtonObj.transform.rotation = Quaternion.Slerp(wristWatchButtonObj.transform.rotation, targetRot, Time.deltaTime * 15f);
+                        Vector3 lookDir = playerCam.position - wristWatchButtonObj.transform.position;
+                        lookDir.y = 0; // Keep canvas upright, preventing rapid tilt/rotation flips
+                        if (lookDir.sqrMagnitude > 0.0001f)
+                        {
+                            Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
+                            wristWatchButtonObj.transform.rotation = Quaternion.Slerp(wristWatchButtonObj.transform.rotation, targetRot, Time.deltaTime * 15f);
+                        }
                     }
+                }
+                else
+                {
+                    if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
                 }
             }
         }
@@ -305,7 +320,7 @@ public class WristWatchMenu : MonoBehaviour
             if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
             if (gamesPanel != null) gamesPanel.SetActive(false);
         }
-        Debug.Log($"WristWatchMenu: Options Panel Toggled -> {optionsPanelActive}");
+        Debug.Log($"WristWatch: Options Panel Toggled -> {optionsPanelActive}");
     }
 
     /// <summary>
@@ -318,7 +333,7 @@ public class WristWatchMenu : MonoBehaviour
         {
             optionsPanelObj.SetActive(false);
         }
-        Debug.Log("WristWatchMenu: Options Panel Closed.");
+        Debug.Log("WristWatch: Options Panel Closed.");
     }
 
     /// <summary>
@@ -327,7 +342,7 @@ public class WristWatchMenu : MonoBehaviour
     /// </summary>
     public void OnClickRuang()
     {
-        Debug.Log("WristWatchMenu: 'Explore' button clicked!");
+        Debug.Log("WristWatch: 'Explore' button clicked!");
         if (roomHudCanvas == null)
         {
             roomHudCanvas = GameObject.Find("RoomHUDCanvas");
@@ -354,7 +369,7 @@ public class WristWatchMenu : MonoBehaviour
         {
             roomHudCanvas.SetActive(false);
         }
-        Debug.Log("WristWatchMenu: Room Panel Closed.");
+        Debug.Log("WristWatch: Room Panel Closed.");
     }
 
     /// <summary>
@@ -362,7 +377,7 @@ public class WristWatchMenu : MonoBehaviour
     /// </summary>
     public void OnClickArtefak()
     {
-        Debug.Log("WristWatchMenu: 'Games' button clicked!");
+        Debug.Log("WristWatch: 'Games' button clicked!");
         CloseOptionsPanel();
 
         if (gamesPanel != null)
@@ -384,6 +399,6 @@ public class WristWatchMenu : MonoBehaviour
         {
             gamesPanel.SetActive(false);
         }
-        Debug.Log("WristWatchMenu: Games Panel Closed.");
+        Debug.Log("WristWatch: Games Panel Closed.");
     }
 }

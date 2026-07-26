@@ -50,7 +50,7 @@ public class Game3BatuAssembly : MonoBehaviour
         buttonMaterial = FindMaterial("Mat_Button");
 
         // Spawn Tutup Button on canvas
-        GameObject closeBtn = CreateGameButton("Tutup", new Vector2(-60f, -80f), () => MiniGameManager.Instance.CloseActiveGame());
+        GameObject closeBtn = CreateGameButton("Tutup", new Vector2(-60f, -80f), () => Minigames.Instance.CloseActiveGame());
         spawnedButtons.Add(closeBtn);
 
         StartAssemblyGame();
@@ -285,7 +285,7 @@ public class Game3BatuAssembly : MonoBehaviour
         });
         spawnedButtons.Add(replayBtn);
 
-        GameObject closeBtn = CreateGameButton("Tutup", new Vector2(100f, -80f), () => MiniGameManager.Instance.CloseActiveGame());
+        GameObject closeBtn = CreateGameButton("Tutup", new Vector2(100f, -80f), () => Minigames.Instance.CloseActiveGame());
         spawnedButtons.Add(closeBtn);
     }
 

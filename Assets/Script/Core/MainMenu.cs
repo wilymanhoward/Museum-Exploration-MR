@@ -4,7 +4,7 @@ using TMPro;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.Video;
 
-public class MainMenuManager : MonoBehaviour
+public class MainMenu : MonoBehaviour
 {
     [Header("UI References")]
     public GameObject mainMenuCanvas;
@@ -18,10 +18,10 @@ public class MainMenuManager : MonoBehaviour
 
     [Header("Exploration References")]
     public GameObject wayfindingSystem;
-    public GameObject artifactsContainer;
     public GameObject wristMenuSystem;
 
     [Header("Name Entry")]
+    public GameObject nameErrorLabel;
     private const string DefaultPlayerName = "Pengunjung";
 
     private TMP_InputField activeInputField;
@@ -30,7 +30,7 @@ public class MainMenuManager : MonoBehaviour
     private string currentName = DefaultPlayerName;
     private readonly System.Collections.Generic.Dictionary<XRRayInteractor, float> originalRayDistances = new System.Collections.Generic.Dictionary<XRRayInteractor, float>();
     public static bool IsExplorationStarted { get; set; } = false;
-    public static MainMenuManager Instance { get; private set; }
+    public static MainMenu Instance { get; private set; }
 
     private void Awake()
     {
@@ -42,7 +42,6 @@ public class MainMenuManager : MonoBehaviour
     {
         // Ensure the exploration-specific visuals are disabled at startup
         if (wayfindingSystem != null) wayfindingSystem.SetActive(false);
-        if (artifactsContainer != null) artifactsContainer.SetActive(false);
 
         // Resolve video/panels if null
         if (introVideoPanel == null && mainMenuCanvas != null)
@@ -55,6 +54,20 @@ public class MainMenuManager : MonoBehaviour
             Transform t = mainMenuCanvas.transform.Find("EnterNamePanel");
             if (t != null) enterNamePanel = t.gameObject;
         }
+
+        if (nameErrorLabel == null && mainMenuCanvas != null)
+        {
+            foreach (Transform child in mainMenuCanvas.GetComponentsInChildren<Transform>(true))
+            {
+                string n = child.name;
+                if (n == "NameErrorLabel" || n == "ErrorLabel" || n == "NameErrorText" || n.Contains("Error") || n.Contains("Warning"))
+                {
+                    nameErrorLabel = child.gameObject;
+                    break;
+                }
+            }
+        }
+        if (nameErrorLabel != null) nameErrorLabel.SetActive(false);
         if (videoPlayer == null && introVideoPanel != null)
         {
             videoPlayer = introVideoPanel.GetComponentInChildren<VideoPlayer>(true);
@@ -305,26 +318,35 @@ public class MainMenuManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Invoked when the user taps/clicks the Start button.
-    /// </summary>
     public void StartExploration()
     {
-        string finalName = currentName;
+        string finalName = "";
         if (mainMenuCanvas != null)
         {
-            TMP_InputField inputField = mainMenuCanvas.GetComponentInChildren<TMP_InputField>();
+            TMP_InputField inputField = mainMenuCanvas.GetComponentInChildren<TMP_InputField>(true);
             if (inputField != null)
             {
                 finalName = inputField.text.Trim();
             }
         }
 
+        // If name is empty, block starting exploration!
         if (string.IsNullOrEmpty(finalName))
         {
-            finalName = DefaultPlayerName;
+            Debug.LogWarning("MainMenu: Cannot start exploration. Name is empty!");
+            if (nameErrorLabel != null)
+            {
+                nameErrorLabel.SetActive(true);
+            }
+            return;
+        }
+
+        if (nameErrorLabel != null)
+        {
+            nameErrorLabel.SetActive(false);
         }
  
+        currentName = finalName;
         PlayerPrefs.SetString("PlayerName", finalName);
         PlayerPrefs.Save();
         Debug.Log($"Player registered name: {finalName}");
@@ -350,7 +372,6 @@ public class MainMenuManager : MonoBehaviour
  
         // Show standard references if assigned
         if (wayfindingSystem != null) wayfindingSystem.SetActive(true);
-        if (artifactsContainer != null) artifactsContainer.SetActive(true);
 
         // Find and activate the WristMenuSystem
         if (wristMenuSystem == null)
@@ -368,7 +389,7 @@ public class MainMenuManager : MonoBehaviour
         if (wristMenuSystem != null)
         {
             wristMenuSystem.SetActive(true);
-            Debug.Log("MainMenuManager: Activated WristMenuSystem.");
+            Debug.Log("MainMenu: Activated WristMenuSystem.");
         }
 
         // Tell the Room Manager to start populating and setting up the wayfinding paths

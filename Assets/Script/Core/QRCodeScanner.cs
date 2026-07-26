@@ -76,7 +76,7 @@ public class QRCodeScanner : MonoBehaviour
         if (MRUK.Instance != null)
         {
             // Do not process hardware QR scans while on the Main Menu screen before pressing MULAI
-            if (!MainMenuManager.IsExplorationStarted)
+            if (!MainMenu.IsExplorationStarted)
             {
                 return;
             }

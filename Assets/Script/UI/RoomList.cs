@@ -3,11 +3,11 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class RoomListPanel : MonoBehaviour
+public class RoomList : MonoBehaviour
 {
     [Header("UI Panels")]
     [Tooltip("Reference to the Room Panel to transition to.")]
-    public RoomPanel roomPanel;
+    public Room roomPanel;
 
     [Header("Canvas Reference")]
     [Tooltip("The canvas GameObject to hide. If null, will automatically find the parent Canvas's GameObject.")]
@@ -124,7 +124,7 @@ public class RoomListPanel : MonoBehaviour
         }
         else
         {
-            Debug.LogError("RoomListPanel: roomPanel reference is missing!");
+            Debug.LogError("RoomList: roomPanel reference is missing!");
         }
     }
 

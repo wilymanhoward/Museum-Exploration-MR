@@ -29,11 +29,11 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 0.64285713
-    - _CornerRadius: 0.04
-    - _DotGridSize: 16
-    - _DotRadius: 0
+    - _Aspect: 1.33
+    - _CornerRadius: 0.08
+    - _DotGridSize: 14
+    - _DotRadius: 0.08
     m_Colors:
-    - _Color: {r: 0.43, g: 0.46, b: 0.38, a: 0.85}
-    - _DotColor: {r: 0, g: 0, b: 0, a: 0}
+    - _Color: {r: 0.42999998, g: 0.45999992, b: 0.37999994, a: 0.85}
+    - _DotColor: {r: 0.27999997, g: 0.29999998, b: 0.24999997, a: 0.5}
   m_BuildTextureStacks: []

@@ -703,7 +703,7 @@ public class RoomManager : MonoBehaviour
     private void HandleQRCodeScanned(string payload, Pose pose)
     {
         // Ignore room transition QR scans until player taps MULAI on the Main Menu
-        if (!MainMenuManager.IsExplorationStarted)
+        if (!MainMenu.IsExplorationStarted)
         {
             Debug.Log("RoomManager: Exploration has not started yet. Ignoring QR scan.");
             return;

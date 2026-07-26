@@ -682,7 +682,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         descContentRect.sizeDelta = Vector2.zero;
 
         // Wire up ArtifactPanel component
-        ArtifactPanel panelComp = panelObj.AddComponent<ArtifactPanel>();
+        Artifact panelComp = panelObj.AddComponent<Artifact>();
         panelComp.topTitleText = subText;
         panelComp.bottomTitleText = btmTitleText;
         panelComp.descriptionText = descContentText;
@@ -861,7 +861,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         if (gameManagerObj == null)
         {
             gameManagerObj = new GameObject("MiniGameManager");
-            gameManagerObj.AddComponent<MiniGameManager>();
+            gameManagerObj.AddComponent<Minigames>();
         }
 
         // Create Floor Wayfinding Line Renderer
@@ -951,10 +951,9 @@ public class MuseumSceneSetupEditor : EditorWindow
         BuildWristWatchAndOptionsUI(mainCam, hudCanvas);
 
         // Link manager GUI toggles
-        MainMenuManager mainMenuController = menuCanvas.GetComponent<MainMenuManager>();
+        MainMenu mainMenuController = menuCanvas.GetComponent<MainMenu>();
         mainMenuController.mainMenuCanvas = menuCanvas;
         mainMenuController.wayfindingSystem = wayfindingObj;
-        mainMenuController.artifactsContainer = hudCanvas;
 
         // Force register GameObjects inside hierarchy
         EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
@@ -979,7 +978,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         canvasObj.transform.localScale = Vector3.one * 0.0025f;
 
         // Add MainMenuManager controller
-        MainMenuManager menuMgr = canvasObj.AddComponent<MainMenuManager>();
+        MainMenu menuMgr = canvasObj.AddComponent<MainMenu>();
 
         // Background Card with Translucent Dotted Matrix (matching user image)
         GameObject cardPanel = new GameObject("BackgroundCard");
@@ -1544,7 +1543,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         }
 
         GameObject menuContainerObj = new GameObject("WristMenuSystem");
-        WristWatchMenu wristController = menuContainerObj.AddComponent<WristWatchMenu>();
+        WristWatch wristController = menuContainerObj.AddComponent<WristWatch>();
         wristController.roomHudCanvas = hudCanvas;
 
         // -------------------------------------------------------------

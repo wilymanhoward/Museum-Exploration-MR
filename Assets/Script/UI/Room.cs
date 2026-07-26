@@ -3,13 +3,13 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
-public class RoomPanel : MonoBehaviour
+public class Room : MonoBehaviour
 {
     [Header("UI Panels")]
     [Tooltip("Reference to the Room List Panel to return to.")]
-    public RoomListPanel roomListPanel;
+    public RoomList roomListPanel;
     [Tooltip("Reference to the Artifact Detail Panel to transition to.")]
-    public ArtifactPanel artifactDetailPanel;
+    public Artifact artifactDetailPanel;
 
     [Header("Canvas Reference")]
     [Tooltip("The canvas GameObject to hide. If null, will automatically find the parent Canvas's GameObject.")]
@@ -62,7 +62,7 @@ public class RoomPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// Call this from RoomListPanel to show the room details.
+    /// Call this from RoomList to show the room details.
     /// </summary>
     public void ShowRoom(RoomData roomData)
     {
@@ -167,13 +167,13 @@ public class RoomPanel : MonoBehaviour
         }
         else
         {
-            Debug.LogError("RoomPanel: artifactDetailPanel reference is missing!");
+            Debug.LogError("Room: artifactDetailPanel reference is missing!");
         }
     }
 
     private void OnBackPressed()
     {
-        // Go back to the RoomListPanel
+        // Go back to the RoomList
         if (roomListPanel != null)
         {
             roomListPanel.gameObject.SetActive(true);

@@ -3,7 +3,7 @@ using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
 
-public class ArtifactPanel : MonoBehaviour
+public class Artifact : MonoBehaviour
 {
     [Header("UI Text Fields")]
     public TextMeshProUGUI topTitleText;
@@ -42,6 +42,7 @@ public class ArtifactPanel : MonoBehaviour
     public XRButtonSelection imagesButtonXR;
     public Button threeDViewButton;
     public XRButtonSelection threeDViewButtonXR;
+    public GameObject noModelTextObj;
 
     [Header("Close Buttons (Hides entire Canvas)")]
     public Button closeButton;
@@ -51,17 +52,38 @@ public class ArtifactPanel : MonoBehaviour
     public Button backButton;
     public XRButtonSelection backButtonXR;
 
+    [Header("Audio Narration UI")]
+    public Button playButton;
+    public XRButtonSelection playButtonXR;
+    public GameObject playIconObj;
+    public GameObject pauseIconObj;
+    public Button restartButton;
+    public XRButtonSelection restartButtonXR;
+
+    [Header("Instrument Audio UI")]
+    public Button playInstrumentButton;
+    public XRButtonSelection playInstrumentButtonXR;
+
     [HideInInspector] public ArtifactData artifactData;
     private GameObject spawnedModel;
     private Action onCloseCallback;
     private int currentImageIndex = 0;
     private Transform trackedPlayer;
-    private RoomPanel previousRoomPanel;
+    private Room previousRoomPanel;
+    private AudioSource audioSource;
 
     private void Awake()
     {
         // Ensure detail panel is hidden at startup until opened by scan or menu
         gameObject.SetActive(false);
+
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null)
+        {
+            audioSource = gameObject.AddComponent<AudioSource>();
+        }
+        audioSource.playOnAwake = false;
+        audioSource.loop = false;
     }
 
     private void Start()
@@ -79,10 +101,12 @@ public class ArtifactPanel : MonoBehaviour
         if (threeDViewButton != null)
         {
             threeDViewButton.onClick.AddListener(() => SetViewMode(false));
+            threeDViewButton.onClick.AddListener(On3DViewButtonClicked);
         }
         if (threeDViewButtonXR != null)
         {
             threeDViewButtonXR.onClick.AddListener(() => SetViewMode(false));
+            threeDViewButtonXR.onClick.AddListener(On3DViewButtonClicked);
         }
 
         // Hook close button click to hide the canvas
@@ -104,6 +128,16 @@ public class ArtifactPanel : MonoBehaviour
         {
             backButtonXR.onClick.AddListener(OnBackPressed);
         }
+
+        // Hook audio buttons
+        if (playButton != null) playButton.onClick.AddListener(OnPlayPauseClicked);
+        if (playButtonXR != null) playButtonXR.onClick.AddListener(OnPlayPauseClicked);
+
+        if (restartButton != null) restartButton.onClick.AddListener(RestartNarration);
+        if (restartButtonXR != null) restartButtonXR.onClick.AddListener(RestartNarration);
+
+        if (playInstrumentButton != null) playInstrumentButton.onClick.AddListener(PlayInstrumentAudio);
+        if (playInstrumentButtonXR != null) playInstrumentButtonXR.onClick.AddListener(PlayInstrumentAudio);
     }
 
     private void OnEnable()
@@ -135,9 +169,7 @@ public class ArtifactPanel : MonoBehaviour
         }
     }
 
-    [Header("3D View Button Reference")]
-    [Tooltip("The 3D View button on the panel. Auto-located if unassigned.")]
-    public GameObject view3DButton;
+
 
     /// <summary>
     /// Configures the panel with data, references, and callback events.
@@ -191,6 +223,24 @@ public class ArtifactPanel : MonoBehaviour
         // Configure 3D View button visibility
         Refresh3DViewButtonState();
 
+        // Auto-play narration audio on reveal
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+            if (data != null && data.narrationClip != null)
+            {
+                audioSource.clip = data.narrationClip;
+                audioSource.Play();
+                Debug.Log($"ArtifactPanel: Auto-playing narration for {data.artifactName}");
+            }
+        }
+
+        // Show instrument button if this is an instrument artifact
+        if (playInstrumentButton != null)
+        {
+            playInstrumentButton.gameObject.SetActive(data != null && data.instrumentClip != null);
+        }
+
         Debug.Log($"Setup detail panel next to QR code for: {data.artifactName} at position: {transform.position}");
     }
 
@@ -199,7 +249,7 @@ public class ArtifactPanel : MonoBehaviour
     /// </summary>
     private void Refresh3DViewButtonState()
     {
-        if (view3DButton == null)
+        if (threeDViewButton == null)
         {
             Transform btnT = transform.Find("3DViewButton");
             if (btnT == null)
@@ -213,24 +263,49 @@ public class ArtifactPanel : MonoBehaviour
                     }
                 }
             }
-            if (btnT != null) view3DButton = btnT.gameObject;
+            if (btnT != null)
+            {
+                threeDViewButton = btnT.GetComponent<Button>();
+                if (threeDViewButton == null) threeDViewButton = btnT.gameObject.AddComponent<Button>();
+                
+                threeDViewButtonXR = btnT.GetComponent<XRButtonSelection>();
+
+                // Hook listeners if resolved dynamically
+                threeDViewButton.onClick.AddListener(() => SetViewMode(false));
+                threeDViewButton.onClick.AddListener(On3DViewButtonClicked);
+                if (threeDViewButtonXR != null)
+                {
+                    threeDViewButtonXR.onClick.AddListener(() => SetViewMode(false));
+                    threeDViewButtonXR.onClick.AddListener(On3DViewButtonClicked);
+                }
+            }
         }
 
-        if (view3DButton != null)
+        if (noModelTextObj == null)
         {
-            view3DButton.SetActive(true);
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                string n = t.name;
+                if (n == "NoModelText" || n == "NoModel" || n == "No3DModelText" || n.Contains("No3D") || n.Contains("NoModel"))
+                {
+                    noModelTextObj = t.gameObject;
+                    break;
+                }
+            }
+        }
 
-            UnityEngine.UI.Button btn = view3DButton.GetComponent<UnityEngine.UI.Button>();
-            if (btn == null) btn = view3DButton.GetComponentInChildren<UnityEngine.UI.Button>();
-            if (btn == null) btn = view3DButton.AddComponent<UnityEngine.UI.Button>();
+        bool hasModel = artifactData != null && artifactData.modelPrefab != null;
 
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(On3DViewButtonClicked);
+        if (threeDViewButton != null)
+        {
+            // Only show the 3D View button if this artifact actually has a 3D model prefab!
+            threeDViewButton.gameObject.SetActive(hasModel);
+        }
 
-            XRButtonSelection selection = view3DButton.GetComponent<XRButtonSelection>();
-            if (selection == null) selection = view3DButton.AddComponent<XRButtonSelection>();
-            selection.onClick.RemoveAllListeners();
-            selection.onClick.AddListener(On3DViewButtonClicked);
+        if (noModelTextObj != null)
+        {
+            // Only show the "no 3D model available" text if there is no 3D model prefab!
+            noModelTextObj.SetActive(!hasModel);
         }
     }
 
@@ -560,13 +635,30 @@ public class ArtifactPanel : MonoBehaviour
             OnSpawnModelClicked();
         }
 
+        // Auto-play narration audio on update details
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+            if (data != null && data.narrationClip != null)
+            {
+                audioSource.clip = data.narrationClip;
+                audioSource.Play();
+                Debug.Log($"ArtifactPanel: Auto-playing narration for {data.artifactName}");
+            }
+        }
+
+        if (playInstrumentButton != null)
+        {
+            playInstrumentButton.gameObject.SetActive(data != null && data.instrumentClip != null);
+        }
+
         Debug.Log($"Updated detail panel with new artifact data: {data.artifactName}");
     }
 
     /// <summary>
     /// Displays the detailed information of the specified artifact for the Exploration Canvas flow.
     /// </summary>
-    public void ShowArtifact(ArtifactData data, RoomPanel previousPanel)
+    public void ShowArtifact(ArtifactData data, Room previousPanel)
     {
         previousRoomPanel = previousPanel;
         gameObject.SetActive(true);
@@ -607,6 +699,11 @@ public class ArtifactPanel : MonoBehaviour
     {
         ClearSpawnedModel();
 
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+        }
+
         if (previousRoomPanel != null)
         {
             previousRoomPanel.gameObject.SetActive(true);
@@ -620,6 +717,11 @@ public class ArtifactPanel : MonoBehaviour
     /// </summary>
     public void CloseCanvas()
     {
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+        }
+
         if (canvasObject != null)
         {
             canvasObject.SetActive(false);
@@ -638,6 +740,84 @@ public class ArtifactPanel : MonoBehaviour
                     transform.parent.gameObject.SetActive(false);
                 }
             }
+        }
+    }
+
+    public void PlayNarration()
+    {
+        if (audioSource != null)
+        {
+            if (artifactData != null && audioSource.clip != artifactData.narrationClip)
+            {
+                audioSource.clip = artifactData.narrationClip;
+            }
+            if (audioSource.clip != null)
+            {
+                audioSource.Play();
+                Debug.Log("ArtifactPanel: Narration playing.");
+            }
+        }
+    }
+
+    public void PauseNarration()
+    {
+        if (audioSource != null && audioSource.isPlaying)
+        {
+            audioSource.Pause();
+            Debug.Log("ArtifactPanel: Narration paused.");
+        }
+    }
+
+    public void RestartNarration()
+    {
+        if (audioSource != null && audioSource.clip != null)
+        {
+            audioSource.Stop();
+            audioSource.Play();
+            Debug.Log("ArtifactPanel: Narration restarted.");
+        }
+    }
+
+    private void PlayInstrumentAudio()
+    {
+        if (artifactData != null && artifactData.instrumentClip != null && audioSource != null)
+        {
+            audioSource.Stop();
+            audioSource.clip = artifactData.instrumentClip;
+            audioSource.Play();
+            Debug.Log("ArtifactPanel: Playing instrument audio.");
+        }
+    }
+
+    private void Update()
+    {
+        UpdateAudioUI();
+    }
+
+    private void UpdateAudioUI()
+    {
+        bool isPlaying = audioSource != null && audioSource.isPlaying;
+        if (playIconObj != null)
+        {
+            playIconObj.SetActive(!isPlaying);
+        }
+        if (pauseIconObj != null)
+        {
+            pauseIconObj.SetActive(isPlaying);
+        }
+    }
+
+    public void OnPlayPauseClicked()
+    {
+        if (audioSource == null) return;
+
+        if (audioSource.isPlaying)
+        {
+            PauseNarration();
+        }
+        else
+        {
+            PlayNarration();
         }
     }
 }

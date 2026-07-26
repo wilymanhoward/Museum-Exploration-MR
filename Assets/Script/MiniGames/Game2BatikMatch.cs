@@ -272,7 +272,7 @@ public class Game2BatikMatch : MonoBehaviour
         // 3. Close button - available on both the intro screen and during gameplay
         if (customCloseButton != null)
         {
-            customCloseButton.onClick.AddListener(() => MiniGameManager.Instance.CloseActiveGame());
+            customCloseButton.onClick.AddListener(() => Minigames.Instance.CloseActiveGame());
         }
         else
         {
@@ -833,7 +833,7 @@ public class Game2BatikMatch : MonoBehaviour
         GameObject replayBtn = CreateStyledButton("Main Lagi", new Vector2(-80f, -172f), new Vector2(130f, 38f), ResetAndRestartGame);
         spawnedButtons.Add(replayBtn);
 
-        GameObject closeBtn = CreateStyledButton("Tutup", new Vector2(80f, -172f), new Vector2(130f, 38f), () => MiniGameManager.Instance.CloseActiveGame());
+        GameObject closeBtn = CreateStyledButton("Tutup", new Vector2(80f, -172f), new Vector2(130f, 38f), () => Minigames.Instance.CloseActiveGame());
         spawnedButtons.Add(closeBtn);
     }
 
@@ -994,7 +994,7 @@ public class Game2BatikMatch : MonoBehaviour
         col.size = new Vector3(40f, 40f, 15f);
         col.isTrigger = true;
 
-        select.onClick.AddListener(() => MiniGameManager.Instance.CloseActiveGame());
+        select.onClick.AddListener(() => Minigames.Instance.CloseActiveGame());
     }
 
     private GameObject CreateStyledButton(string label, Vector2 anchoredPosition, Vector2 size, UnityEngine.Events.UnityAction onClickAction)

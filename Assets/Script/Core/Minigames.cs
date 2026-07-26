@@ -2,9 +2,9 @@ using System;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 
-public class MiniGameManager : MonoBehaviour
+public class Minigames : MonoBehaviour
 {
-    public static MiniGameManager Instance { get; private set; }
+    public static Minigames Instance { get; private set; }
 
     [Header("Game References")]
     [Tooltip("Prefab to use as the base container (uses the same glassmorphism canvas as the detail panel).")]
@@ -39,9 +39,9 @@ public class MiniGameManager : MonoBehaviour
     private void HandleQRCodeScanned(string payload, Pose qrPose)
     {
         // Ignore all mini-game scans until player taps MULAI on the Main Menu
-        if (!MainMenuManager.IsExplorationStarted)
+        if (!MainMenu.IsExplorationStarted)
         {
-            Debug.Log("MiniGameManager: Exploration has not started yet. Ignoring QR scan.");
+            Debug.Log("Minigames: Exploration has not started yet. Ignoring QR scan.");
             return;
         }
 
@@ -67,11 +67,11 @@ public class MiniGameManager : MonoBehaviour
         {
             if (ActiveGamePayload == gameId)
             {
-                Debug.Log($"MiniGameManager: Game '{gameId}' is already active. Ignoring repeat scan.");
+                Debug.Log($"Minigames: Game '{gameId}' is already active. Ignoring repeat scan.");
                 return;
             }
 
-            Debug.Log($"MiniGameManager matched raw QR scan '{payload}' to game '{gameId}'.");
+            Debug.Log($"Minigames matched raw QR scan '{payload}' to game '{gameId}'.");
             StartGame(gameId, qrPose);
         }
     }
@@ -81,7 +81,7 @@ public class MiniGameManager : MonoBehaviour
     /// </summary>
     public void StartGame(string payload, Pose qrPose)
     {
-        Debug.Log($"MiniGameManager: Starting game for payload '{payload}'");
+        Debug.Log($"Minigames: Starting game for payload '{payload}'");
         ActiveGamePayload = payload;
 
         // Clean up any active game first
@@ -110,7 +110,7 @@ public class MiniGameManager : MonoBehaviour
 
         if (prefabToUse == null)
         {
-            Debug.LogError("MiniGameManager: No panel prefab template found to spawn the game.");
+            Debug.LogError("Minigames: No panel prefab template found to spawn the game.");
             return;
         }
 
@@ -157,8 +157,8 @@ public class MiniGameManager : MonoBehaviour
             canvas.worldCamera = Camera.main;
         }
         
-        // Fix zero scale issue (originally handled by pop-in animation in ArtifactPanel)
-        var artPanel = activeGameInstance.GetComponent<ArtifactPanel>();
+        // Fix zero scale issue (originally handled by pop-in animation in Artifact)
+        var artPanel = activeGameInstance.GetComponent<Artifact>();
         Vector3 targetScale = new Vector3(0.0022f, 0.0022f, 0.0022f); // fallback portrait scale
         if (artPanel != null)
         {
