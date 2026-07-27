@@ -1173,6 +1173,7 @@ public class MuseumSceneSetupEditor : EditorWindow
         glanceableHUD.useDeadzone = true;
         glanceableHUD.distanceThreshold = 0.15f;
         glanceableHUD.angleThreshold = 15.0f;
+        glanceableHUD.enabled = false;
 
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
@@ -1605,6 +1606,11 @@ public class MuseumSceneSetupEditor : EditorWindow
         optionsCanvas.renderMode = RenderMode.WorldSpace;
         optionsCanvas.worldCamera = mainCam;
         optionsCanvasObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
+        
+        if (hudCanvas != null)
+        {
+            hudCanvas.SetActive(false);
+        }
         RectTransform optionsRect = optionsCanvasObj.GetComponent<RectTransform>();
         optionsRect.sizeDelta = new Vector2(640, 420);
         optionsCanvasObj.transform.localScale = Vector3.one * 0.0006f;

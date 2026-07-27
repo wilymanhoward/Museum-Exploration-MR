@@ -107,7 +107,14 @@ public class WristWatch : MonoBehaviour
 
         if (roomHudCanvas == null)
         {
-            roomHudCanvas = GameObject.Find("RoomHUDCanvas");
+            roomHudCanvas = FindInactiveObject("ExplorationCanvas") ?? FindInactiveObject("RoomHUDCanvas");
+        }
+
+        if (roomHudCanvas != null)
+        {
+            GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
+            if (gHUD != null) gHUD.enabled = false;
+            roomHudCanvas.SetActive(false);
         }
 
         // Resolve the room-list (List Ruang) panel - it's an inactive child of the room canvas,
@@ -117,10 +124,6 @@ public class WristWatch : MonoBehaviour
             Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
             if (t != null) roomListPanel = t.gameObject;
         }
-
-        // The room list is pinned to the wrist by driving its transform from the wrist pose each
-        // frame (see FollowWristRigid in LateUpdate), NOT by parenting it under the wrist menu -
-        // the wrist menu billboards to face the head, and a child would inherit that head rotation.
 
         // Wire the option rows. The row and its "expand" ActionButton (Expand button.png) had no
         // onClick action in the scene, so hook them up here. We wire EVERY Button/XRButtonSelection
@@ -172,6 +175,23 @@ public class WristWatch : MonoBehaviour
         return null;
     }
 
+    private static GameObject FindInactiveObject(string objectName)
+    {
+        if (string.IsNullOrEmpty(objectName)) return null;
+
+        GameObject activeObj = GameObject.Find(objectName);
+        if (activeObj != null) return activeObj;
+
+        foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+        {
+            if (go != null && go.name == objectName && go.hideFlags == HideFlags.None && go.scene.isLoaded)
+            {
+                return go;
+            }
+        }
+        return null;
+    }
+
     private void RefreshAnchorCandidates()
     {
         // Session-space root: the XROrigin's floor offset object ("Camera Offset"), which
@@ -179,9 +199,9 @@ public class WristWatch : MonoBehaviour
         if (sessionSpaceRoot == null)
         {
             XROrigin origin = FindObjectOfType<XROrigin>();
-            if (origin != null && origin.CameraFloorOffsetObject != null)
+            if (origin != null)
             {
-                sessionSpaceRoot = origin.CameraFloorOffsetObject.transform;
+                sessionSpaceRoot = origin.CameraFloorOffsetObject != null ? origin.CameraFloorOffsetObject.transform : origin.transform;
             }
         }
 
@@ -237,6 +257,29 @@ public class WristWatch : MonoBehaviour
         }
     }
 
+    private bool GetPoseFromCandidate(Transform root, out Vector3 pos, out Quaternion rot)
+    {
+        pos = Vector3.zero;
+        rot = Quaternion.identity;
+        if (root == null || !root.gameObject.activeInHierarchy) return false;
+
+        foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (child == null || !child.gameObject.activeInHierarchy || child == root) continue;
+            string n = child.name.ToLower();
+            if (n.Contains("wrist") || n.Contains("palm") || n.Contains("joint_0") || n.Contains("ray") || n.Contains("interactor") || n.Contains("aim"))
+            {
+                pos = child.position;
+                rot = child.rotation;
+                return true;
+            }
+        }
+
+        pos = root.position;
+        rot = root.rotation;
+        return true;
+    }
+
     /// <summary>
     /// Computes this frame's left-wrist anchor pose. Priority: the live tracked wrist joint
     /// (the pose that actually follows the hand), then the Inspector-assigned transform, then
@@ -247,15 +290,17 @@ public class WristWatch : MonoBehaviour
         hasAnchorPose = false;
         leftHandSolidlyTracked = false;
 
-        // 1. Prefer the native XRHandSubsystem left wrist joint. This is the pose that truly
-        // rides the player's hand - the "Left Hand" rig object itself is not pose-driven, so
-        // anchoring to it (or its Inspector reference) leaves the menu floating in place.
-        // The app is hands-only, so this is the primary path.
+        // 1. Prefer the native XRHandSubsystem left wrist joint or palm joint.
         FindHandSubsystem();
         if (handSubsystem != null && handSubsystem.running && handSubsystem.leftHand.isTracked)
         {
-            XRHandJoint wrist = handSubsystem.leftHand.GetJoint(XRHandJointID.Wrist);
-            if (wrist.TryGetPose(out Pose pose))
+            XRHandJoint joint = handSubsystem.leftHand.GetJoint(XRHandJointID.Wrist);
+            if (!joint.TryGetPose(out Pose pose))
+            {
+                joint = handSubsystem.leftHand.GetJoint(XRHandJointID.Palm);
+                joint.TryGetPose(out pose);
+            }
+            if (pose.position != Vector3.zero || pose.rotation != Quaternion.identity)
             {
                 if (sessionSpaceRoot != null)
                 {
@@ -270,8 +315,6 @@ public class WristWatch : MonoBehaviour
                 hasAnchorPose = true;
                 leftHandSolidlyTracked = true;
 
-                // Remember this as the last known-good pose to fall back to when the hand
-                // is occluded or the other hand is reaching in to click.
                 hasLastGoodAnchor = true;
                 lastGoodAnchorPos = anchorPos;
                 lastGoodAnchorRot = anchorRot;
@@ -280,29 +323,51 @@ public class WristWatch : MonoBehaviour
         }
 
         // 2. Inspector-assigned anchor (if active)
-        if (leftHandAnchor != null && leftHandAnchor.gameObject.activeInHierarchy)
+        if (leftHandAnchor != null && GetPoseFromCandidate(leftHandAnchor, out anchorPos, out anchorRot))
         {
-            anchorPos = leftHandAnchor.position;
-            anchorRot = leftHandAnchor.rotation;
             hasAnchorPose = true;
+            hasLastGoodAnchor = true;
+            lastGoodAnchorPos = anchorPos;
+            lastGoodAnchorRot = anchorRot;
             return;
         }
 
         // 3. Active left hand object found in hierarchy
-        if (leftHandCandidate != null && leftHandCandidate.gameObject.activeInHierarchy)
+        if (leftHandCandidate != null && GetPoseFromCandidate(leftHandCandidate, out anchorPos, out anchorRot))
         {
-            anchorPos = leftHandCandidate.position;
-            anchorRot = leftHandCandidate.rotation;
             hasAnchorPose = true;
+            hasLastGoodAnchor = true;
+            lastGoodAnchorPos = anchorPos;
+            lastGoodAnchorRot = anchorRot;
             return;
         }
 
         // 4. Fallback to active left controller object found in hierarchy
-        if (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy)
+        if (leftControllerCandidate != null && GetPoseFromCandidate(leftControllerCandidate, out anchorPos, out anchorRot))
         {
-            anchorPos = leftControllerCandidate.position;
-            anchorRot = leftControllerCandidate.rotation;
             hasAnchorPose = true;
+            hasLastGoodAnchor = true;
+            lastGoodAnchorPos = anchorPos;
+            lastGoodAnchorRot = anchorRot;
+            return;
+        }
+
+        // 5. Fallback search for any active left hand or left ray transform in the scene
+        foreach (var t in FindObjectsOfType<Transform>(true))
+        {
+            if (t == null || !t.gameObject.activeInHierarchy || t == transform) continue;
+            string n = t.name.ToLower();
+            if ((n.Contains("left") || n.Contains("lhs")) && (n.Contains("hand") || n.Contains("wrist") || n.Contains("ray") || n.Contains("controller") || n.Contains("aim")))
+            {
+                if (GetPoseFromCandidate(t, out anchorPos, out anchorRot))
+                {
+                    hasAnchorPose = true;
+                    hasLastGoodAnchor = true;
+                    lastGoodAnchorPos = anchorPos;
+                    lastGoodAnchorRot = anchorRot;
+                    break;
+                }
+            }
         }
     }
 
@@ -347,23 +412,13 @@ public class WristWatch : MonoBehaviour
 
         UpdateAnchorPose();
 
-        // Stabilization: while the left hand is occluded/untracked, or the right hand is
-        // reaching in to click (which occludes the left hand from the cameras), hold the last
-        // solid pose so the button doesn't jump around chasing a predicted left-hand pose.
-        if (hasLastGoodAnchor)
+        // Stabilization: while the left hand is untracked and player reaches in to click,
+        // hold the last solid pose so the button doesn't jump around. Otherwise, use live anchor pose.
+        if (!hasAnchorPose && hasLastGoodAnchor)
         {
-            bool reaching = false;
-            if (wristWatchButtonObj != null && TryGetRightHandPoint(out Vector3 rightPoint))
-            {
-                reaching = Vector3.Distance(rightPoint, wristWatchButtonObj.transform.position) <= freezeReachDistance;
-            }
-
-            if (!leftHandSolidlyTracked || reaching)
-            {
-                anchorPos = lastGoodAnchorPos;
-                anchorRot = lastGoodAnchorRot;
-                hasAnchorPose = true;
-            }
+            anchorPos = lastGoodAnchorPos;
+            anchorRot = lastGoodAnchorRot;
+            hasAnchorPose = true;
         }
 
         Transform playerCam = Camera.main != null ? Camera.main.transform : null;
@@ -386,10 +441,6 @@ public class WristWatch : MonoBehaviour
                     {
                         optionsPanelObj.SetActive(false);
                         optionsPanelActive = false;
-                    }
-                    if (roomHudCanvas != null && roomHudCanvas.activeSelf)
-                    {
-                        roomHudCanvas.SetActive(false);
                     }
                     if (gamesPanel != null && gamesPanel.activeSelf)
                     {
@@ -414,7 +465,7 @@ public class WristWatch : MonoBehaviour
                         if (lookDir.sqrMagnitude > 0.0001f)
                         {
                             Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
-                            wristWatchButtonObj.transform.rotation = Quaternion.Slerp(wristWatchButtonObj.transform.rotation, targetRot, Time.deltaTime * 15f);
+                            wristWatchButtonObj.transform.rotation = Quaternion.Slerp(wristWatchButtonObj.transform.rotation, targetRot, Time.deltaTime * 25f);
                         }
                     }
                 }
@@ -425,29 +476,170 @@ public class WristWatch : MonoBehaviour
             }
         }
 
-        // 2. Keep panels near the hand. Options/games billboard to face the player; the room list
-        // is pinned rigidly to the wrist (moves AND rotates with the wrist, no head billboard).
+        // 2. Keep panels anchored to the left wrist hovering cleanly above the hand.
         FollowHand(optionsPanelObj, playerCam);
-        if (attachRoomListToWrist) FollowWristRigid(roomHudCanvas);
-        else FollowHand(roomHudCanvas, playerCam);
-        FollowHand(gamesPanel, playerCam);
+        if (roomHudCanvas != null && roomHudCanvas.activeInHierarchy)
+        {
+            GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
+            if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
+            FollowHand(roomHudCanvas, playerCam);
+        }
+        if (roomListPanel != null && roomListPanel.activeInHierarchy && roomListPanel != roomHudCanvas)
+        {
+            FollowHand(roomListPanel, playerCam);
+        }
+        if (gamesPanel != null && gamesPanel.activeInHierarchy)
+        {
+            FollowHand(gamesPanel, playerCam);
+        }
+    }
+
+    /// <summary>
+    /// Direct, live left-wrist pose straight from the XR Hands subsystem (wrist joint, falling
+    /// back to palm). This bypasses UpdateAnchorPose's fuzzy candidate fallbacks, which can latch
+    /// onto a STATIC interactor transform and make wrist-attached UI stop following the hand.
+    /// </summary>
+    private bool TryGetLeftWristPose(out Vector3 pos, out Quaternion rot)
+    {
+        pos = Vector3.zero;
+        rot = Quaternion.identity;
+
+        FindHandSubsystem();
+        if (handSubsystem != null && handSubsystem.running && handSubsystem.leftHand.isTracked)
+        {
+            XRHandJoint joint = handSubsystem.leftHand.GetJoint(XRHandJointID.Wrist);
+            if (!joint.TryGetPose(out Pose pose))
+            {
+                joint = handSubsystem.leftHand.GetJoint(XRHandJointID.Palm);
+                joint.TryGetPose(out pose);
+            }
+            if (pose.position != Vector3.zero || pose.rotation != Quaternion.identity)
+            {
+                if (sessionSpaceRoot != null)
+                {
+                    pos = sessionSpaceRoot.TransformPoint(pose.position);
+                    rot = sessionSpaceRoot.rotation * pose.rotation;
+                }
+                else
+                {
+                    pos = pose.position;
+                    rot = pose.rotation;
+                }
+                return true;
+            }
+        }
+
+        // Fallback: a live hand-visual wrist bone in the scene (whatever actually drives the
+        // rendered hand), so we still follow even if the XR Hands subsystem reports untracked.
+        Transform bone = FindLeftWristBone();
+        if (bone != null)
+        {
+            pos = bone.position;
+            rot = bone.rotation;
+            return true;
+        }
+
+        if (leftHandAnchor != null && leftHandAnchor.gameObject.activeInHierarchy)
+        {
+            pos = leftHandAnchor.position;
+            rot = leftHandAnchor.rotation;
+            return true;
+        }
+
+        if (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy)
+        {
+            pos = leftControllerCandidate.position;
+            rot = leftControllerCandidate.rotation;
+            return true;
+        }
+
+        if (leftHandCandidate != null && leftHandCandidate.gameObject.activeInHierarchy)
+        {
+            pos = leftHandCandidate.position;
+            rot = leftHandCandidate.rotation;
+            return true;
+        }
+
+        return false;
+    }
+
+    private Transform cachedWristBone;
+
+    /// <summary>
+    /// Finds a pose-driven left wrist/hand-joint transform among the hand objects, deliberately
+    /// skipping interactor/ray/aim transforms (which can be static) so we track the moving hand.
+    /// </summary>
+    private Transform FindLeftWristBone()
+    {
+        if (cachedWristBone != null && cachedWristBone.gameObject.activeInHierarchy)
+            return cachedWristBone;
+        cachedWristBone = null;
+
+        Transform[] roots = { leftHandCandidate, leftHandAnchor };
+        // Prefer something explicitly named like a wrist, then any hand joint/bone.
+        string[] preferred = { "wrist", "palm", "hand_l", "l_hand", "lefthand", "joint" };
+        foreach (string key in preferred)
+        {
+            foreach (Transform root in roots)
+            {
+                if (root == null) continue;
+                foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+                {
+                    if (t == root || !t.gameObject.activeInHierarchy) continue;
+                    string n = t.name.ToLower();
+                    if (n.Contains("interactor") || n.Contains("ray") || n.Contains("aim") ||
+                        n.Contains("poke") || n.Contains("stabil") || n.Contains("attach"))
+                        continue;
+                    if (n.Contains(key))
+                    {
+                        cachedWristBone = t;
+                        return t;
+                    }
+                }
+            }
+        }
+        // Fallback: search scene-wide for any active left hand/wrist transform
+        foreach (Transform t in FindObjectsOfType<Transform>(true))
+        {
+            if (t == null || !t.gameObject.activeInHierarchy || t == transform) continue;
+            string n = t.name.ToLower();
+            if (n.Contains("interactor") || n.Contains("ray") || n.Contains("aim") || n.Contains("poke") || n.Contains("canvas"))
+                continue;
+            if ((n.Contains("left") || n.Contains("lhs")) && (n.Contains("wrist") || n.Contains("palm") || n.Contains("hand") || n.Contains("joint")))
+            {
+                cachedWristBone = t;
+                return t;
+            }
+        }
+        return null;
     }
 
     /// <summary>
     /// Rigidly pins a panel to the wrist: both its position and rotation come from the wrist
     /// pose, so it moves and rotates WITH the wrist and does not billboard to the head. The
     /// offset/rotation are expressed in wrist-local space so they stay fixed as the wrist turns.
-    /// Uses the (freeze-held) anchor pose, so it also holds still while reaching in to click.
+    /// Prefers the live XR Hands wrist joint so it keeps following even if UpdateAnchorPose's
+    /// stored anchor has fallen back to a static source.
     /// </summary>
     private void FollowWristRigid(GameObject panel)
     {
-        if (!hasAnchorPose || panel == null || !panel.activeInHierarchy) return;
+        if (panel == null || !panel.activeInHierarchy) return;
 
-        Vector3 targetPos = anchorPos + anchorRot * roomListWristOffset;
-        Quaternion targetRot = anchorRot * Quaternion.Euler(roomListWristEuler);
+        Vector3 wristPos;
+        Quaternion wristRot;
+        if (!TryGetLeftWristPose(out wristPos, out wristRot))
+        {
+            if (!hasAnchorPose) return;
+            wristPos = anchorPos;
+            wristRot = anchorRot;
+        }
 
-        panel.transform.position = Vector3.Lerp(panel.transform.position, targetPos, Time.deltaTime * 15f);
-        panel.transform.rotation = Quaternion.Slerp(panel.transform.rotation, targetRot, Time.deltaTime * 15f);
+        Vector3 targetPos = wristPos + wristRot * roomListWristOffset;
+        Quaternion targetRot = wristRot * Quaternion.Euler(roomListWristEuler);
+
+        // Immediate 1-to-1 position and rotation assignment so the panel follows simultaneously with zero lag
+        panel.transform.position = targetPos;
+        panel.transform.rotation = targetRot;
     }
 
     /// <summary>
@@ -456,10 +648,27 @@ public class WristWatch : MonoBehaviour
     /// </summary>
     private void FollowHand(GameObject panel, Transform playerCam)
     {
-        if (!hasAnchorPose || panel == null || !panel.activeInHierarchy) return;
+        if (panel == null || !panel.activeInHierarchy) return;
 
-        Vector3 targetPos = AnchorTransformPoint(panelOffset);
-        panel.transform.position = Vector3.Lerp(panel.transform.position, targetPos, Time.deltaTime * 15f);
+        Vector3 handPos;
+        Quaternion handRot;
+        if (!TryGetLeftWristPose(out handPos, out handRot))
+        {
+            if (!hasAnchorPose) return;
+            handPos = anchorPos;
+            handRot = anchorRot;
+        }
+
+        Vector3 targetPos = handPos + panelOffset;
+
+        if (Vector3.Distance(panel.transform.position, targetPos) > 0.4f)
+        {
+            panel.transform.position = targetPos;
+        }
+        else
+        {
+            panel.transform.position = Vector3.Lerp(panel.transform.position, targetPos, Time.deltaTime * 30f);
+        }
 
         if (playerCam != null)
         {
@@ -468,7 +677,7 @@ public class WristWatch : MonoBehaviour
             if (lookDir.sqrMagnitude > 0.0001f)
             {
                 Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
-                panel.transform.rotation = Quaternion.Slerp(panel.transform.rotation, targetRot, Time.deltaTime * 15f);
+                panel.transform.rotation = Quaternion.Slerp(panel.transform.rotation, targetRot, Time.deltaTime * 30f);
             }
         }
     }
@@ -526,15 +735,20 @@ public class WristWatch : MonoBehaviour
     public void OnClickRuang()
     {
         Debug.Log("WristWatch: 'Explore' button clicked!");
-        if (roomHudCanvas == null)
-        {
-            roomHudCanvas = GameObject.Find("ExplorationCanvas") ?? GameObject.Find("RoomHUDCanvas");
-        }
+        MainMenu.IsExplorationStarted = true;
 
         CloseOptionsPanel();
 
+        if (roomHudCanvas == null)
+        {
+            roomHudCanvas = FindInactiveObject("ExplorationCanvas") ?? FindInactiveObject("RoomHUDCanvas");
+        }
+
         if (roomHudCanvas != null)
         {
+            GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
+            if (gHUD != null) Destroy(gHUD);
+
             roomHudCanvas.SetActive(true);
 
             ShowRoomListPanel();
@@ -546,15 +760,7 @@ public class WristWatch : MonoBehaviour
 
             if (hasAnchorPose)
             {
-                if (attachRoomListToWrist)
-                {
-                    roomHudCanvas.transform.position = anchorPos + anchorRot * roomListWristOffset;
-                    roomHudCanvas.transform.rotation = anchorRot * Quaternion.Euler(roomListWristEuler);
-                }
-                else
-                {
-                    roomHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
-                }
+                roomHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
             }
         }
         if (gamesPanel != null) gamesPanel.SetActive(false);
@@ -569,8 +775,7 @@ public class WristWatch : MonoBehaviour
         }
         if (roomListPanel == null)
         {
-            GameObject found = GameObject.Find("RoomListPanel");
-            if (found != null) roomListPanel = found;
+            roomListPanel = FindInactiveObject("RoomListPanel");
         }
         if (roomListPanel == null) return;
 
@@ -610,6 +815,7 @@ public class WristWatch : MonoBehaviour
     public void OnClickArtefak()
     {
         Debug.Log("WristWatch: 'Games' button clicked!");
+        MainMenu.IsExplorationStarted = true;
         CloseOptionsPanel();
 
         if (gamesPanel != null)

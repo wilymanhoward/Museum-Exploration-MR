@@ -1972,10 +1972,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1211192190}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0}
-  m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -10.8, y: -263.6}
-  m_SizeDelta: {x: 147.8, y: 168.8}
+  m_AnchorMin: {x: 0.05, y: 0.05}
+  m_AnchorMax: {x: 0.95, y: 0.82}
+  m_AnchoredPosition: {x: 0, y: -184}
+  m_SizeDelta: {x: -0.0000038146973, y: 0.000015258789}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &248531943
 MonoBehaviour:
@@ -1994,12 +1994,12 @@ MonoBehaviour:
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
-  m_ChildAlignment: 0
+  m_ChildAlignment: 1
   m_StartCorner: 0
   m_StartAxis: 0
-  m_CellSize: {x: 181.11, y: 58.68}
-  m_Spacing: {x: 11.16, y: 6.4}
-  m_Constraint: 0
+  m_CellSize: {x: 170, y: 65}
+  m_Spacing: {x: 15, y: 15}
+  m_Constraint: 1
   m_ConstraintCount: 2
 --- !u!222 &248531944
 CanvasRenderer:
@@ -7430,7 +7430,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 922713083}
-  - component: {fileID: 922713082}
   - component: {fileID: 922713081}
   - component: {fileID: 922713080}
   - component: {fileID: 922713079}
@@ -7491,25 +7490,6 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 0
   m_TargetDisplay: 0
---- !u!114 &922713082
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 922713077}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c08a65f054f3c6842b0cc5b8c8d07ab7, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  cameraTransform: {fileID: 0}
-  positionOffset: {x: -0.4, y: 0.2, z: 1.2}
-  positionLerpSpeed: 2
-  rotationSlerpSpeed: 3.5
-  useDeadzone: 1
-  distanceThreshold: 0.15
-  angleThreshold: 15
 --- !u!224 &922713083
 RectTransform:
   m_ObjectHideFlags: 0
@@ -10050,7 +10030,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1211192189
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -10659,7 +10639,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1299530441
 RectTransform:
   m_ObjectHideFlags: 0
@@ -10960,7 +10940,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1352111707
 RectTransform:
   m_ObjectHideFlags: 0
@@ -14579,8 +14559,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -10.31, y: -237.7}
-  m_SizeDelta: {x: 1204.13, y: 817.1}
+  m_AnchoredPosition: {x: -10.31, y: -253}
+  m_SizeDelta: {x: 1204.13, y: 929.5}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1835326324
 MonoBehaviour:
@@ -16513,8 +16493,8 @@ MonoBehaviour:
   optionsPanelObj: {fileID: 669462937}
   roomHudCanvas: {fileID: 922713077}
   gamesPanel: {fileID: 1034956511}
-  exploreRow: {fileID: 0}
-  roomListPanel: {fileID: 0}
+  exploreRow: {fileID: 843097875}
+  roomListPanel: {fileID: 1211192188}
   attachRoomListToWrist: 1
   roomListWristOffset: {x: 0, y: 0.12, z: 0.02}
   roomListWristEuler: {x: 0, y: 0, z: 0}

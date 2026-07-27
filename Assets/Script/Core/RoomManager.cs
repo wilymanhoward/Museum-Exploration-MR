@@ -392,14 +392,34 @@ public class RoomManager : MonoBehaviour
     private void RebuildArtifactChecklist()
     {
         Debug.Log($"RebuildArtifactChecklist called. currentRoom: {(currentRoom != null ? currentRoom.roomName : "null")}");
+
+        // Auto-resolve artifactListContainer if null
+        if (artifactListContainer == null)
+        {
+            GameObject canvasObj = roomHudContainer != null ? roomHudContainer : GameObject.Find("RoomHUDCanvas") ?? GameObject.Find("ExplorationCanvas");
+            if (canvasObj != null)
+            {
+                Transform found = canvasObj.transform.Find("RoomPanel/ArtifactList")
+                               ?? canvasObj.transform.Find("ArtifactList")
+                               ?? canvasObj.transform.Find("List");
+                if (found == null)
+                {
+                    foreach (Transform t in canvasObj.GetComponentsInChildren<Transform>(true))
+                    {
+                        if ((t.name == "ArtifactList" || t.name == "List" || t.name == "Content") && t.name != "RoomList")
+                        {
+                            found = t;
+                            break;
+                        }
+                    }
+                }
+                if (found != null) artifactListContainer = found;
+            }
+        }
+
         if (artifactListContainer == null)
         {
             Debug.LogError("RebuildArtifactChecklist aborted: artifactListContainer is null!");
-            return;
-        }
-        if (artifactListItemPrefab == null)
-        {
-            Debug.LogError("RebuildArtifactChecklist aborted: artifactListItemPrefab is null!");
             return;
         }
 
@@ -438,35 +458,56 @@ public class RoomManager : MonoBehaviour
 
         Debug.Log($"Spawning checklist for {currentRoom.artifacts.Count} artifacts...");
         // Instantiate item for each artifact in the room
-        foreach (ArtifactData artifact in currentRoom.artifacts)
+        for (int i = 0; i < currentRoom.artifacts.Count; i++)
         {
+            ArtifactData artifact = currentRoom.artifacts[i];
             if (artifact == null)
             {
                 Debug.LogWarning("Found null ArtifactData inside currentRoom.artifacts!");
                 continue;
             }
 
-            GameObject item = Instantiate(artifactListItemPrefab, artifactListContainer);
+            GameObject item = null;
+            if (artifactListItemPrefab != null)
+            {
+                item = Instantiate(artifactListItemPrefab, artifactListContainer);
+            }
+            else
+            {
+                item = new GameObject($"ArtifactCard_{i + 1}");
+                item.transform.SetParent(artifactListContainer, false);
+            }
+
+            item.SetActive(true);
             item.transform.localScale = Vector3.one;
             item.transform.localPosition = Vector3.zero;
             item.transform.localRotation = Quaternion.identity;
 
             // Check if already scanned in the past
-            bool isScanned = scannedArtifacts.ContainsKey(artifact.artifactId) && scannedArtifacts[artifact.artifactId];
+            bool isScanned = (scannedArtifacts != null && artifact.artifactId != null && scannedArtifacts.ContainsKey(artifact.artifactId) && scannedArtifacts[artifact.artifactId]);
             UpdateListItemVisual(item, artifact, isScanned);
-            hudListItems[artifact.artifactId] = item;
+
+            if (artifact.artifactId != null)
+            {
+                hudListItems[artifact.artifactId] = item;
+            }
 
             // Hook up the button click event
             UnityEngine.UI.Button btn = item.GetComponent<UnityEngine.UI.Button>();
-            if (btn == null) btn = item.GetComponentInChildren<UnityEngine.UI.Button>();
-            if (btn != null)
-            {
-                ArtifactData currentArtifact = artifact;
-                btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() => {
-                    SelectArtifactFromList(currentArtifact);
-                });
-            }
+            if (btn == null) btn = item.AddComponent<UnityEngine.UI.Button>();
+            
+            ArtifactData currentArtifact = artifact;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => {
+                SelectArtifactFromList(currentArtifact);
+            });
+
+            XRButtonSelection selection = item.GetComponent<XRButtonSelection>();
+            if (selection == null) selection = item.AddComponent<XRButtonSelection>();
+            selection.onClick.RemoveAllListeners();
+            selection.onClick.AddListener(() => {
+                btn.onClick.Invoke();
+            });
 
             Debug.Log($"Successfully spawned checklist item for artifact '{artifact.artifactName}' (Scanned: {isScanned})");
         }
@@ -474,17 +515,18 @@ public class RoomManager : MonoBehaviour
 
     private void UpdateListItemVisual(GameObject item, ArtifactData artifact, bool isScanned)
     {
-        // 1. Ensure item background image and styling match screenshot card layout
-        UnityEngine.UI.Image bgImage = item.GetComponent<UnityEngine.UI.Image>();
-        if (bgImage == null)
-        {
-            bgImage = item.AddComponent<UnityEngine.UI.Image>();
-        }
+        if (item == null || artifact == null) return;
 
-        // Set explicit dark translucent sage background color so cards NEVER render as solid white in builds
+        TMPro.TMP_FontAsset fontAsset = GetDefaultTMPFont();
+        Color paleYellow = new Color(0.90f, 0.93f, 0.63f, 1.0f); // #E5EE9C
+        Color visitedGreen = new Color(0.55f, 0.89f, 0.63f, 1.0f); // #8BE4A0
+        Color unvisitedGray = new Color(0.88f, 0.88f, 0.88f, 1.0f); // #E0E0E0
+
+        // 1. Card Background Image
+        UnityEngine.UI.Image bgImage = item.GetComponent<UnityEngine.UI.Image>();
+        if (bgImage == null) bgImage = item.AddComponent<UnityEngine.UI.Image>();
         bgImage.color = new Color(0.25f, 0.28f, 0.22f, 0.75f);
 
-        // Auto-resolve rowCardMaterial if missing
         if (rowCardMaterial == null)
         {
             foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
@@ -496,12 +538,7 @@ public class RoomManager : MonoBehaviour
                 }
             }
         }
-
-        // Apply rounded card material if assigned
-        if (rowCardMaterial != null)
-        {
-            bgImage.material = rowCardMaterial;
-        }
+        if (rowCardMaterial != null) bgImage.material = rowCardMaterial;
 
         RectTransform itemRect = item.GetComponent<RectTransform>();
         if (itemRect != null)
@@ -509,18 +546,7 @@ public class RoomManager : MonoBehaviour
             itemRect.sizeDelta = new Vector2(itemRect.sizeDelta.x > 0 ? itemRect.sizeDelta.x : 300f, 65f);
         }
 
-        // Hide legacy single text if present
-        Transform legacyTextT = item.transform.Find("Text");
-        if (legacyTextT != null && legacyTextT.name == "Text")
-        {
-            legacyTextT.gameObject.SetActive(false);
-        }
-
-        Color paleYellow = new Color(0.90f, 0.93f, 0.63f, 1.0f); // #E5EE9C
-        Color visitedGreen = new Color(0.55f, 0.89f, 0.63f, 1.0f); // #8BE4A0
-        Color unvisitedGray = new Color(0.88f, 0.88f, 0.88f, 1.0f); // #E0E0E0
-
-        // 2. Ensure Thumbnail Image (Thumb)
+        // 2. Thumbnail Image (Thumb)
         Transform thumbT = item.transform.Find("Thumb");
         UnityEngine.UI.Image thumbImg = null;
         if (thumbT == null)
@@ -541,9 +567,21 @@ public class RoomManager : MonoBehaviour
 
         if (thumbImg != null)
         {
-            Sprite artSprite = (artifact != null && artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null) 
+            Sprite artSprite = (artifact.images != null && artifact.images.Length > 0 && artifact.images[0] != null) 
                 ? artifact.images[0].sprite 
                 : null;
+
+            if (artSprite == null && !string.IsNullOrEmpty(artifact.artifactId))
+            {
+                foreach (Sprite s in Resources.FindObjectsOfTypeAll<Sprite>())
+                {
+                    if (s != null && s.name.ToLower().Contains(artifact.artifactId.ToLower()))
+                    {
+                        artSprite = s;
+                        break;
+                    }
+                }
+            }
 
             if (artSprite != null)
             {
@@ -557,93 +595,108 @@ public class RoomManager : MonoBehaviour
             }
         }
 
-        // 3. Ensure Number Tag (NumText e.g. "01")
-        Transform numT = item.transform.Find("NumText");
+        // 3. Resolve & Update Text Components (NumText, NameText, StatusText)
         TextMeshProUGUI numTextComp = null;
-        if (numT == null)
+        TextMeshProUGUI nameTextComp = null;
+        TextMeshProUGUI statusTextComp = null;
+
+        // Deactivate legacy UI text
+        foreach (UnityEngine.UI.Text legacyTxt in item.GetComponentsInChildren<UnityEngine.UI.Text>(true))
+        {
+            legacyTxt.gameObject.SetActive(false);
+        }
+
+        // Search existing TMP texts on prefab to avoid duplicate/overlapping text objects like template "MONA LISA"
+        TextMeshProUGUI[] existingTMPs = item.GetComponentsInChildren<TextMeshProUGUI>(true);
+        foreach (TextMeshProUGUI tmp in existingTMPs)
+        {
+            string n = tmp.name.ToLower();
+            if (n == "numtext" || n == "num" || n == "index")
+            {
+                numTextComp = tmp;
+            }
+            else if (n == "nametext" || n == "title" || n == "name" || n == "text" || n.Contains("mona"))
+            {
+                if (nameTextComp == null)
+                {
+                    nameTextComp = tmp;
+                }
+                else
+                {
+                    tmp.gameObject.SetActive(false);
+                }
+            }
+            else if (n == "statustext" || n == "status")
+            {
+                statusTextComp = tmp;
+            }
+            else
+            {
+                // Disable any unhandled template text to prevent overlap
+                tmp.gameObject.SetActive(false);
+            }
+        }
+
+        // Build NumText if missing
+        if (numTextComp == null)
         {
             GameObject numObj = new GameObject("NumText");
             numObj.transform.SetParent(item.transform, false);
-            numT = numObj.transform;
             numTextComp = numObj.AddComponent<TextMeshProUGUI>();
             RectTransform nRect = numObj.GetComponent<RectTransform>();
             nRect.anchorMin = new Vector2(0.22f, 0.48f);
             nRect.anchorMax = new Vector2(0.30f, 0.92f);
             nRect.sizeDelta = Vector2.zero;
         }
-        else
-        {
-            numTextComp = numT.GetComponent<TextMeshProUGUI>();
-        }
+        numTextComp.gameObject.SetActive(true);
+        if (fontAsset != null) numTextComp.font = fontAsset;
+        int index = (currentRoom != null && currentRoom.artifacts != null) ? currentRoom.artifacts.IndexOf(artifact) : 0;
+        numTextComp.text = (index >= 0 ? index + 1 : 1).ToString("00");
+        numTextComp.fontSize = 18;
+        numTextComp.fontStyle = FontStyles.Bold;
+        numTextComp.color = paleYellow;
+        numTextComp.alignment = TextAlignmentOptions.Left;
 
-        if (numTextComp != null)
-        {
-            int index = (currentRoom != null && currentRoom.artifacts != null && artifact != null) ? currentRoom.artifacts.IndexOf(artifact) : 0;
-            numTextComp.text = (index >= 0 ? index + 1 : 1).ToString("00");
-            numTextComp.fontSize = 18;
-            numTextComp.fontStyle = FontStyles.Bold;
-            numTextComp.color = paleYellow;
-            numTextComp.alignment = TextAlignmentOptions.Left;
-        }
-
-        // 4. Ensure Artifact Title (NameText e.g. "Mona Lisa")
-        Transform nameT = item.transform.Find("NameText");
-        TextMeshProUGUI nameTextComp = null;
-        if (nameT == null)
+        // Build NameText if missing
+        if (nameTextComp == null)
         {
             GameObject nameObj = new GameObject("NameText");
             nameObj.transform.SetParent(item.transform, false);
-            nameT = nameObj.transform;
             nameTextComp = nameObj.AddComponent<TextMeshProUGUI>();
             RectTransform nRect = nameObj.GetComponent<RectTransform>();
             nRect.anchorMin = new Vector2(0.31f, 0.48f);
             nRect.anchorMax = new Vector2(0.96f, 0.92f);
             nRect.sizeDelta = Vector2.zero;
         }
-        else
-        {
-            nameTextComp = nameT.GetComponent<TextMeshProUGUI>();
-        }
+        nameTextComp.gameObject.SetActive(true);
+        if (fontAsset != null) nameTextComp.font = fontAsset;
+        nameTextComp.text = artifact.artifactName;
+        nameTextComp.enableAutoSizing = true;
+        nameTextComp.fontSizeMin = 10f;
+        nameTextComp.fontSizeMax = 20f;
+        nameTextComp.fontStyle = FontStyles.Bold;
+        nameTextComp.color = paleYellow;
+        nameTextComp.alignment = TextAlignmentOptions.Left;
+        nameTextComp.overflowMode = TextOverflowModes.Ellipsis;
 
-        if (nameTextComp != null && artifact != null)
-        {
-            nameTextComp.text = artifact.artifactName;
-            nameTextComp.enableAutoSizing = true;
-            nameTextComp.fontSizeMin = 10f;
-            nameTextComp.fontSizeMax = 20f;
-            nameTextComp.fontStyle = FontStyles.Bold;
-            nameTextComp.color = paleYellow;
-            nameTextComp.alignment = TextAlignmentOptions.Left;
-            nameTextComp.overflowMode = TextOverflowModes.Ellipsis;
-        }
-
-        // 5. Ensure Visited Status (StatusText e.g. "Sudah Dikunjungi" / "Belum Dikunjungi")
-        Transform statusT = item.transform.Find("StatusText");
-        TextMeshProUGUI statusTextComp = null;
-        if (statusT == null)
+        // Build StatusText if missing
+        if (statusTextComp == null)
         {
             GameObject statusObj = new GameObject("StatusText");
             statusObj.transform.SetParent(item.transform, false);
-            statusT = statusObj.transform;
             statusTextComp = statusObj.AddComponent<TextMeshProUGUI>();
             RectTransform sRect = statusObj.GetComponent<RectTransform>();
             sRect.anchorMin = new Vector2(0.31f, 0.10f);
             sRect.anchorMax = new Vector2(0.96f, 0.48f);
             sRect.sizeDelta = Vector2.zero;
         }
-        else
-        {
-            statusTextComp = statusT.GetComponent<TextMeshProUGUI>();
-        }
-
-        if (statusTextComp != null)
-        {
-            statusTextComp.text = isScanned ? "Sudah Dikunjungi" : "Belum Dikunjungi";
-            statusTextComp.fontSize = 15;
-            statusTextComp.fontStyle = FontStyles.Normal;
-            statusTextComp.color = isScanned ? visitedGreen : unvisitedGray;
-            statusTextComp.alignment = TextAlignmentOptions.Left;
-        }
+        statusTextComp.gameObject.SetActive(true);
+        if (fontAsset != null) statusTextComp.font = fontAsset;
+        statusTextComp.text = isScanned ? "Sudah Dikunjungi" : "Belum Dikunjungi";
+        statusTextComp.fontSize = 15;
+        statusTextComp.fontStyle = FontStyles.Normal;
+        statusTextComp.color = isScanned ? visitedGreen : unvisitedGray;
+        statusTextComp.alignment = TextAlignmentOptions.Left;
     }
 
     public void SelectArtifactFromList(ArtifactData artifact)
@@ -848,14 +901,25 @@ public class RoomManager : MonoBehaviour
         foreach (RoomData r in rooms)
         {
             if (r == null) continue;
-            string id = (r.roomId ?? "").ToLower();
-            string name = (r.roomName ?? "").ToLower();
-
-            if (id.Contains("1") || name.Contains("tekstil")) r.roomName = "Galeri Tekstil";
-            else if (id.Contains("2") || name.Contains("seni")) r.roomName = "Galeri Seni";
-            else if (id.Contains("4") || name.Contains("kraf")) r.roomName = "Galeri Kraf";
-            else if (id.Contains("5") || name.Contains("sejarah") || name.Contains("5")) r.roomName = "Galeri Sejarah";
-            else if (id.Contains("3") || name.Contains("mandalika")) r.roomName = "Serambi Mandalika";
+            if (r.artifacts == null || r.artifacts.Count == 0)
+            {
+                if (r.artifacts == null) r.artifacts = new System.Collections.Generic.List<ArtifactData>();
+                ArtifactData[] allArts = Resources.LoadAll<ArtifactData>("MuseumData");
+                if (allArts == null || allArts.Length == 0)
+                {
+                    allArts = Resources.FindObjectsOfTypeAll<ArtifactData>();
+                }
+                if (allArts != null)
+                {
+                    foreach (ArtifactData art in allArts)
+                    {
+                        if (art != null && !r.artifacts.Contains(art))
+                        {
+                            r.artifacts.Add(art);
+                        }
+                    }
+                }
+            }
         }
 
         rooms.Sort((a, b) => {
@@ -871,6 +935,22 @@ public class RoomManager : MonoBehaviour
             }
             return GetOrder(a).CompareTo(GetOrder(b));
         });
+    }
+
+    private TMPro.TMP_FontAsset GetDefaultTMPFont()
+    {
+        if (roomNameText != null && roomNameText.font != null)
+        {
+            return roomNameText.font;
+        }
+        foreach (var font in Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>())
+        {
+            if (font != null && font.name != null && !font.name.Contains("Sprite"))
+            {
+                return font;
+            }
+        }
+        return null;
     }
 
     public void PopulateRoomListUI()
@@ -900,6 +980,64 @@ public class RoomManager : MonoBehaviour
             cardObj.SetActive(true);
 
             ConfigureRoomCardItem(cardObj, room, index);
+        }
+    }
+
+    public void OpenRoomDetailPanel()
+    {
+        GameObject canvasObj = roomHudContainer != null ? roomHudContainer : GameObject.Find("RoomHUDCanvas") ?? GameObject.Find("ExplorationCanvas");
+        if (canvasObj == null) return;
+
+        // 1. Hide RoomListPanel
+        Transform roomListPanel = canvasObj.transform.Find("RoomListPanel");
+        if (roomListPanel == null)
+        {
+            foreach (Transform t in canvasObj.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "RoomListPanel")
+                {
+                    roomListPanel = t;
+                    break;
+                }
+            }
+        }
+        if (roomListPanel != null)
+        {
+            roomListPanel.gameObject.SetActive(false);
+        }
+
+        // 2. Show RoomPanel / Artifact Detail list
+        Transform roomPanel = canvasObj.transform.Find("RoomPanel");
+        if (roomPanel == null)
+        {
+            foreach (Transform t in canvasObj.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "RoomPanel" || t.name == "ArtifactDetailPanel")
+                {
+                    roomPanel = t;
+                    break;
+                }
+            }
+        }
+
+        if (roomPanel != null)
+        {
+            roomPanel.gameObject.SetActive(true);
+        }
+        else
+        {
+            // If RoomPanel is not a distinct child, enable all other siblings in canvasObj
+            foreach (Transform child in canvasObj.transform)
+            {
+                if (child.name == "RoomListPanel")
+                {
+                    child.gameObject.SetActive(false);
+                }
+                else
+                {
+                    child.gameObject.SetActive(true);
+                }
+            }
         }
     }
 
@@ -936,7 +1074,7 @@ public class RoomManager : MonoBehaviour
         btn.onClick.AddListener(() => {
             Debug.Log($"Room Card clicked: {room.roomName}");
             ChangeRoom(room);
-            PopulateRoomListUI();
+            OpenRoomDetailPanel();
         });
 
         XRButtonSelection selection = card.GetComponent<XRButtonSelection>();
