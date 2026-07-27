@@ -102,56 +102,118 @@ public class Room : MonoBehaviour
         }
 
         // Instantiate artifact items
-        if (currentRoomData.artifacts != null && artifactItemPrefab != null && artifactListContainer != null)
+        if (currentRoomData.artifacts != null && currentRoomData.artifacts.Count > 0 && artifactListContainer != null)
         {
             int index = 1;
             foreach (ArtifactData artifact in currentRoomData.artifacts)
             {
                 if (artifact == null) continue;
 
-                GameObject itemObj = Instantiate(artifactItemPrefab, artifactListContainer);
-
-                // Set artifact text details
-                string formattedText = $"{index:D2} {artifact.artifactName}";
-                index++;
-
-                TextMeshProUGUI tmpText = itemObj.GetComponentInChildren<TextMeshProUGUI>(true);
-                if (tmpText != null)
+                GameObject itemObj = null;
+                if (artifactItemPrefab != null)
                 {
-                    tmpText.text = formattedText;
+                    itemObj = Instantiate(artifactItemPrefab, artifactListContainer);
                 }
                 else
                 {
-                    Text uiText = itemObj.GetComponentInChildren<Text>(true);
-                    if (uiText != null)
+                    itemObj = new GameObject($"ArtifactItem_{index}");
+                    itemObj.transform.SetParent(artifactListContainer, false);
+                }
+
+                itemObj.SetActive(true);
+                itemObj.transform.localScale = Vector3.one;
+
+                string formattedText = $"{index:D2} {artifact.artifactName}";
+
+                // 1. Update ALL TMP text components, eliminating static template text like "MONA LISA"
+                TextMeshProUGUI[] tmps = itemObj.GetComponentsInChildren<TextMeshProUGUI>(true);
+                bool titleUpdated = false;
+                foreach (TextMeshProUGUI tmp in tmps)
+                {
+                    if (tmp == null) continue;
+                    string nameLower = tmp.name.ToLower();
+                    string textLower = (tmp.text ?? "").ToLower();
+
+                    if (!titleUpdated && (nameLower.Contains("name") || nameLower.Contains("title") || nameLower.Contains("text") || textLower.Contains("mona") || textLower.Contains("lisa")))
                     {
-                        uiText.text = formattedText;
+                        tmp.text = formattedText;
+                        tmp.gameObject.SetActive(true);
+                        titleUpdated = true;
+                    }
+                    else if (textLower.Contains("mona") || textLower.Contains("lisa"))
+                    {
+                        // Hide static template text object
+                        tmp.gameObject.SetActive(false);
                     }
                 }
 
-                // Try to find image container inside the item object (excluding the item itself)
+                if (!titleUpdated && tmps.Length > 0)
+                {
+                    tmps[0].text = formattedText;
+                    tmps[0].gameObject.SetActive(true);
+                }
+                else if (tmps.Length == 0)
+                {
+                    // Fallback to legacy UI Text
+                    Text[] legacyTexts = itemObj.GetComponentsInChildren<Text>(true);
+                    foreach (Text txt in legacyTexts)
+                    {
+                        if (txt.text != null && (txt.text.ToLower().Contains("mona") || txt.name.ToLower().Contains("text")))
+                        {
+                            txt.text = formattedText;
+                            txt.gameObject.SetActive(true);
+                        }
+                    }
+                }
+
+                // 2. Set thumbnail image
+                Sprite artSprite = (artifact.images != null && artifact.images.Length > 0) ? artifact.images[0].sprite : null;
+                if (artSprite == null && !string.IsNullOrEmpty(artifact.artifactId))
+                {
+                    foreach (Sprite s in Resources.FindObjectsOfTypeAll<Sprite>())
+                    {
+                        if (s != null && s.name.ToLower().Contains(artifact.artifactId.ToLower()))
+                        {
+                            artSprite = s;
+                            break;
+                        }
+                    }
+                }
+
                 Image[] images = itemObj.GetComponentsInChildren<Image>(true);
                 foreach (Image img in images)
                 {
-                    if (img.gameObject != itemObj && img.gameObject.name != "Background" && artifact.images != null && artifact.images.Length > 0)
+                    if (img != null && img.gameObject != itemObj && img.gameObject.name.ToLower() != "background")
                     {
-                        img.sprite = artifact.images[0].sprite;
-                        break; // Assign first found thumbnail image slot
+                        if (artSprite != null)
+                        {
+                            img.sprite = artSprite;
+                            img.color = Color.white;
+                            img.gameObject.SetActive(true);
+                        }
+                        break;
                     }
                 }
 
-                // Hook click event
+                // 3. Hook click event
+                ArtifactData currentArtifact = artifact;
                 Button btn = itemObj.GetComponent<Button>();
+                if (btn == null) btn = itemObj.GetComponentInChildren<Button>();
                 if (btn != null)
                 {
-                    btn.onClick.AddListener(() => OnArtifactSelected(artifact));
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() => OnArtifactSelected(currentArtifact));
                 }
 
                 XRButtonSelection xrBtn = itemObj.GetComponent<XRButtonSelection>();
+                if (xrBtn == null) xrBtn = itemObj.GetComponentInChildren<XRButtonSelection>();
                 if (xrBtn != null)
                 {
-                    xrBtn.onClick.AddListener(() => OnArtifactSelected(artifact));
+                    xrBtn.onClick.RemoveAllListeners();
+                    xrBtn.onClick.AddListener(() => OnArtifactSelected(currentArtifact));
                 }
+
+                index++;
             }
         }
     }
@@ -205,6 +267,16 @@ public class Room : MonoBehaviour
                     transform.parent.gameObject.SetActive(false);
                 }
             }
+        }
+
+        if (WristWatch.Instance != null)
+        {
+            WristWatch.Instance.EnsureWatchButtonVisible();
+        }
+        else
+        {
+            WristWatch ww = FindObjectOfType<WristWatch>();
+            if (ww != null) ww.EnsureWatchButtonVisible();
         }
     }
 }

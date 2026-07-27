@@ -77,44 +77,86 @@ public class RoomList : MonoBehaviour
         }
 
         // Instantiate a button for each room
+        int roomIndex = 1;
         foreach (RoomData room in roomsList)
         {
             if (room == null || roomButtonPrefab == null || listContainer == null) continue;
 
             GameObject btnObj = Instantiate(roomButtonPrefab, listContainer);
-            
-            // Set name text
-            TextMeshProUGUI tmpText = btnObj.GetComponentInChildren<TextMeshProUGUI>(true);
-            if (tmpText != null)
+            btnObj.SetActive(true);
+
+            string formattedNum = roomIndex.ToString("D2");
+
+            // Update Number Text (01, 02, 03, 04, 05) and Room Name Text
+            TextMeshProUGUI numTextComp = null;
+            TextMeshProUGUI nameTextComp = null;
+
+            TextMeshProUGUI[] tmps = btnObj.GetComponentsInChildren<TextMeshProUGUI>(true);
+            foreach (TextMeshProUGUI tmp in tmps)
             {
-                tmpText.text = room.roomName;
+                string n = tmp.name.ToLower();
+                if (n.Contains("num") || n.Contains("number") || n.Contains("index") || n.Contains("no"))
+                {
+                    numTextComp = tmp;
+                }
+                else if (n.Contains("name") || n.Contains("title") || n.Contains("text") || n.Contains("room"))
+                {
+                    if (nameTextComp == null) nameTextComp = tmp;
+                }
+            }
+
+            if (numTextComp != null)
+            {
+                numTextComp.text = formattedNum;
             }
             else
             {
-                Text uiText = btnObj.GetComponentInChildren<Text>(true);
-                if (uiText != null)
+                Text[] legacyTexts = btnObj.GetComponentsInChildren<Text>(true);
+                foreach (Text txt in legacyTexts)
                 {
-                    uiText.text = room.roomName;
+                    if (txt.name.ToLower().Contains("num") || txt.name.ToLower().Contains("number"))
+                    {
+                        txt.text = formattedNum;
+                        break;
+                    }
                 }
+            }
+
+            if (nameTextComp != null)
+            {
+                nameTextComp.text = room.roomName;
+            }
+            else if (tmps.Length > 0 && numTextComp != tmps[0])
+            {
+                tmps[0].text = room.roomName;
             }
 
             // Hook click event
             Button btn = btnObj.GetComponent<Button>();
             if (btn != null)
             {
+                btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => OnRoomSelected(room));
             }
 
             XRButtonSelection xrBtn = btnObj.GetComponent<XRButtonSelection>();
             if (xrBtn != null)
             {
+                xrBtn.onClick.RemoveAllListeners();
                 xrBtn.onClick.AddListener(() => OnRoomSelected(room));
             }
+
+            roomIndex++;
         }
     }
 
     private void OnRoomSelected(RoomData room)
     {
+        if (RoomManager.Instance != null)
+        {
+            RoomManager.Instance.ChangeRoom(room);
+        }
+
         if (roomPanel != null)
         {
             // Show the room panel with details
@@ -152,6 +194,16 @@ public class RoomList : MonoBehaviour
                     transform.parent.gameObject.SetActive(false);
                 }
             }
+        }
+
+        if (WristWatch.Instance != null)
+        {
+            WristWatch.Instance.EnsureWatchButtonVisible();
+        }
+        else
+        {
+            WristWatch ww = FindObjectOfType<WristWatch>();
+            if (ww != null) ww.EnsureWatchButtonVisible();
         }
     }
 }

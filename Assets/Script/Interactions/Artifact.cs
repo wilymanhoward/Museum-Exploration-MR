@@ -741,6 +741,16 @@ public class Artifact : MonoBehaviour
                 }
             }
         }
+
+        if (WristWatch.Instance != null)
+        {
+            WristWatch.Instance.EnsureWatchButtonVisible();
+        }
+        else
+        {
+            WristWatch ww = FindObjectOfType<WristWatch>();
+            if (ww != null) ww.EnsureWatchButtonVisible();
+        }
     }
 
     public void PlayNarration()

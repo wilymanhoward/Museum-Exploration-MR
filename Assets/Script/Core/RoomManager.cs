@@ -567,7 +567,7 @@ public class RoomManager : MonoBehaviour
 
         if (thumbImg != null)
         {
-            Sprite artSprite = (artifact.images != null && artifact.images.Length > 0 && artifact.images[0] != null) 
+            Sprite artSprite = (artifact.images != null && artifact.images.Length > 0) 
                 ? artifact.images[0].sprite 
                 : null;
 
@@ -959,6 +959,13 @@ public class RoomManager : MonoBehaviour
 
         GameObject canvasObj = roomHudContainer != null ? roomHudContainer : GameObject.Find("RoomHUDCanvas") ?? GameObject.Find("ExplorationCanvas");
         if (canvasObj == null) return;
+
+        RoomList rList = canvasObj.GetComponentInChildren<RoomList>(true);
+        if (rList != null)
+        {
+            rList.PopulateRoomsList();
+            return;
+        }
 
         Transform roomListPanel = canvasObj.name == "RoomListPanel" ? canvasObj.transform : canvasObj.transform.Find("RoomListPanel") ?? canvasObj.transform;
         Transform roomListContainer = roomListPanel.Find("RoomList") ?? roomListPanel.Find("Content/RoomList") ?? roomListPanel.GetComponentInChildren<UnityEngine.UI.GridLayoutGroup>()?.transform ?? roomListPanel.GetComponentInChildren<UnityEngine.UI.VerticalLayoutGroup>()?.transform;

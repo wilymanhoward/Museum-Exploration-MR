@@ -37,6 +37,12 @@ public class WristWatch : MonoBehaviour
     [Tooltip("World-space offset for the floating options panel relative to the left wrist (Y = up).")]
     public Vector3 panelOffset = new Vector3(0f, 0.22f, 0f);
 
+    [Header("Fixed Scale Locking")]
+    [Tooltip("If true, keeps the watch button scale completely fixed so hand tracking or distance never resizes it.")]
+    public bool lockWatchButtonScale = true;
+    [Tooltip("The fixed local scale to enforce on wristWatchButtonObj.")]
+    public Vector3 fixedWatchScale = Vector3.one;
+
     private bool optionsPanelActive = false;
 
     // The watch button is wired to ToggleOptionsPanel through several event paths at once
@@ -57,6 +63,13 @@ public class WristWatch : MonoBehaviour
     private Transform leftHandCandidate;
     private Transform sessionSpaceRoot; // "Camera Offset" object: converts session-space poses to world
     private float nextCandidateSearchTime = 0f;
+
+    public static WristWatch Instance { get; private set; }
+
+    private void Awake()
+    {
+        Instance = this;
+    }
 
     private bool hasAnchorPose;
     private Vector3 anchorPos;
@@ -79,9 +92,16 @@ public class WristWatch : MonoBehaviour
         // Detach the menu from the left-hand transform so this script is the ONLY thing that
         // moves it. While parented, the hand's (occlusion-jittered) transform would drag the
         // button around even when we want it held still. World pose is preserved on detach.
-        if (wristWatchButtonObj != null && wristWatchButtonObj.transform.parent != null)
+        if (wristWatchButtonObj != null)
         {
-            wristWatchButtonObj.transform.SetParent(null, true);
+            if (wristWatchButtonObj.transform.localScale != Vector3.zero)
+            {
+                fixedWatchScale = wristWatchButtonObj.transform.localScale;
+            }
+            if (wristWatchButtonObj.transform.parent != null)
+            {
+                wristWatchButtonObj.transform.SetParent(null, true);
+            }
         }
 
         RefreshAnchorCandidates();
@@ -457,6 +477,11 @@ public class WristWatch : MonoBehaviour
                     Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
                     wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
 
+                    if (lockWatchButtonScale && fixedWatchScale != Vector3.zero)
+                    {
+                        wristWatchButtonObj.transform.localScale = fixedWatchScale;
+                    }
+
                     // Billboard the (one-sided) canvas to the player cleanly so it stays upright
                     if (playerCam != null)
                     {
@@ -476,18 +501,38 @@ public class WristWatch : MonoBehaviour
             }
         }
 
-        // 2. Keep panels anchored to the left wrist hovering cleanly above the hand.
-        FollowHand(optionsPanelObj, playerCam);
+        // 2. Keep panels anchored to the left wrist hovering cleanly above the hand facing the user.
+        if (optionsPanelObj != null && optionsPanelObj.activeInHierarchy)
+        {
+            FollowHand(optionsPanelObj, playerCam);
+        }
+
         if (roomHudCanvas != null && roomHudCanvas.activeInHierarchy)
         {
             GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
             if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
             FollowHand(roomHudCanvas, playerCam);
+
+            foreach (Transform child in roomHudCanvas.transform)
+            {
+                if (child != null && child.gameObject.activeInHierarchy)
+                {
+                    child.localRotation = Quaternion.identity;
+                }
+            }
         }
+
+        GameObject roomPanelObj = GameObject.Find("RoomPanel");
+        if (roomPanelObj != null && roomPanelObj.activeInHierarchy && (roomHudCanvas == null || roomPanelObj.transform.parent != roomHudCanvas.transform))
+        {
+            FollowHand(roomPanelObj, playerCam);
+        }
+
         if (roomListPanel != null && roomListPanel.activeInHierarchy && roomListPanel != roomHudCanvas)
         {
             FollowHand(roomListPanel, playerCam);
         }
+
         if (gamesPanel != null && gamesPanel.activeInHierarchy)
         {
             FollowHand(gamesPanel, playerCam);
@@ -650,6 +695,11 @@ public class WristWatch : MonoBehaviour
     {
         if (panel == null || !panel.activeInHierarchy) return;
 
+        if (playerCam == null && Camera.main != null)
+        {
+            playerCam = Camera.main.transform;
+        }
+
         Vector3 handPos;
         Quaternion handRot;
         if (!TryGetLeftWristPose(out handPos, out handRot))
@@ -673,7 +723,7 @@ public class WristWatch : MonoBehaviour
         if (playerCam != null)
         {
             Vector3 lookDir = playerCam.position - panel.transform.position;
-            lookDir.y = 0; // Keep canvas upright
+            lookDir.y = 0; // Keep canvas upright facing user
             if (lookDir.sqrMagnitude > 0.0001f)
             {
                 Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
@@ -725,7 +775,25 @@ public class WristWatch : MonoBehaviour
         {
             optionsPanelObj.SetActive(false);
         }
+        if (wristWatchButtonObj != null)
+        {
+            wristWatchButtonObj.SetActive(true);
+        }
         Debug.Log("WristWatch: Options Panel Closed.");
+    }
+
+    public void EnsureWatchButtonVisible()
+    {
+        optionsPanelActive = false;
+        if (optionsPanelObj != null) optionsPanelObj.SetActive(false);
+        if (gamesPanel != null) gamesPanel.SetActive(false);
+        if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+
+        if (wristWatchButtonObj != null)
+        {
+            wristWatchButtonObj.SetActive(true);
+        }
+        Debug.Log("WristWatch: EnsureWatchButtonVisible called.");
     }
 
     /// <summary>
@@ -768,30 +836,48 @@ public class WristWatch : MonoBehaviour
 
     private void ShowRoomListPanel()
     {
-        if (roomListPanel == null && roomHudCanvas != null)
+        if (roomHudCanvas == null)
         {
-            Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
-            if (t != null) roomListPanel = t.gameObject;
+            roomHudCanvas = FindInactiveObject("ExplorationCanvas") ?? FindInactiveObject("RoomHUDCanvas");
         }
-        if (roomListPanel == null)
-        {
-            roomListPanel = FindInactiveObject("RoomListPanel");
-        }
-        if (roomListPanel == null) return;
+        if (roomHudCanvas == null) return;
 
-        roomListPanel.SetActive(true);
-        Transform parent = roomListPanel.transform.parent;
-        if (parent != null)
+        RoomList rList = roomHudCanvas.GetComponentInChildren<RoomList>(true);
+        if (rList != null)
         {
-            foreach (Transform sibling in parent)
+            if (rList.roomPanel != null)
             {
-                if (sibling.name == "RoomListPanel")
+                rList.roomPanel.gameObject.SetActive(false);
+            }
+            rList.gameObject.SetActive(true);
+            rList.PopulateRoomsList();
+        }
+        else
+        {
+            if (roomListPanel == null)
+            {
+                Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
+                if (t != null) roomListPanel = t.gameObject;
+            }
+            if (roomListPanel == null) roomListPanel = FindInactiveObject("RoomListPanel");
+
+            if (roomListPanel != null)
+            {
+                roomListPanel.SetActive(true);
+                Transform parent = roomListPanel.transform.parent;
+                if (parent != null)
                 {
-                    sibling.gameObject.SetActive(true);
-                }
-                else if (sibling.name == "ArtifactDetailPanel" || sibling.name == "RoomPanel")
-                {
-                    sibling.gameObject.SetActive(false);
+                    foreach (Transform sibling in parent)
+                    {
+                        if (sibling.name == "RoomListPanel")
+                        {
+                            sibling.gameObject.SetActive(true);
+                        }
+                        else if (sibling.name == "ArtifactDetailPanel" || sibling.name == "RoomPanel")
+                        {
+                            sibling.gameObject.SetActive(false);
+                        }
+                    }
                 }
             }
         }
