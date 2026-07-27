@@ -99,6 +99,30 @@ public class MainMenu : MonoBehaviour
             skipButtonXR.onClick.AddListener(EndVideoAndShowNameEntry);
         }
 
+        // Auto-wire StartButton (MULAI button) so clicking/pinching it always triggers StartExploration
+        if (mainMenuCanvas != null)
+        {
+            foreach (Transform t in mainMenuCanvas.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "StartButton" || t.name == "MulaiButton" || t.name.Contains("Start"))
+                {
+                    Button btn = t.GetComponent<Button>();
+                    if (btn != null)
+                    {
+                        btn.onClick.RemoveAllListeners();
+                        btn.onClick.AddListener(StartExploration);
+                    }
+
+                    XRButtonSelection selection = t.GetComponent<XRButtonSelection>();
+                    if (selection != null)
+                    {
+                        selection.onClick.RemoveAllListeners();
+                        selection.onClick.AddListener(StartExploration);
+                    }
+                }
+            }
+        }
+
         // Initialize panel state: show video first, hide name entry
         if (introVideoPanel != null)
         {
@@ -330,15 +354,10 @@ public class MainMenu : MonoBehaviour
             }
         }
 
-        // If name is empty, block starting exploration!
+        // If player left name empty, auto-default to "Pengunjung" so exploration starts smoothly
         if (string.IsNullOrEmpty(finalName))
         {
-            Debug.LogWarning("MainMenu: Cannot start exploration. Name is empty!");
-            if (nameErrorLabel != null)
-            {
-                nameErrorLabel.SetActive(true);
-            }
-            return;
+            finalName = DefaultPlayerName;
         }
 
         if (nameErrorLabel != null)

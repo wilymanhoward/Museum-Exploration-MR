@@ -17,6 +17,12 @@ public class WristWatch : MonoBehaviour
     public GameObject roomHudCanvas; // Mapped to ExplorationCanvas
     public GameObject gamesPanel;    // Mapped to Minigames panel/canvas
 
+    [Header("Explore / Room List")]
+    [Tooltip("The 'Ruang'/Explore row button in the Options panel. Auto-found by name (Row_Ruang) if left empty.")]
+    public GameObject exploreRow;
+    [Tooltip("The RoomListPanel (List Ruang - the 5-gallery chooser) shown when Explore is pressed. Auto-found under roomHudCanvas if empty.")]
+    public GameObject roomListPanel;
+
     [Header("Offsets")]
     [Tooltip("World-space offset for the watch button relative to the left wrist (Y = up), so the icon hovers on top of the hand regardless of wrist rotation.")]
     public Vector3 watchOffset = new Vector3(0f, 0.09f, 0f);
@@ -25,6 +31,14 @@ public class WristWatch : MonoBehaviour
     public Vector3 panelOffset = new Vector3(0f, 0.22f, 0f);
 
     private bool optionsPanelActive = false;
+
+    // The watch button is wired to ToggleOptionsPanel through several event paths at once
+    // (a UI Button, an XRButtonSelection, XR-select + UI-pointer), so a single physical click
+    // fires this method multiple times and the toggles cancel out. Collapse a burst of calls
+    // within this window into a single toggle.
+    [Tooltip("Ignore repeat toggle calls within this many seconds so one click counts once.")]
+    public float toggleDebounce = 0.3f;
+    private float lastToggleTime = -1f;
 
     // Wrist pose sources. The "Left Hand" rig object is NOT pose-driven (only its joint
     // visuals are), so hand-tracking poses must come from the XRHandSubsystem wrist joint.
@@ -41,8 +55,28 @@ public class WristWatch : MonoBehaviour
     private Vector3 anchorPos;
     private Quaternion anchorRot;
 
+    [Header("Anchor Stabilization")]
+    [Tooltip("When the other (right) hand comes this close to the watch button, the menu locks in place instead of chasing the left hand. Reaching in to click occludes the left hand from the headset cameras, so its tracked pose gets predicted/jittery - freezing keeps the button still and clickable.")]
+    public float freezeReachDistance = 0.18f;
+
+    // Last pose we got from SOLID left-hand tracking. We fall back to this (frozen in place)
+    // whenever the left hand is occluded/untracked or the right hand is reaching in to click,
+    // so the button never jumps around chasing a predicted left-hand pose.
+    private bool hasLastGoodAnchor;
+    private Vector3 lastGoodAnchorPos;
+    private Quaternion lastGoodAnchorRot;
+    private bool leftHandSolidlyTracked;
+
     void Start()
     {
+        // Detach the menu from the left-hand transform so this script is the ONLY thing that
+        // moves it. While parented, the hand's (occlusion-jittered) transform would drag the
+        // button around even when we want it held still. World pose is preserved on detach.
+        if (wristWatchButtonObj != null && wristWatchButtonObj.transform.parent != null)
+        {
+            wristWatchButtonObj.transform.SetParent(null, true);
+        }
+
         RefreshAnchorCandidates();
 
         if (optionsPanelObj != null)
@@ -68,6 +102,63 @@ public class WristWatch : MonoBehaviour
         {
             roomHudCanvas = GameObject.Find("RoomHUDCanvas");
         }
+
+        // Resolve the room-list (List Ruang) panel - it's an inactive child of the room canvas,
+        // so use Transform.Find (which sees inactive objects), not GameObject.Find.
+        if (roomListPanel == null && roomHudCanvas != null)
+        {
+            Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
+            if (t != null) roomListPanel = t.gameObject;
+        }
+
+        // Wire the option rows. The row and its "expand" ActionButton (Expand button.png) had no
+        // onClick action in the scene, so hook them up here. We wire EVERY Button/XRButtonSelection
+        // in each row's subtree so pressing the row OR its expand icon triggers the action.
+        // ("Row_Explore" is the current name; "Row_Ruang" is the older name, kept as a fallback.)
+        if (exploreRow == null && optionsPanelObj != null)
+        {
+            Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Explore")
+                          ?? FindDeepChild(optionsPanelObj.transform, "Row_Ruang");
+            if (t != null) exploreRow = t.gameObject;
+        }
+        WireRow(exploreRow, OnClickRuang);
+
+        if (optionsPanelObj != null)
+        {
+            Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
+            WireRow(t != null ? t.gameObject : null, OnClickArtefak);
+        }
+    }
+
+    /// <summary>
+    /// Wires every UI Button and XRButtonSelection under <paramref name="row"/> to invoke the
+    /// given handler, so tapping the row or its expand icon runs the action. Handlers here are
+    /// idempotent (they show a panel), so being invoked more than once per tap is harmless.
+    /// </summary>
+    private void WireRow(GameObject row, UnityEngine.Events.UnityAction handler)
+    {
+        if (row == null) return;
+
+        foreach (UnityEngine.UI.Button b in row.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+        {
+            b.onClick.RemoveListener(handler);
+            b.onClick.AddListener(handler);
+        }
+        foreach (XRButtonSelection xr in row.GetComponentsInChildren<XRButtonSelection>(true))
+        {
+            xr.onClick.RemoveListener(handler);
+            xr.onClick.AddListener(handler);
+        }
+    }
+
+    private static Transform FindDeepChild(Transform root, string childName)
+    {
+        if (root == null) return null;
+        foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == childName) return t;
+        }
+        return null;
     }
 
     private void RefreshAnchorCandidates()
@@ -136,33 +227,19 @@ public class WristWatch : MonoBehaviour
     }
 
     /// <summary>
-    /// Computes this frame's wrist anchor pose. Priority: Inspector-assigned transform,
-    /// then the active Left Hand object found in the hierarchy, then the tracked hand's wrist joint,
-    /// and finally the pose-driven controller transform.
+    /// Computes this frame's left-wrist anchor pose. Priority: the live tracked wrist joint
+    /// (the pose that actually follows the hand), then the Inspector-assigned transform, then
+    /// the active Left Hand object in the hierarchy, and finally the pose-driven controller.
     /// </summary>
     private void UpdateAnchorPose()
     {
         hasAnchorPose = false;
+        leftHandSolidlyTracked = false;
 
-        // 1. Try using the inspector-assigned anchor if active
-        if (leftHandAnchor != null && leftHandAnchor.gameObject.activeInHierarchy)
-        {
-            anchorPos = leftHandAnchor.position;
-            anchorRot = leftHandAnchor.rotation;
-            hasAnchorPose = true;
-            return;
-        }
-
-        // 2. Try the active left hand object found in hierarchy
-        if (leftHandCandidate != null && leftHandCandidate.gameObject.activeInHierarchy)
-        {
-            anchorPos = leftHandCandidate.position;
-            anchorRot = leftHandCandidate.rotation;
-            hasAnchorPose = true;
-            return;
-        }
-
-        // 3. Fallback to native XRHandSubsystem tracking
+        // 1. Prefer the native XRHandSubsystem left wrist joint. This is the pose that truly
+        // rides the player's hand - the "Left Hand" rig object itself is not pose-driven, so
+        // anchoring to it (or its Inspector reference) leaves the menu floating in place.
+        // The app is hands-only, so this is the primary path.
         FindHandSubsystem();
         if (handSubsystem != null && handSubsystem.running && handSubsystem.leftHand.isTracked)
         {
@@ -180,8 +257,33 @@ public class WristWatch : MonoBehaviour
                     anchorRot = pose.rotation;
                 }
                 hasAnchorPose = true;
+                leftHandSolidlyTracked = true;
+
+                // Remember this as the last known-good pose to fall back to when the hand
+                // is occluded or the other hand is reaching in to click.
+                hasLastGoodAnchor = true;
+                lastGoodAnchorPos = anchorPos;
+                lastGoodAnchorRot = anchorRot;
                 return;
             }
+        }
+
+        // 2. Inspector-assigned anchor (if active)
+        if (leftHandAnchor != null && leftHandAnchor.gameObject.activeInHierarchy)
+        {
+            anchorPos = leftHandAnchor.position;
+            anchorRot = leftHandAnchor.rotation;
+            hasAnchorPose = true;
+            return;
+        }
+
+        // 3. Active left hand object found in hierarchy
+        if (leftHandCandidate != null && leftHandCandidate.gameObject.activeInHierarchy)
+        {
+            anchorPos = leftHandCandidate.position;
+            anchorRot = leftHandCandidate.rotation;
+            hasAnchorPose = true;
+            return;
         }
 
         // 4. Fallback to active left controller object found in hierarchy
@@ -191,6 +293,31 @@ public class WristWatch : MonoBehaviour
             anchorRot = leftControllerCandidate.rotation;
             hasAnchorPose = true;
         }
+    }
+
+    /// <summary>
+    /// World-space position of the right hand (index fingertip, falling back to palm), used to
+    /// detect when the player is reaching in to press the watch button. Returns false when the
+    /// right hand isn't tracked.
+    /// </summary>
+    private bool TryGetRightHandPoint(out Vector3 point)
+    {
+        point = Vector3.zero;
+
+        FindHandSubsystem();
+        if (handSubsystem == null || !handSubsystem.running || !handSubsystem.rightHand.isTracked)
+            return false;
+
+        XRHandJoint joint = handSubsystem.rightHand.GetJoint(XRHandJointID.IndexTip);
+        if (!joint.TryGetPose(out Pose p))
+        {
+            joint = handSubsystem.rightHand.GetJoint(XRHandJointID.Palm);
+            if (!joint.TryGetPose(out p))
+                return false;
+        }
+
+        point = sessionSpaceRoot != null ? sessionSpaceRoot.TransformPoint(p.position) : p.position;
+        return true;
     }
 
     private Vector3 AnchorTransformPoint(Vector3 offset)
@@ -208,6 +335,26 @@ public class WristWatch : MonoBehaviour
         }
 
         UpdateAnchorPose();
+
+        // Stabilization: while the left hand is occluded/untracked, or the right hand is
+        // reaching in to click (which occludes the left hand from the cameras), hold the last
+        // solid pose so the button doesn't jump around chasing a predicted left-hand pose.
+        if (hasLastGoodAnchor)
+        {
+            bool reaching = false;
+            if (wristWatchButtonObj != null && TryGetRightHandPoint(out Vector3 rightPoint))
+            {
+                reaching = Vector3.Distance(rightPoint, wristWatchButtonObj.transform.position) <= freezeReachDistance;
+            }
+
+            if (!leftHandSolidlyTracked || reaching)
+            {
+                anchorPos = lastGoodAnchorPos;
+                anchorRot = lastGoodAnchorRot;
+                hasAnchorPose = true;
+            }
+        }
+
         Transform playerCam = Camera.main != null ? Camera.main.transform : null;
 
         // 1. Keep Watch Button attached to Left Wrist smoothly
@@ -299,6 +446,10 @@ public class WristWatch : MonoBehaviour
     /// </summary>
     public void ToggleOptionsPanel()
     {
+        // Debounce redundant click events so one physical click = one toggle.
+        if (Time.unscaledTime - lastToggleTime < toggleDebounce) return;
+        lastToggleTime = Time.unscaledTime;
+
         optionsPanelActive = !optionsPanelActive;
         if (optionsPanelObj != null)
         {
@@ -353,10 +504,43 @@ public class WristWatch : MonoBehaviour
         if (roomHudCanvas != null)
         {
             roomHudCanvas.SetActive(true);
+
+            // Reveal the 5-gallery "List Ruang" chooser and hide the other panels on this canvas
+            // (room detail / artifact detail). RoomList repopulates its buttons when enabled.
+            ShowRoomListPanel();
+
             if (hasAnchorPose)
             {
                 roomHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
             }
+        }
+        if (gamesPanel != null) gamesPanel.SetActive(false);
+    }
+
+    /// <summary>
+    /// Activates the RoomListPanel (List Ruang) and deactivates its sibling panels so only the
+    /// gallery chooser is visible. Its RoomList component rebuilds the gallery buttons on enable.
+    /// </summary>
+    private void ShowRoomListPanel()
+    {
+        if (roomListPanel == null && roomHudCanvas != null)
+        {
+            Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
+            if (t != null) roomListPanel = t.gameObject;
+        }
+        if (roomListPanel == null) return;
+
+        Transform parent = roomListPanel.transform.parent;
+        if (parent != null)
+        {
+            foreach (Transform sibling in parent)
+            {
+                sibling.gameObject.SetActive(sibling.gameObject == roomListPanel);
+            }
+        }
+        else
+        {
+            roomListPanel.SetActive(true);
         }
     }
 
