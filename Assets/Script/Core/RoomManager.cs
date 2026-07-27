@@ -817,4 +817,165 @@ public class RoomManager : MonoBehaviour
             }
         }
     }
+
+    public void EnsureAllFiveRoomsLoaded()
+    {
+        if (rooms == null) rooms = new System.Collections.Generic.List<RoomData>();
+
+        RoomData[] resourceRooms = Resources.LoadAll<RoomData>("MuseumData/Rooms");
+        if (resourceRooms != null && resourceRooms.Length > 0)
+        {
+            foreach (RoomData r in resourceRooms)
+            {
+                if (r != null && !rooms.Contains(r))
+                {
+                    rooms.Add(r);
+                }
+            }
+        }
+
+        if (rooms.Count < 5)
+        {
+            foreach (RoomData r in Resources.FindObjectsOfTypeAll<RoomData>())
+            {
+                if (r != null && !rooms.Contains(r) && !string.IsNullOrEmpty(r.roomName))
+                {
+                    rooms.Add(r);
+                }
+            }
+        }
+
+        foreach (RoomData r in rooms)
+        {
+            if (r == null) continue;
+            string id = (r.roomId ?? "").ToLower();
+            string name = (r.roomName ?? "").ToLower();
+
+            if (id.Contains("1") || name.Contains("tekstil")) r.roomName = "Galeri Tekstil";
+            else if (id.Contains("2") || name.Contains("seni")) r.roomName = "Galeri Seni";
+            else if (id.Contains("4") || name.Contains("kraf")) r.roomName = "Galeri Kraf";
+            else if (id.Contains("5") || name.Contains("sejarah") || name.Contains("5")) r.roomName = "Galeri Sejarah";
+            else if (id.Contains("3") || name.Contains("mandalika")) r.roomName = "Serambi Mandalika";
+        }
+
+        rooms.Sort((a, b) => {
+            int GetOrder(RoomData r) {
+                if (r == null) return 99;
+                string n = (r.roomName ?? "").ToLower();
+                if (n.Contains("tekstil")) return 1;
+                if (n.Contains("seni")) return 2;
+                if (n.Contains("kraf")) return 3;
+                if (n.Contains("sejarah") || n.Contains("5")) return 4;
+                if (n.Contains("mandalika")) return 5;
+                return 99;
+            }
+            return GetOrder(a).CompareTo(GetOrder(b));
+        });
+    }
+
+    public void PopulateRoomListUI()
+    {
+        EnsureAllFiveRoomsLoaded();
+
+        GameObject canvasObj = roomHudContainer != null ? roomHudContainer : GameObject.Find("RoomHUDCanvas") ?? GameObject.Find("ExplorationCanvas");
+        if (canvasObj == null) return;
+
+        Transform roomListPanel = canvasObj.name == "RoomListPanel" ? canvasObj.transform : canvasObj.transform.Find("RoomListPanel") ?? canvasObj.transform;
+        Transform roomListContainer = roomListPanel.Find("RoomList") ?? roomListPanel.Find("Content/RoomList") ?? roomListPanel.GetComponentInChildren<UnityEngine.UI.GridLayoutGroup>()?.transform ?? roomListPanel.GetComponentInChildren<UnityEngine.UI.VerticalLayoutGroup>()?.transform;
+
+        if (roomListContainer == null) return;
+
+        foreach (Transform child in roomListContainer)
+        {
+            Destroy(child.gameObject);
+        }
+
+        for (int i = 0; i < rooms.Count; i++)
+        {
+            RoomData room = rooms[i];
+            int index = i + 1;
+
+            GameObject cardObj = new GameObject($"RoomCard_{index}");
+            cardObj.transform.SetParent(roomListContainer, false);
+            cardObj.SetActive(true);
+
+            ConfigureRoomCardItem(cardObj, room, index);
+        }
+    }
+
+    private void ConfigureRoomCardItem(GameObject card, RoomData room, int index)
+    {
+        if (card == null || room == null) return;
+
+        bool isActiveRoom = (currentRoom == room);
+
+        UnityEngine.UI.Image bgImg = card.GetComponent<UnityEngine.UI.Image>();
+        if (bgImg == null) bgImg = card.AddComponent<UnityEngine.UI.Image>();
+
+        if (rowCardMaterial != null) bgImg.material = rowCardMaterial;
+
+        if (isActiveRoom)
+        {
+            bgImg.color = new Color(0.71f, 0.76f, 0.41f, 0.95f);
+        }
+        else
+        {
+            bgImg.color = new Color(0.35f, 0.38f, 0.33f, 0.85f);
+        }
+
+        RectTransform rt = card.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.sizeDelta = new Vector2(170f, 65f);
+        }
+
+        UnityEngine.UI.Button btn = card.GetComponent<UnityEngine.UI.Button>();
+        if (btn == null) btn = card.AddComponent<UnityEngine.UI.Button>();
+
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() => {
+            Debug.Log($"Room Card clicked: {room.roomName}");
+            ChangeRoom(room);
+            PopulateRoomListUI();
+        });
+
+        XRButtonSelection selection = card.GetComponent<XRButtonSelection>();
+        if (selection == null) selection = card.AddComponent<XRButtonSelection>();
+        selection.onClick.RemoveAllListeners();
+        selection.onClick.AddListener(() => {
+            btn.onClick.Invoke();
+        });
+
+        GameObject numObj = new GameObject("NumText");
+        numObj.transform.SetParent(card.transform, false);
+        var numText = numObj.AddComponent<TMPro.TextMeshProUGUI>();
+        RectTransform nRect = numObj.GetComponent<RectTransform>();
+        nRect.anchorMin = new Vector2(0.06f, 0.20f);
+        nRect.anchorMax = new Vector2(0.28f, 0.80f);
+        nRect.sizeDelta = Vector2.zero;
+
+        numText.text = index.ToString("D2");
+        numText.fontSize = 16;
+        numText.fontStyle = TMPro.FontStyles.Bold;
+        numText.color = isActiveRoom ? Color.white : new Color(0.85f, 0.89f, 0.58f);
+        numText.alignment = TMPro.TextAlignmentOptions.Center;
+
+        GameObject nameObj = new GameObject("NameText");
+        nameObj.transform.SetParent(card.transform, false);
+        var nameText = nameObj.AddComponent<TMPro.TextMeshProUGUI>();
+        RectTransform nameRect = nameObj.GetComponent<RectTransform>();
+        nameRect.anchorMin = new Vector2(0.28f, 0.10f);
+        nameRect.anchorMax = new Vector2(0.96f, 0.90f);
+        nameRect.sizeDelta = Vector2.zero;
+
+        nameText.text = room.roomName;
+        nameText.fontSize = 18;
+        nameText.fontStyle = TMPro.FontStyles.Bold;
+        nameText.color = Color.white;
+        nameText.alignment = TMPro.TextAlignmentOptions.Left;
+        nameText.verticalAlignment = TMPro.VerticalAlignmentOptions.Middle;
+        nameText.enableAutoSizing = true;
+        nameText.fontSizeMin = 12;
+        nameText.fontSizeMax = 20;
+    }
 }

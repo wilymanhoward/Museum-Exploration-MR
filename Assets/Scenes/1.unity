@@ -10659,7 +10659,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1299530441
 RectTransform:
   m_ObjectHideFlags: 0
@@ -16515,6 +16515,9 @@ MonoBehaviour:
   gamesPanel: {fileID: 1034956511}
   exploreRow: {fileID: 0}
   roomListPanel: {fileID: 0}
+  attachRoomListToWrist: 1
+  roomListWristOffset: {x: 0, y: 0.12, z: 0.02}
+  roomListWristEuler: {x: 0, y: 0, z: 0}
   watchOffset: {x: 0, y: 0.08, z: 0.02}
   panelOffset: {x: 0, y: 0.22, z: 0}
   toggleDebounce: 0.3

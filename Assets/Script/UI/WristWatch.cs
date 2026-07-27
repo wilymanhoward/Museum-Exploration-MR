@@ -18,10 +18,17 @@ public class WristWatch : MonoBehaviour
     public GameObject gamesPanel;    // Mapped to Minigames panel/canvas
 
     [Header("Explore / Room List")]
-    [Tooltip("The 'Ruang'/Explore row button in the Options panel. Auto-found by name (Row_Ruang) if left empty.")]
+    [Tooltip("The 'Ruang'/Explore row button in the Options panel. Auto-found by name (Row_Explore/Row_Ruang) if left empty.")]
     public GameObject exploreRow;
     [Tooltip("The RoomListPanel (List Ruang - the 5-gallery chooser) shown when Explore is pressed. Auto-found under roomHudCanvas if empty.")]
     public GameObject roomListPanel;
+
+    [Tooltip("Pin the room list rigidly to the left wrist (moves AND rotates with the wrist, does not billboard to the head). Turn off to keep it a free-floating world canvas.")]
+    public bool attachRoomListToWrist = true;
+    [Tooltip("Position of the room list relative to the wrist, expressed in the wrist's local space (so it stays put as the wrist rotates). Tune to place it above/in front of the wrist.")]
+    public Vector3 roomListWristOffset = new Vector3(0f, 0.12f, 0.02f);
+    [Tooltip("Rotation offset (Euler) of the room list relative to the wrist. Tune so the panel faces you when you raise your wrist.")]
+    public Vector3 roomListWristEuler = Vector3.zero;
 
     [Header("Offsets")]
     [Tooltip("World-space offset for the watch button relative to the left wrist (Y = up), so the icon hovers on top of the hand regardless of wrist rotation.")]
@@ -110,6 +117,10 @@ public class WristWatch : MonoBehaviour
             Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
             if (t != null) roomListPanel = t.gameObject;
         }
+
+        // The room list is pinned to the wrist by driving its transform from the wrist pose each
+        // frame (see FollowWristRigid in LateUpdate), NOT by parenting it under the wrist menu -
+        // the wrist menu billboards to face the head, and a child would inherit that head rotation.
 
         // Wire the option rows. The row and its "expand" ActionButton (Expand button.png) had no
         // onClick action in the scene, so hook them up here. We wire EVERY Button/XRButtonSelection
@@ -360,6 +371,8 @@ public class WristWatch : MonoBehaviour
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
+            // Hide the little watch icon while a big panel (room list / games) is open. The room
+            // list is its own object (not a child), so hiding the wrist menu doesn't hide it.
             bool otherCanvasOpen = (roomHudCanvas != null && roomHudCanvas.activeInHierarchy) || (gamesPanel != null && gamesPanel.activeInHierarchy);
 
             // Ensure all panels and watch button are hidden if exploration has not started or other canvas is open
@@ -412,10 +425,29 @@ public class WristWatch : MonoBehaviour
             }
         }
 
-        // 2. Keep hand panels (Options + Room + Games) floating near the hand, facing the player
+        // 2. Keep panels near the hand. Options/games billboard to face the player; the room list
+        // is pinned rigidly to the wrist (moves AND rotates with the wrist, no head billboard).
         FollowHand(optionsPanelObj, playerCam);
-        FollowHand(roomHudCanvas, playerCam);
+        if (attachRoomListToWrist) FollowWristRigid(roomHudCanvas);
+        else FollowHand(roomHudCanvas, playerCam);
         FollowHand(gamesPanel, playerCam);
+    }
+
+    /// <summary>
+    /// Rigidly pins a panel to the wrist: both its position and rotation come from the wrist
+    /// pose, so it moves and rotates WITH the wrist and does not billboard to the head. The
+    /// offset/rotation are expressed in wrist-local space so they stay fixed as the wrist turns.
+    /// Uses the (freeze-held) anchor pose, so it also holds still while reaching in to click.
+    /// </summary>
+    private void FollowWristRigid(GameObject panel)
+    {
+        if (!hasAnchorPose || panel == null || !panel.activeInHierarchy) return;
+
+        Vector3 targetPos = anchorPos + anchorRot * roomListWristOffset;
+        Quaternion targetRot = anchorRot * Quaternion.Euler(roomListWristEuler);
+
+        panel.transform.position = Vector3.Lerp(panel.transform.position, targetPos, Time.deltaTime * 15f);
+        panel.transform.rotation = Quaternion.Slerp(panel.transform.rotation, targetRot, Time.deltaTime * 15f);
     }
 
     /// <summary>
@@ -496,7 +528,7 @@ public class WristWatch : MonoBehaviour
         Debug.Log("WristWatch: 'Explore' button clicked!");
         if (roomHudCanvas == null)
         {
-            roomHudCanvas = GameObject.Find("RoomHUDCanvas");
+            roomHudCanvas = GameObject.Find("ExplorationCanvas") ?? GameObject.Find("RoomHUDCanvas");
         }
 
         CloseOptionsPanel();
@@ -505,22 +537,29 @@ public class WristWatch : MonoBehaviour
         {
             roomHudCanvas.SetActive(true);
 
-            // Reveal the 5-gallery "List Ruang" chooser and hide the other panels on this canvas
-            // (room detail / artifact detail). RoomList repopulates its buttons when enabled.
             ShowRoomListPanel();
+
+            if (RoomManager.Instance != null)
+            {
+                RoomManager.Instance.PopulateRoomListUI();
+            }
 
             if (hasAnchorPose)
             {
-                roomHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
+                if (attachRoomListToWrist)
+                {
+                    roomHudCanvas.transform.position = anchorPos + anchorRot * roomListWristOffset;
+                    roomHudCanvas.transform.rotation = anchorRot * Quaternion.Euler(roomListWristEuler);
+                }
+                else
+                {
+                    roomHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
+                }
             }
         }
         if (gamesPanel != null) gamesPanel.SetActive(false);
     }
 
-    /// <summary>
-    /// Activates the RoomListPanel (List Ruang) and deactivates its sibling panels so only the
-    /// gallery chooser is visible. Its RoomList component rebuilds the gallery buttons on enable.
-    /// </summary>
     private void ShowRoomListPanel()
     {
         if (roomListPanel == null && roomHudCanvas != null)
@@ -528,19 +567,28 @@ public class WristWatch : MonoBehaviour
             Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
             if (t != null) roomListPanel = t.gameObject;
         }
+        if (roomListPanel == null)
+        {
+            GameObject found = GameObject.Find("RoomListPanel");
+            if (found != null) roomListPanel = found;
+        }
         if (roomListPanel == null) return;
 
+        roomListPanel.SetActive(true);
         Transform parent = roomListPanel.transform.parent;
         if (parent != null)
         {
             foreach (Transform sibling in parent)
             {
-                sibling.gameObject.SetActive(sibling.gameObject == roomListPanel);
+                if (sibling.name == "RoomListPanel")
+                {
+                    sibling.gameObject.SetActive(true);
+                }
+                else if (sibling.name == "ArtifactDetailPanel" || sibling.name == "RoomPanel")
+                {
+                    sibling.gameObject.SetActive(false);
+                }
             }
-        }
-        else
-        {
-            roomListPanel.SetActive(true);
         }
     }
 
