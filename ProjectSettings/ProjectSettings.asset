@@ -13,7 +13,7 @@ PlayerSettings:
   useOnDemandResources: 0
   accelerometerFrequency: 60
   companyName: DefaultCompany
-  productName: Museum Exploration MR
+  productName: Interactive Museum Mixed Reality
   defaultCursor: {fileID: 0}
   cursorHotspot: {x: 0, y: 0}
   m_SplashScreenBackgroundColor: {r: 0.13725491, g: 0.12156863, b: 0.1254902, a: 1}
@@ -851,14 +851,14 @@ PlayerSettings:
   apiCompatibilityLevelPerPlatform: {}
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
-  metroPackageName: Museum Exploration MR
+  metroPackageName: Interactive Museum Mixed Reality
   metroPackageVersion: 
   metroCertificatePath: 
   metroCertificatePassword: 
   metroCertificateSubject: 
   metroCertificateIssuer: 
   metroCertificateNotAfter: 0000000000000000
-  metroApplicationDescription: Museum Exploration MR
+  metroApplicationDescription: Interactive Museum Mixed Reality
   wsaImages: {}
   metroTileShortName: 
   metroTileShowName: 0
@@ -931,7 +931,7 @@ PlayerSettings:
   cloudProjectId: a0922f11-e8c5-4da8-82a7-76695a7f8797
   framebufferDepthMemorylessMode: 0
   qualitySettingsNames: []
-  projectName: Museum Exploration MR
+  projectName: Interactive Museum Mixed Reality
   organizationId: wilymanhoward
   cloudEnabled: 0
   legacyClampBlendShapeWeights: 0
