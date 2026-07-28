@@ -446,34 +446,27 @@ public class WristWatch : MonoBehaviour
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
-            // Hide the little watch icon while a big panel (room list / games) is open. The room
-            // list is its own object (not a child), so hiding the wrist menu doesn't hide it.
-            bool otherCanvasOpen = (roomHudCanvas != null && roomHudCanvas.activeInHierarchy) || (gamesPanel != null && gamesPanel.activeInHierarchy);
-
-            // Ensure all panels and watch button are hidden if exploration has not started or other canvas is open
-            if (!MainMenu.IsExplorationStarted || otherCanvasOpen)
+            if (!MainMenu.IsExplorationStarted)
             {
                 if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
 
-                if (!MainMenu.IsExplorationStarted)
+                if (optionsPanelObj != null && optionsPanelObj.activeSelf)
                 {
-                    if (optionsPanelObj != null && optionsPanelObj.activeSelf)
-                    {
-                        optionsPanelObj.SetActive(false);
-                        optionsPanelActive = false;
-                    }
-                    if (gamesPanel != null && gamesPanel.activeSelf)
-                    {
-                        gamesPanel.SetActive(false);
-                    }
+                    optionsPanelObj.SetActive(false);
+                    optionsPanelActive = false;
+                }
+                if (gamesPanel != null && gamesPanel.activeSelf)
+                {
+                    gamesPanel.SetActive(false);
                 }
             }
             else
             {
+                // Once exploration is started, the wrist watch menu button ALWAYS stays active and visible on the left hand
+                if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
+
                 if (hasAnchorPose)
                 {
-                    if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
-
                     Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
                     wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
 
@@ -494,10 +487,6 @@ public class WristWatch : MonoBehaviour
                         }
                     }
                 }
-                else
-                {
-                    if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
-                }
             }
         }
 
@@ -509,15 +498,29 @@ public class WristWatch : MonoBehaviour
 
         if (roomHudCanvas != null && roomHudCanvas.activeInHierarchy)
         {
-            GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
-            if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
-            FollowHand(roomHudCanvas, playerCam);
-
+            // Do not follow hand if showing an Artifact Detail Panel - detail panels must stay fixed in world space!
+            bool showingArtifactDetail = false;
             foreach (Transform child in roomHudCanvas.transform)
             {
-                if (child != null && child.gameObject.activeInHierarchy)
+                if (child != null && child.gameObject.activeInHierarchy && (child.name.Contains("ArtifactDetail") || child.name.Contains("ArtifactUI")))
                 {
-                    child.localRotation = Quaternion.identity;
+                    showingArtifactDetail = true;
+                    break;
+                }
+            }
+
+            if (!showingArtifactDetail)
+            {
+                GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
+                if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
+                FollowHand(roomHudCanvas, playerCam);
+
+                foreach (Transform child in roomHudCanvas.transform)
+                {
+                    if (child != null && child.gameObject.activeInHierarchy)
+                    {
+                        child.localRotation = Quaternion.identity;
+                    }
                 }
             }
         }

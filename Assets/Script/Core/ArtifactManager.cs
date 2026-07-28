@@ -25,6 +25,8 @@ public class ArtifactManager : MonoBehaviour
 
     private ArtifactData lastSelectedArtifact;
     private GameObject activePanelInstance;
+    private readonly System.Collections.Generic.List<GameObject> activePanelInstances = new System.Collections.Generic.List<GameObject>();
+    private readonly System.Collections.Generic.HashSet<string> scannedArtifactIds = new System.Collections.Generic.HashSet<string>();
 
     private void Awake()
     {
@@ -109,10 +111,8 @@ public class ArtifactManager : MonoBehaviour
         UpdateArtifact(artifact, CalculateDefaultPose());
     }
 
-    private readonly System.Collections.Generic.HashSet<string> scannedArtifactIds = new System.Collections.Generic.HashSet<string>();
-
     /// <summary>
-    /// Updates the selected artifact, syncs the UI panel to display it, and repositions the panel to the given pose.
+    /// Updates the selected artifact and spawns a new world-space detail panel for it.
     /// </summary>
     public void UpdateArtifact(ArtifactData artifact, Pose pose)
     {
@@ -125,24 +125,117 @@ public class ArtifactManager : MonoBehaviour
             return;
         }
 
+        SpawnArtifactDetailPanel(artifact, pose);
+    }
+
+    /// <summary>
+    /// Spawns a new independent world-space detail panel for the specified artifact.
+    /// Multiple artifact detail panels can exist in world space simultaneously.
+    /// </summary>
+    public GameObject SpawnArtifactDetailPanel(ArtifactData artifact, Pose customPose = default)
+    {
+        if (artifact == null) return null;
+
         if (!string.IsNullOrEmpty(artifact.artifactId))
         {
             scannedArtifactIds.Add(artifact.artifactId.Trim().ToLower());
         }
 
-        // If a panel is already open, update its details and position directly
-        if (activePanelInstance != null)
+        // Clean up any destroyed panels
+        activePanelInstances.RemoveAll(p => p == null);
+
+        // Check if a panel is already open for this exact artifact ID
+        foreach (GameObject panel in activePanelInstances)
         {
-            Artifact Artifact = activePanelInstance.GetComponentInChildren<Artifact>();
-            if (Artifact != null)
+            if (panel == null) continue;
+            Artifact art = panel.GetComponentInChildren<Artifact>(true);
+            if (art != null && art.artifactData != null && !string.IsNullOrEmpty(art.artifactData.artifactId) && art.artifactData.artifactId == artifact.artifactId)
             {
-                Artifact.UpdateDetails(artifact);
-                return;
+                panel.SetActive(true);
+                art.gameObject.SetActive(true);
+                return panel;
             }
         }
 
-        // If no panel is open, trigger a new scan setup
-        TriggerArtifactScan(artifact, pose);
+        // Resolve template prefab to instantiate
+        GameObject prefabToUse = artifactPanelPrefab;
+        if (prefabToUse == null) prefabToUse = artifactUiCanvas;
+
+        // Resolve player transform
+        if (playerTransform == null)
+        {
+            if (Camera.main != null) playerTransform = Camera.main.transform;
+            else if (FindObjectOfType<Camera>() != null) playerTransform = FindObjectOfType<Camera>().transform;
+        }
+
+        // Calculate spawn position in world space
+        Vector3 spawnPos;
+        Quaternion spawnRot;
+
+        if (customPose.position != Vector3.zero || customPose.rotation != Quaternion.identity)
+        {
+            spawnPos = customPose.position;
+            spawnRot = customPose.rotation;
+        }
+        else
+        {
+            // Position 1.0m in front of player, staggered side-by-side if multiple panels are open
+            Vector3 fwd = playerTransform != null ? Vector3.ProjectOnPlane(playerTransform.forward, Vector3.up).normalized : Vector3.forward;
+            if (fwd == Vector3.zero) fwd = Vector3.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
+
+            // Stagger multiple open panels horizontally: 0m, +0.6m, -0.6m, +1.2m, -1.2m
+            int count = activePanelInstances.Count;
+            float sideOffset = (count % 2 == 1) ? ((count + 1) / 2) * 0.6f : -(count / 2) * 0.6f;
+
+            Vector3 basePos = playerTransform != null ? playerTransform.position : Vector3.zero;
+            spawnPos = basePos + fwd * 1.0f + right * sideOffset;
+            spawnRot = Quaternion.LookRotation(-fwd, Vector3.up);
+        }
+
+        GameObject newPanelInstance = null;
+        if (prefabToUse != null)
+        {
+            newPanelInstance = Instantiate(prefabToUse, spawnPos, spawnRot);
+            newPanelInstance.name = $"ArtifactDetailPanel_{artifact.artifactName}";
+            newPanelInstance.SetActive(true);
+        }
+        else
+        {
+            Debug.LogError("ArtifactManager: No artifactPanelPrefab or artifactUiCanvas assigned to spawn detail panel!");
+            return null;
+        }
+
+        Canvas canvas = newPanelInstance.GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            canvas.renderMode = RenderMode.WorldSpace;
+            if (canvas.worldCamera == null) canvas.worldCamera = Camera.main;
+        }
+
+        Artifact interaction = newPanelInstance.GetComponentInChildren<Artifact>(true);
+        if (interaction != null)
+        {
+            interaction.gameObject.SetActive(true);
+            interaction.Setup(artifact, playerTransform, new Pose(spawnPos, spawnRot), () => {
+                activePanelInstances.Remove(newPanelInstance);
+                if (newPanelInstance != artifactUiCanvas)
+                {
+                    Destroy(newPanelInstance);
+                }
+                else
+                {
+                    newPanelInstance.SetActive(false);
+                }
+            });
+        }
+
+        activePanelInstances.Add(newPanelInstance);
+        selectedArtifact = artifact;
+        lastSelectedArtifact = artifact;
+
+        Debug.Log($"ArtifactManager: Spawned detail panel for '{artifact.artifactName}' in world space. Total open panels: {activePanelInstances.Count}");
+        return newPanelInstance;
     }
 
     private Pose CalculateDefaultPose()
@@ -158,33 +251,20 @@ public class ArtifactManager : MonoBehaviour
     /// </summary>
     private void HandleQRCodeScanned(string payload, Pose pose)
     {
-        // Ignore exhibit QR scans until player taps MULAI on the Main Menu
         if (!MainMenu.IsExplorationStarted)
         {
             Debug.Log("ArtifactManager: Exploration has not started yet. Ignoring QR scan.");
             return;
         }
 
-        // Prevent duplicate scanning if this exact artifact detail panel is already open
-        if (activePanelInstance != null)
-        {
-            Artifact existingInteraction = activePanelInstance.GetComponentInChildren<Artifact>();
-            if (existingInteraction != null && existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == payload)
-            {
-                return; // Already showing this exact panel, ignore repeat scan
-            }
-        }
-
-        // Search for the artifact in the rooms, and use editor fallback if needed
         ArtifactData artifactMatch = FindArtifactInProject(payload);
-
         if (artifactMatch != null)
         {
             if (RoomManager.Instance != null)
             {
                 RoomManager.Instance.SetScanStatus($"Scanned Exhibit: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
             }
-            UpdateArtifact(artifactMatch, pose);
+            SpawnArtifactDetailPanel(artifactMatch, pose);
         }
     }
 
@@ -277,96 +357,18 @@ public class ArtifactManager : MonoBehaviour
     private void HandleQRCodeLost(string payload)
     {
         // When physical QR code is lost, close the panel/canvas
-        if (activePanelInstance != null)
+        foreach (GameObject panel in activePanelInstances)
         {
-            Artifact interaction = activePanelInstance.GetComponentInChildren<Artifact>();
-            if (interaction != null && interaction.artifactData != null && interaction.artifactData.artifactId == payload)
+            if (panel != null)
             {
-                CloseActivePanel();
-            }
-        }
-    }
-
-    private void TriggerArtifactScan(ArtifactData artifact, Pose pose)
-    {
-        Debug.Log($"Scanned Artifact QR: {artifact.artifactName}");
-
-        // Update selected artifact tracking
-        selectedArtifact = artifact;
-        lastSelectedArtifact = artifact;
-
-        // Ensure we have a valid player transform reference (in case it was null at Start())
-        if (playerTransform == null)
-        {
-            if (Camera.main != null)
-            {
-                playerTransform = Camera.main.transform;
-            }
-            else
-            {
-                Camera cam = FindObjectOfType<Camera>();
-                if (cam != null)
+                Artifact interaction = panel.GetComponentInChildren<Artifact>();
+                if (interaction != null && interaction.artifactData != null && interaction.artifactData.artifactId == payload)
                 {
-                    playerTransform = cam.transform;
-                }
-            }
-        }
-
-        // If we are using the persistent canvas
-        if (artifactUiCanvas != null && artifactInteraction != null)
-        {
-            // Position the parent ArtifactUICanvas flat against the wall relative to the QR code
-            // (Note: the local Y coordinate is adjusted to the player's eye level inside Setup())
-            artifactUiCanvas.SetActive(true);
-            artifactInteraction.Setup(artifact, playerTransform, pose, () => {
-                // Callback if the canvas is closed
-                CloseActivePanel();
-            });
-            activePanelInstance = artifactUiCanvas;
-        }
-        else
-        {
-            // Fallback to prefab spawning if the persistent canvas is not in the scene
-            if (activePanelInstance != null)
-            {
-                Artifact existingInteraction = activePanelInstance.GetComponentInChildren<Artifact>();
-                if (existingInteraction != null)
-                {
-                    if (existingInteraction.artifactData != null && existingInteraction.artifactData.artifactId == artifact.artifactId)
-                    {
-                        return;
-                    }
-                    existingInteraction.Setup(artifact, playerTransform, pose, () => {
-                        CloseActivePanel();
-                    });
-                    return;
-                }
-            }
-
-            if (artifactPanelPrefab != null)
-            {
-                Vector3 spawnPos = pose.position;
-                if (playerTransform != null)
-                {
-                    Vector3 fwd = Vector3.ProjectOnPlane(playerTransform.forward, Vector3.up).normalized;
-                    if (fwd == Vector3.zero) fwd = playerTransform.forward;
-                    spawnPos = playerTransform.position + fwd * 1.0f;
-                }
-
-                GameObject panelInstance = Instantiate(artifactPanelPrefab, spawnPos, pose.rotation);
-                Canvas canvas = panelInstance.GetComponent<Canvas>();
-                if (canvas != null && canvas.worldCamera == null)
-                {
-                    canvas.worldCamera = Camera.main;
-                }
-
-                Artifact interaction = panelInstance.GetComponentInChildren<Artifact>();
-                if (interaction != null)
-                {
-                    interaction.Setup(artifact, playerTransform, pose, () => {
-                        CloseActivePanel();
-                    });
-                    activePanelInstance = panelInstance;
+                    activePanelInstances.Remove(panel);
+                    interaction.StartClose();
+                    if (panel != artifactUiCanvas) Destroy(panel);
+                    else panel.SetActive(false);
+                    break;
                 }
             }
         }
@@ -377,33 +379,39 @@ public class ArtifactManager : MonoBehaviour
     /// </summary>
     public void CloseActivePanel()
     {
-        if (activePanelInstance != null)
+        activePanelInstances.RemoveAll(p => p == null);
+        if (activePanelInstances.Count > 0)
         {
-            GameObject tempInstance = activePanelInstance;
-            activePanelInstance = null; // Clear first to prevent recursion loops
-
-            if (tempInstance == artifactUiCanvas)
+            GameObject last = activePanelInstances[activePanelInstances.Count - 1];
+            activePanelInstances.RemoveAt(activePanelInstances.Count - 1);
+            if (last != null)
             {
-                // Hide persistent canvas and trigger its close animation/cleanup
-                artifactUiCanvas.SetActive(false);
-                if (artifactInteraction != null)
-                {
-                    artifactInteraction.StartClose();
-                }
-            }
-            else
-            {
-                // Instantiate/Destroy fallback - trigger cleanup and destroy the prefab instance
-                Artifact interaction = tempInstance.GetComponentInChildren<Artifact>();
-                if (interaction != null)
-                {
-                    interaction.StartClose();
-                }
-                Destroy(tempInstance);
+                Artifact interaction = last.GetComponentInChildren<Artifact>();
+                if (interaction != null) interaction.StartClose();
+                if (last != artifactUiCanvas) Destroy(last);
+                else last.SetActive(false);
             }
         }
+        selectedArtifact = null;
+        lastSelectedArtifact = null;
+    }
 
-        // Clear selected artifact tracking
+    /// <summary>
+    /// Closes all active artifact detail panels in the scene.
+    /// </summary>
+    public void CloseAllPanels()
+    {
+        foreach (GameObject panel in activePanelInstances)
+        {
+            if (panel != null)
+            {
+                Artifact interaction = panel.GetComponentInChildren<Artifact>();
+                if (interaction != null) interaction.StartClose();
+                if (panel != artifactUiCanvas) Destroy(panel);
+                else panel.SetActive(false);
+            }
+        }
+        activePanelInstances.Clear();
         selectedArtifact = null;
         lastSelectedArtifact = null;
     }

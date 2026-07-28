@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using UnityEngine.XR.Interaction.Toolkit;
 
 public class Artifact : MonoBehaviour
 {
@@ -84,10 +85,32 @@ public class Artifact : MonoBehaviour
         }
         audioSource.playOnAwake = false;
         audioSource.loop = false;
+
+        EnsureGrabbablePanel();
+    }
+
+    /// <summary>
+    /// Configures the panel with ArtifactPanelDragger so player can pinch & hold (e.g. 1.5s - 3s) to move it around in 3D space.
+    /// Instant UI button taps pass through normally without obstruction.
+    /// </summary>
+    public void EnsureGrabbablePanel()
+    {
+        // Remove standard XRGrabInteractable if present so UI button clicks are never blocked
+        XRGrabInteractable oldGrab = GetComponent<XRGrabInteractable>();
+        if (oldGrab != null && !(oldGrab is ArtifactPanelDragger))
+        {
+            Destroy(oldGrab);
+        }
+
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger == null) dragger = gameObject.AddComponent<ArtifactPanelDragger>();
+        dragger.enabled = true;
     }
 
     private void Start()
     {
+        EnsureGrabbablePanel();
+
         // Hook view toggle buttons
         if (imagesButton != null)
         {
@@ -181,6 +204,7 @@ public class Artifact : MonoBehaviour
         if (playerTransform != null) trackedPlayer = playerTransform;
 
         PositionInFrontOfUser();
+        EnsureGrabbablePanel();
 
         Canvas canvas = GetComponent<Canvas>();
         if (canvas != null && canvas.worldCamera == null)
@@ -491,7 +515,13 @@ public class Artifact : MonoBehaviour
     public void StartClose()
     {
         ClearSpawnedModel();
-        onCloseCallback?.Invoke();
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+        }
+        Action cb = onCloseCallback;
+        onCloseCallback = null;
+        cb?.Invoke();
     }
 
     private void ClearSpawnedModelSilently()
@@ -711,16 +741,14 @@ public class Artifact : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+
+
     /// <summary>
-    /// Hides the canvas/parent canvas. This function can be called from UnityEvents.
-    /// Since the panel state is not altered, revealing the canvas again will show the last active panel.
+    /// Hides/destroys the canvas/parent canvas. This function can be called from UnityEvents.
     /// </summary>
     public void CloseCanvas()
     {
-        if (audioSource != null)
-        {
-            audioSource.Stop();
-        }
+        StartClose();
 
         if (canvasObject != null)
         {
@@ -739,17 +767,16 @@ public class Artifact : MonoBehaviour
                 {
                     transform.parent.gameObject.SetActive(false);
                 }
+                else
+                {
+                    gameObject.SetActive(false);
+                }
             }
         }
 
         if (WristWatch.Instance != null)
         {
             WristWatch.Instance.EnsureWatchButtonVisible();
-        }
-        else
-        {
-            WristWatch ww = FindObjectOfType<WristWatch>();
-            if (ww != null) ww.EnsureWatchButtonVisible();
         }
     }
 
