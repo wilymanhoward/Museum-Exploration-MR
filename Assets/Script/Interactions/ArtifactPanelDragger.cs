@@ -206,15 +206,21 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
                     Vector3 targetPos = interactorTransform.TransformPoint(initialLocalPos);
                     Quaternion targetRot = interactorTransform.rotation * initialLocalRot;
 
+                    // Lock pitch (X) and roll (Z) to 0 so panel is perfectly level without any tilt
+                    Quaternion levelRot = Quaternion.Euler(0f, targetRot.eulerAngles.y, 0f);
+
                     transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * 25f);
-                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 25f);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, levelRot, Time.deltaTime * 25f);
 
                     yield return null;
                 }
             }
 
+            // Explicitly force exactly 0-degree tilt on placement release
+            transform.rotation = Quaternion.Euler(0f, transform.rotation.eulerAngles.y, 0f);
+
             isMoving = false;
-            Debug.Log("[ArtifactPanelDragger] Pinch released. Detail panel fixed at new world location.");
+            Debug.Log("[ArtifactPanelDragger] Pinch released. Detail panel fixed at level 0-degree tilt world location.");
         }
     }
 }

@@ -193,7 +193,8 @@ public class Artifact : MonoBehaviour
             directionToPlayer.y = 0;
             if (directionToPlayer != Vector3.zero)
             {
-                transform.rotation = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+                Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+                transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
             }
         }
     }
@@ -372,7 +373,8 @@ public class Artifact : MonoBehaviour
         directionToPlayer.y = 0; // yaw only, keep the panel upright
         if (directionToPlayer != Vector3.zero)
         {
-            transform.rotation = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+            Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+            transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
         }
     }
 
