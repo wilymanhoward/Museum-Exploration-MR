@@ -1,20 +1,38 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.EventSystems;
+using UnityEngine.XR.Interaction.Toolkit.UI;
 
 /// <summary>
-/// Enables an Artifact Detail Panel to be repositioned in world space by pinching and holding for a duration (default 1.5s - 3s).
+/// Enables an Artifact Detail Panel to be repositioned in world space by pinching and holding for a duration (default 1.0s).
 /// Quick pinch taps continue to function normally for UI buttons without obstruction.
 /// </summary>
-public class ArtifactPanelDragger : XRSimpleInteractable
+public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, IPointerUpHandler, IDragHandler, IPointerExitHandler
 {
     [Header("Pinch and Hold Settings")]
     [Tooltip("Duration in seconds the player must pinch and hold on the panel to begin moving it around.")]
-    public float holdToMoveDuration = 1.5f;
+    public float holdToMoveDuration = 1.0f;
 
     private bool isPinching = false;
     private bool isMoving = false;
+    private bool isUserMoved = false;
     private Coroutine holdCoroutine;
+
+    public bool IsMoving => isMoving;
+    public bool IsUserMoved => isUserMoved;
+
+    public void ResetUserMoved()
+    {
+        isUserMoved = false;
+        isMoving = false;
+        isPinching = false;
+        if (holdCoroutine != null)
+        {
+            StopCoroutine(holdCoroutine);
+            holdCoroutine = null;
+        }
+    }
 
     protected override void Awake()
     {
@@ -43,21 +61,101 @@ public class ArtifactPanelDragger : XRSimpleInteractable
             boxCol.size = new Vector3(0.64f, 0.48f, 0.02f);
             boxCol.center = Vector3.zero;
         }
+
+        // Ensure Canvas background image receives UI raycasts
+        UnityEngine.UI.Image img = GetComponent<UnityEngine.UI.Image>();
+        if (img != null)
+        {
+            img.raycastTarget = true;
+        }
     }
 
     protected override void OnSelectEntered(SelectEnterEventArgs args)
     {
         base.OnSelectEntered(args);
-
-        isPinching = true;
-        if (holdCoroutine != null) StopCoroutine(holdCoroutine);
-        holdCoroutine = StartCoroutine(ProcessPinchHold(args.interactorObject));
+        Transform interactorT = args.interactorObject != null ? args.interactorObject.transform : null;
+        StartPinchHold(interactorT);
     }
 
     protected override void OnSelectExited(SelectExitEventArgs args)
     {
         base.OnSelectExited(args);
+        StopPinchHold();
+    }
 
+    #region UI Pointer Handlers (For Graphic Raycasting via TrackedDeviceGraphicRaycaster)
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        Transform interactorT = ExtractInteractorTransform(eventData);
+        StartPinchHold(interactorT);
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        StopPinchHold();
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        // Only stop if we are still waiting in Phase 1 (not currently moving)
+        if (!isMoving)
+        {
+            StopPinchHold();
+        }
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        // Interface required so Unity EventSystem routes hold drag events to this panel
+    }
+    #endregion
+
+    private Transform ExtractInteractorTransform(PointerEventData eventData)
+    {
+        if (eventData is TrackedDeviceEventData trackedData && trackedData.interactor != null)
+        {
+            return trackedData.interactor.transform;
+        }
+        if (eventData != null && eventData.pressEventCamera != null)
+        {
+            return eventData.pressEventCamera.transform;
+        }
+        return FindActiveInteractorTransform();
+    }
+
+    private Transform FindActiveInteractorTransform()
+    {
+        XRBaseInteractor[] interactors = FindObjectsOfType<XRBaseInteractor>();
+        foreach (var interactor in interactors)
+        {
+            if (interactor != null && interactor.gameObject.activeInHierarchy)
+            {
+                if (interactor.hasSelection || interactor.hasHover)
+                {
+                    return interactor.transform;
+                }
+            }
+        }
+        foreach (var interactor in interactors)
+        {
+            if (interactor != null && interactor.gameObject.activeInHierarchy)
+            {
+                return interactor.transform;
+            }
+        }
+        if (Camera.main != null) return Camera.main.transform;
+        return null;
+    }
+
+    private void StartPinchHold(Transform interactorTransform)
+    {
+        isPinching = true;
+        if (holdCoroutine != null) StopCoroutine(holdCoroutine);
+        holdCoroutine = StartCoroutine(ProcessPinchHold(interactorTransform));
+    }
+
+    private void StopPinchHold()
+    {
         isPinching = false;
         if (holdCoroutine != null)
         {
@@ -67,10 +165,9 @@ public class ArtifactPanelDragger : XRSimpleInteractable
         isMoving = false;
     }
 
-    private IEnumerator ProcessPinchHold(IXRSelectInteractor interactor)
+    private IEnumerator ProcessPinchHold(Transform interactorTransform)
     {
         float elapsed = 0f;
-        Transform interactorTransform = (interactor != null && interactor.transform != null) ? interactor.transform : null;
 
         // Phase 1: Wait for pinch-and-hold duration (allows instant UI button taps to complete unaffected)
         while (isPinching && elapsed < holdToMoveDuration)
@@ -80,24 +177,39 @@ public class ArtifactPanelDragger : XRSimpleInteractable
         }
 
         // Phase 2: If still pinching after hold duration, activate Move Mode!
-        if (isPinching && interactorTransform != null)
+        if (isPinching)
         {
             isMoving = true;
-            Debug.Log($"[ArtifactPanelDragger] Pinch hold threshold ({holdToMoveDuration}s) reached! Moving panel with hand.");
+            isUserMoved = true;
+            Debug.Log($"[ArtifactPanelDragger] Pinch hold threshold ({holdToMoveDuration}s) reached! Moving panel with hand/ray.");
 
-            // Calculate initial local offset relative to the interactor ray
-            Vector3 initialLocalPos = interactorTransform.InverseTransformPoint(transform.position);
-            Quaternion initialLocalRot = Quaternion.Inverse(interactorTransform.rotation) * transform.rotation;
-
-            while (isPinching && interactorTransform != null)
+            if (interactorTransform == null)
             {
-                Vector3 targetPos = interactorTransform.TransformPoint(initialLocalPos);
-                Quaternion targetRot = interactorTransform.rotation * initialLocalRot;
+                interactorTransform = FindActiveInteractorTransform();
+            }
 
-                transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * 20f);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 20f);
+            if (interactorTransform != null)
+            {
+                // Calculate initial local offset relative to the interactor ray
+                Vector3 initialLocalPos = interactorTransform.InverseTransformPoint(transform.position);
+                Quaternion initialLocalRot = Quaternion.Inverse(interactorTransform.rotation) * transform.rotation;
 
-                yield return null;
+                while (isPinching)
+                {
+                    if (interactorTransform == null)
+                    {
+                        interactorTransform = FindActiveInteractorTransform();
+                        if (interactorTransform == null) break;
+                    }
+
+                    Vector3 targetPos = interactorTransform.TransformPoint(initialLocalPos);
+                    Quaternion targetRot = interactorTransform.rotation * initialLocalRot;
+
+                    transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * 25f);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 25f);
+
+                    yield return null;
+                }
             }
 
             isMoving = false;

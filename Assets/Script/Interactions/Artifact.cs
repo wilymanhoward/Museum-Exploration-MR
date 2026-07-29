@@ -170,6 +170,12 @@ public class Artifact : MonoBehaviour
 
     public void PositionInFrontOfUser()
     {
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger != null)
+        {
+            dragger.ResetUserMoved();
+        }
+
         if (trackedPlayer == null && Camera.main != null)
         {
             trackedPlayer = Camera.main.transform;
@@ -345,11 +351,18 @@ public class Artifact : MonoBehaviour
     }
 
     /// <summary>
-    /// Keeps the panel at the player's eye level and billboarded to face them while it's open.
+    /// Keeps the panel at the player's eye level and billboarded to face them while it's open,
+    /// unless the player is actively moving or has custom-positioned the panel.
     /// </summary>
     private void LateUpdate()
     {
         if (trackedPlayer == null) return;
+
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger != null && (dragger.IsMoving || dragger.IsUserMoved))
+        {
+            return;
+        }
 
         Vector3 pos = transform.position;
         pos.y = trackedPlayer.position.y;
