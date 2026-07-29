@@ -1546,6 +1546,8 @@ public class MuseumSceneSetupEditor : EditorWindow
         GameObject menuContainerObj = new GameObject("WristMenuSystem");
         WristWatch wristController = menuContainerObj.AddComponent<WristWatch>();
         wristController.roomHudCanvas = hudCanvas;
+        wristController.panelOffset = new Vector3(0f, 0.20f, 0.02f);
+        wristController.roomListWristOffset = new Vector3(0f, 0.48f, 0.02f);
 
         // -------------------------------------------------------------
         // 1. WRIST WATCH BUTTON (Using Menu Icon.png Picture Asset)

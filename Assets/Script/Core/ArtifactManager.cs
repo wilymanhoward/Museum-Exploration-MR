@@ -153,13 +153,14 @@ public class ArtifactManager : MonoBehaviour
             {
                 panel.SetActive(true);
                 art.gameObject.SetActive(true);
+                art.RefreshView(); // re-apply photo/"no images" state so a reused panel isn't stale
                 return panel;
             }
         }
 
-        // Resolve template prefab to instantiate
-        GameObject prefabToUse = artifactPanelPrefab;
-        if (prefabToUse == null) prefabToUse = artifactUiCanvas;
+        // Prefer the scene-designed ArtifactDetailPanel (the one in the hierarchy, with the
+        // play-audio button etc.). Only fall back to the standalone prefab if it isn't assigned.
+        GameObject source = artifactUiCanvas != null ? artifactUiCanvas : artifactPanelPrefab;
 
         // Resolve player transform
         if (playerTransform == null)
@@ -193,25 +194,29 @@ public class ArtifactManager : MonoBehaviour
             spawnRot = Quaternion.LookRotation(-fwd, Vector3.up);
         }
 
-        GameObject newPanelInstance = null;
-        if (prefabToUse != null)
+        if (source == null)
         {
-            newPanelInstance = Instantiate(prefabToUse, spawnPos, spawnRot);
-            newPanelInstance.name = $"ArtifactDetailPanel_{artifact.artifactName}";
-            newPanelInstance.SetActive(true);
-        }
-        else
-        {
-            Debug.LogError("ArtifactManager: No artifactPanelPrefab or artifactUiCanvas assigned to spawn detail panel!");
+            Debug.LogError("ArtifactManager: No artifactUiCanvas (scene ArtifactDetailPanel) or artifactPanelPrefab assigned to spawn detail panel!");
             return null;
         }
 
-        Canvas canvas = newPanelInstance.GetComponent<Canvas>();
-        if (canvas != null)
+        GameObject newPanelInstance;
+        if (source.GetComponent<Canvas>() != null)
         {
-            canvas.renderMode = RenderMode.WorldSpace;
-            if (canvas.worldCamera == null) canvas.worldCamera = Camera.main;
+            // Source is already a self-contained canvas (the fallback prefab): clone it directly.
+            newPanelInstance = Instantiate(source, spawnPos, spawnRot);
+            newPanelInstance.SetActive(true);
+            Canvas c = newPanelInstance.GetComponent<Canvas>();
+            c.renderMode = RenderMode.WorldSpace;
+            if (c.worldCamera == null) c.worldCamera = Camera.main;
         }
+        else
+        {
+            // Source is a panel that lives under another canvas (the scene ArtifactDetailPanel).
+            // Wrap a clone of it in its own world-space canvas so it renders standalone at the QR.
+            newPanelInstance = BuildWorldSpacePanel(source, spawnPos, spawnRot);
+        }
+        newPanelInstance.name = $"ArtifactDetailPanel_{artifact.artifactName}";
 
         Artifact interaction = newPanelInstance.GetComponentInChildren<Artifact>(true);
         if (interaction != null)
@@ -236,6 +241,51 @@ public class ArtifactManager : MonoBehaviour
 
         Debug.Log($"ArtifactManager: Spawned detail panel for '{artifact.artifactName}' in world space. Total open panels: {activePanelInstances.Count}");
         return newPanelInstance;
+    }
+
+    /// <summary>
+    /// Wraps a clone of a UI panel (that normally lives under another canvas) in its own
+    /// world-space Canvas so it renders and is clickable on its own at the given pose. Size and
+    /// scale are taken from the source's current layout so it looks the same as in the editor.
+    /// </summary>
+    private GameObject BuildWorldSpacePanel(GameObject source, Vector3 pos, Quaternion rot)
+    {
+        RectTransform srcRT = source.GetComponent<RectTransform>();
+        Vector2 size = srcRT != null ? srcRT.sizeDelta : new Vector2(640f, 480f);
+        float worldScale = source.transform.lossyScale.x;
+        if (worldScale <= 0.00001f) worldScale = 0.0011f;
+
+        GameObject wrapper = new GameObject("ArtifactDetailPanelCanvas");
+        Canvas canvas = wrapper.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = Camera.main;
+        wrapper.AddComponent<UnityEngine.UI.CanvasScaler>();
+        wrapper.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        // XR ray/poke UI raycaster so the panel's buttons are clickable with the hands.
+        if (wrapper.GetComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>() == null)
+            wrapper.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
+
+        RectTransform wrt = wrapper.GetComponent<RectTransform>();
+        wrt.sizeDelta = size;
+        wrapper.transform.position = pos;
+        wrapper.transform.rotation = rot;
+        wrapper.transform.localScale = Vector3.one * worldScale;
+
+        // Clone the designed panel under the wrapper and stretch it to fill, so its child layout
+        // (buttons, play-audio, etc.) reproduces exactly what you see in the hierarchy.
+        GameObject panel = Instantiate(source, wrapper.transform);
+        panel.SetActive(true);
+        RectTransform prt = panel.GetComponent<RectTransform>();
+        if (prt != null)
+        {
+            prt.localScale = Vector3.one;
+            prt.localRotation = Quaternion.identity;
+            prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0.5f, 0.5f);
+            prt.sizeDelta = size;
+            prt.anchoredPosition = Vector2.zero;
+        }
+
+        return wrapper;
     }
 
     private Pose CalculateDefaultPose()

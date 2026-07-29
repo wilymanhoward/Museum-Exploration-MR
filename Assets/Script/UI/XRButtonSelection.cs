@@ -36,7 +36,13 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         {
             scaleTarget = transform;
         }
-        
+
+        // Guard against bad hover scales. Several buttons were authored with 0.5, which makes them
+        // shrink to half on hover - so as the wrist moves and the ray flickers on/off, the button
+        // visibly pulses big/small. A hover effect should only grow slightly (or do nothing), so
+        // clamp it to a sane range: values < 1 (shrink) become 1 (no size change).
+        hoverScaleMultiplier = Mathf.Clamp(hoverScaleMultiplier, 1f, 1.15f);
+
         originalScale = scaleTarget.localScale;
         targetScale = originalScale;
         targetColor = normalColor;

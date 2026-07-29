@@ -248,6 +248,11 @@ public class Artifact : MonoBehaviour
         currentImageIndex = 0;
         UpdateImageUI();
 
+        // Show the photo (2D) view by default so the picture is visible. The 2D panel that holds
+        // the image (DisplayImage) starts inactive, and Setup - unlike ShowArtifact - never switched
+        // to it, so the picture never rendered on the QR-spawned panel.
+        SetViewMode(true);
+
         // Clean up previous models inside the ObjectSpawner (3D model only appears when 3D View button is clicked)
         ClearSpawnedModel();
 
@@ -568,12 +573,10 @@ public class Artifact : MonoBehaviour
     {
         ClearSpawnedModelSilently();
 
-        // Restore photo image when 3D model is cleared
-        if (displayImage != null)
-        {
-            displayImage.gameObject.SetActive(true);
-        }
-        if (noImagesText != null) noImagesText.gameObject.SetActive(true);
+        // Restore the photo view when the 3D model is cleared. Use UpdateImageUI so it shows the
+        // photo XOR the "no images" text - never both. (Previously this force-activated BOTH the
+        // image and noImagesText, so "No Images Available" showed on top of a valid photo.)
+        UpdateImageUI();
     }
 
     #region Image Gallery Functions
@@ -605,16 +608,36 @@ public class Artifact : MonoBehaviour
     {
         if (artifactData == null) return;
 
-        if (artifactData.images != null && artifactData.images.Length > 0)
+        // Treat a null sprite as "no image" too, so we never show a blank image box next to text.
+        bool hasImage = artifactData.images != null
+                        && artifactData.images.Length > 0
+                        && currentImageIndex >= 0 && currentImageIndex < artifactData.images.Length
+                        && artifactData.images[currentImageIndex].sprite != null;
+
+        if (hasImage)
         {
             if (displayImage != null)
             {
                 displayImage.gameObject.SetActive(true);
                 displayImage.sprite = artifactData.images[currentImageIndex].sprite;
+                displayImage.color = Color.white;
             }
             if (noImagesText != null)
             {
                 noImagesText.gameObject.SetActive(false);
+            }
+
+            // Belt-and-suspenders: hide ANY "no images" text in the panel, not just the wired one.
+            // On a cloned panel the serialized noImagesText can differ from the visible placeholder,
+            // which left "No Images Available" showing on top of a valid photo.
+            foreach (TextMeshProUGUI tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                if (tmp == null || tmp == noImagesText) continue;
+                string t = (tmp.text ?? string.Empty).ToLower();
+                if (t.Contains("no image") || t.Contains("tidak ada gambar"))
+                {
+                    tmp.gameObject.SetActive(false);
+                }
             }
         }
         else
@@ -629,6 +652,15 @@ public class Artifact : MonoBehaviour
                 noImagesText.text = "Artefak tidak ada Gambar";
             }
         }
+    }
+
+    /// <summary>
+    /// Re-applies the 2D image view (photo XOR "no images" text). Used when a panel is reused for
+    /// the same artifact without re-running Setup, so it never keeps a stale image+text state.
+    /// </summary>
+    public void RefreshView()
+    {
+        SetViewMode(true);
     }
     #endregion
 
@@ -730,13 +762,17 @@ public class Artifact : MonoBehaviour
             threeDViewPanel.SetActive(!show2D);
         }
 
-        if (twoDViewPanel != null || threeDViewPanel != null)
+        if (show2D)
         {
-            if (displayImage != null)
-            {
-                displayImage.gameObject.SetActive(show2D);
-            }
-            if (noImagesText != null) noImagesText.gameObject.SetActive(show2D && (artifactData == null || artifactData.images == null || artifactData.images.Length == 0));
+            // Let the data decide: show the photo OR the "no images" text, never both. (Previously
+            // this force-activated displayImage AND toggled the text, so an artifact with no images
+            // showed the placeholder image AND "No Images Available" at the same time.)
+            UpdateImageUI();
+        }
+        else
+        {
+            if (displayImage != null) displayImage.gameObject.SetActive(false);
+            if (noImagesText != null) noImagesText.gameObject.SetActive(false);
         }
     }
 
