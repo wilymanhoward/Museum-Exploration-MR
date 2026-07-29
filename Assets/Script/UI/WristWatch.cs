@@ -826,10 +826,8 @@ public class WristWatch : MonoBehaviour
                 RoomManager.Instance.PopulateRoomListUI();
             }
 
-            if (hasAnchorPose)
-            {
-                roomHudCanvas.transform.position = AnchorTransformPoint(panelOffset);
-            }
+            // Position the Exploration canvas in front of the user camera
+            PositionCanvasInFrontOfUser(roomHudCanvas.transform);
         }
         if (gamesPanel != null) gamesPanel.SetActive(false);
     }
@@ -907,10 +905,8 @@ public class WristWatch : MonoBehaviour
         if (gamesPanel != null)
         {
             gamesPanel.SetActive(true);
-            if (hasAnchorPose)
-            {
-                gamesPanel.transform.position = AnchorTransformPoint(panelOffset);
-            }
+            // Position the Games panel in front of the user camera
+            PositionCanvasInFrontOfUser(gamesPanel.transform);
         }
     }
 
@@ -924,5 +920,27 @@ public class WristWatch : MonoBehaviour
             gamesPanel.SetActive(false);
         }
         Debug.Log("WristWatch: Games Panel Closed.");
+    }
+
+    /// <summary>
+    /// Snaps the given transform 1.5 metres in front of the player camera, facing the player.
+    /// Mirrors the same pattern used by MiniGames.cs and Artifact.cs.
+    /// </summary>
+    private void PositionCanvasInFrontOfUser(Transform target)
+    {
+        Transform cam = Camera.main != null ? Camera.main.transform : null;
+        if (cam == null || target == null) return;
+
+        // Project camera forward onto the horizontal plane so the panel stays upright
+        Vector3 forwardDir = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+        if (forwardDir == Vector3.zero) forwardDir = Vector3.forward;
+
+        target.position = cam.position + forwardDir * 1.5f;
+
+        // Rotate to face the player (panel's forward points toward camera)
+        Vector3 toPlayer = cam.position - target.position;
+        toPlayer.y = 0;
+        if (toPlayer != Vector3.zero)
+            target.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
     }
 }

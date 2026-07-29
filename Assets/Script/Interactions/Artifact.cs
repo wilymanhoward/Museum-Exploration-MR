@@ -157,8 +157,8 @@ public class Artifact : MonoBehaviour
             Vector3 forwardDir = Vector3.ProjectOnPlane(trackedPlayer.forward, Vector3.up).normalized;
             if (forwardDir == Vector3.zero) forwardDir = Vector3.forward;
 
-            // Spawn exactly 1.0 meter in front of the user's camera
-            transform.position = trackedPlayer.position + forwardDir * 1.0f;
+            // Spawn 1.5 metres in front of the user's camera (matches ExplorationCanvas distance)
+            transform.position = trackedPlayer.position + forwardDir * 1.5f;
 
             Vector3 directionToPlayer = trackedPlayer.position - transform.position;
             directionToPlayer.y = 0;
@@ -667,6 +667,9 @@ public class Artifact : MonoBehaviour
         {
             previousRoomPanel.gameObject.SetActive(false);
         }
+
+        // Re-snap position in front of user (matches ExplorationCanvas placement)
+        PositionInFrontOfUser();
 
         UpdateDetails(data);
 
