@@ -1,210 +1,160 @@
-using System;
 using UnityEngine;
-using UnityEngine.XR.Interaction.Toolkit;
 
-public class Minigames : MonoBehaviour
+/// <summary>
+/// Canvas-level coordinator for the MiniGamesCanvas.
+/// Attach to the root MiniGamesCanvas GameObject.
+/// Responsible for: positioning the canvas, routing between panels, wrist-watch show/hide.
+/// </summary>
+public class MiniGames : MonoBehaviour
 {
-    public static Minigames Instance { get; private set; }
+    public static MiniGames Instance { get; private set; }
 
-    [Header("Game References")]
-    [Tooltip("Prefab to use as the base container (uses the same glassmorphism canvas as the detail panel).")]
-    public GameObject panelTemplatePrefab;
+    [Header("Panels (auto-found by name if left empty)")]
+    public GameObject minigameMenuPanel;
+    public GameObject gameListPanel;
 
-    private GameObject activeGameInstance;
-    public string ActiveGamePayload { get; private set; } = "";
+    [Header("External")]
+    [Tooltip("Optional – leave empty to use WristWatch.Instance automatically.")]
+    public GameObject wristWatchCanvas;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unity
+    // ─────────────────────────────────────────────────────────────────────────
 
     private void Awake()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        if (Instance == null) Instance = this;
+        else { Destroy(gameObject); return; }
+
+        // Auto-find child panels by name if not assigned
+        if (minigameMenuPanel == null)
+            minigameMenuPanel = FindDirectChild("MiniGameMenuPanel");
+        if (gameListPanel == null)
+            gameListPanel = FindDirectChild("GameListPanel");
     }
 
     private void OnEnable()
     {
-        QRCodeScanner.OnQRCodeScanned += HandleQRCodeScanned;
+        PositionInFrontOfUser();
+        ShowMenuPanel();
+        HideWristWatch();
     }
 
     private void OnDisable()
     {
-        QRCodeScanner.OnQRCodeScanned -= HandleQRCodeScanned;
+        ShowWristWatch();
     }
 
-    private void HandleQRCodeScanned(string payload, Pose qrPose)
+    // ─────────────────────────────────────────────────────────────────────────
+    // Public routing API
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Show MiniGameMenuPanel; hide GameListPanel and all game panels.</summary>
+    public void ShowMenuPanel()
     {
-        // Ignore all mini-game scans until player taps MULAI on the Main Menu
-        if (!MainMenu.IsExplorationStarted)
+        if (minigameMenuPanel != null) minigameMenuPanel.SetActive(true);
+        if (gameListPanel != null) gameListPanel.SetActive(false);
+        HideAllGamePanels();
+    }
+
+    /// <summary>Show GameListPanel; hide MiniGameMenuPanel and all game panels.</summary>
+    public void ShowGameListPanel()
+    {
+        if (minigameMenuPanel != null) minigameMenuPanel.SetActive(false);
+        if (gameListPanel != null) gameListPanel.SetActive(true);
+        HideAllGamePanels();
+    }
+
+    /// <summary>Activate a specific game panel; hide everything else.</summary>
+    public void StartGame(GameObject gamePanel)
+    {
+        if (gamePanel == null)
         {
-            Debug.Log("Minigames: Exploration has not started yet. Ignoring QR scan.");
+            Debug.LogWarning("MiniGames.StartGame: gamePanel is null – staying in menu.");
             return;
         }
 
-        if (string.IsNullOrEmpty(payload)) return;
+        if (minigameMenuPanel != null) minigameMenuPanel.SetActive(false);
+        if (gameListPanel != null) gameListPanel.SetActive(false);
+        HideAllGamePanels();
+        gamePanel.SetActive(true);
+    }
 
-        string cleanPayload = payload.Trim().ToLower();
-        string gameId = null;
-
-        if (cleanPayload.Contains("game_1") || cleanPayload.Contains("game1") || cleanPayload == "1" || cleanPayload.Contains("guess"))
+    /// <summary>
+    /// Compatibility shim for GameListMenu.cs (wrist-watch path).
+    /// Activates the canvas, navigates to the game by ID, and starts it.
+    /// </summary>
+    public void StartGame(string gameId, Pose pose)
+    {
+        if (!gameObject.activeSelf)
         {
-            gameId = "game_1";
+            transform.position = pose.position;
+            transform.rotation = pose.rotation;
+            gameObject.SetActive(true); // triggers OnEnable → ShowMenuPanel + HideWristWatch
         }
-        else if (cleanPayload.Contains("game_2") || cleanPayload.Contains("game2") || cleanPayload == "2" || cleanPayload.Contains("batik"))
-        {
-            gameId = "game_2";
-        }
-        else if (cleanPayload.Contains("game_3") || cleanPayload.Contains("game3") || cleanPayload == "3" || cleanPayload.Contains("batu") || cleanPayload.Contains("assemble"))
-        {
-            gameId = "game_3";
-        }
 
-        if (gameId != null)
+        if (MiniGameMenuPanel.Instance != null)
         {
-            if (ActiveGamePayload == gameId)
-            {
-                Debug.Log($"Minigames: Game '{gameId}' is already active. Ignoring repeat scan.");
-                return;
-            }
-
-            Debug.Log($"Minigames matched raw QR scan '{payload}' to game '{gameId}'.");
-            StartGame(gameId, qrPose);
+            MiniGameMenuPanel.Instance.SelectGameById(gameId);
+            MiniGameMenuPanel.Instance.StartSelected();
         }
     }
 
     /// <summary>
-    /// Starts a mini-game based on the scanned QR payload.
+    /// Hide this canvas; OnDisable will restore the wrist watch.
+    /// Also called by in-game "Close" buttons via BaseGame.
     /// </summary>
-    public void StartGame(string payload, Pose qrPose)
+    public void CloseCanvas()
     {
-        Debug.Log($"Minigames: Starting game for payload '{payload}'");
-        ActiveGamePayload = payload;
-
-        // Clean up any active game first
-        CloseActiveGame(false);
-
-        // Get player camera for eye-level spawning in front of the player
-        Transform playerTransform = Camera.main != null ? Camera.main.transform : null;
-        Vector3 spawnPos = qrPose.position;
-        if (playerTransform != null)
-        {
-            // Spawn within comfortable arm's reach (not 1.4m like the artifact viewer) so
-            // cards get grabbed by the near/poke hand interactor instead of the far ray.
-            // The far ray's own aiming (see PinchPointFollow in the XRI Hands sample) freezes
-            // its rotation whenever a frame's angular change is too large, which is fine for
-            // pointing at a distant menu button but fights precise card-into-slot dragging.
-            spawnPos = playerTransform.position + playerTransform.forward * 0.5f;
-            spawnPos.y = playerTransform.position.y;
-        }
-
-        // Use ArtifactManager's artifactPanelPrefab as template if not set
-        GameObject prefabToUse = panelTemplatePrefab;
-        if (prefabToUse == null && ArtifactManager.Instance != null)
-        {
-            prefabToUse = ArtifactManager.Instance.artifactPanelPrefab;
-        }
-
-        if (prefabToUse == null)
-        {
-            Debug.LogError("Minigames: No panel prefab template found to spawn the game.");
-            return;
-        }
-
-        // Spawn the base glassmorphism panel
-        activeGameInstance = Instantiate(prefabToUse, spawnPos, qrPose.rotation);
-
-        // The template may be an inactive scene object (e.g. the hidden ArtifactUICanvas),
-        // whose clone would also start inactive and never render or run its game logic.
-        activeGameInstance.SetActive(true);
-
-        // Clean up all template children (e.g. artifact detail panel elements) so game has a clean container canvas
-        System.Collections.Generic.List<GameObject> childrenToDestroy = new System.Collections.Generic.List<GameObject>();
-        foreach (Transform child in activeGameInstance.transform)
-        {
-            childrenToDestroy.Add(child.gameObject);
-        }
-        foreach (GameObject child in childrenToDestroy)
-        {
-            DestroyImmediate(child);
-        }
-
-        // Add a clean Background image for the mini-game
-        GameObject bgObj = new GameObject("Background");
-        bgObj.transform.SetParent(activeGameInstance.transform, false);
-        UnityEngine.UI.Image bgImg = bgObj.AddComponent<UnityEngine.UI.Image>();
-        bgImg.color = new Color(0.537f, 0.557f, 0.478f, 1f); // Sage background (#898E7A)
-        foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
-        {
-            if (m != null && (m.name == "Mat_OptionsCardBackground" || m.name == "Mat_RoomHUD" || m.name == "Mat_ArtifactDetailPanel"))
-            {
-                bgImg.material = m;
-                break;
-            }
-        }
-        RectTransform bgRect = bgObj.GetComponent<RectTransform>();
-        bgRect.anchorMin = Vector2.zero;
-        bgRect.anchorMax = Vector2.one;
-        bgRect.sizeDelta = Vector2.zero;
-
-        // Assign Main Camera as the World Camera on the Canvas for rendering and interaction
-        Canvas canvas = activeGameInstance.GetComponent<Canvas>();
-        if (canvas != null)
-        {
-            canvas.worldCamera = Camera.main;
-        }
-        
-        // Fix zero scale issue (originally handled by pop-in animation in Artifact)
-        var artPanel = activeGameInstance.GetComponent<Artifact>();
-        Vector3 targetScale = new Vector3(0.0022f, 0.0022f, 0.0022f); // fallback portrait scale
-        if (artPanel != null)
-        {
-            // If the prefab already has a defined initial scale, use it (usually 0.0022f)
-            // But since Awake might have set localScale to Vector3.zero, we check and fallback
-            targetScale = new Vector3(0.0022f, 0.0022f, 0.0022f);
-            Destroy(artPanel);
-        }
-        activeGameInstance.transform.localScale = targetScale;
-
-        // Rotate to face player view (right-side up, unmirrored)
-        if (playerTransform != null)
-        {
-            Vector3 playerForward = playerTransform.forward;
-            playerForward.y = 0;
-            if (playerForward != Vector3.zero)
-            {
-                activeGameInstance.transform.rotation = Quaternion.LookRotation(playerForward, Vector3.up);
-            }
-        }
-
-        // Add the specific game script depending on payload
-        if (payload == "game_1")
-        {
-            activeGameInstance.AddComponent<Game1GuessName>();
-        }
-        else if (payload == "game_2")
-        {
-            activeGameInstance.AddComponent<Game2BatikMatch>();
-        }
-        else if (payload == "game_3")
-        {
-            activeGameInstance.AddComponent<Game3BatuAssembly>();
-        }
+        gameObject.SetActive(false);
     }
 
-    public void CloseActiveGame(bool resetPayload = true)
+    /// <summary>Alias kept for game panels that call CloseActiveGame() directly.</summary>
+    public void CloseActiveGame() => ShowMenuPanel();
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void HideAllGamePanels()
     {
-        if (resetPayload)
-        {
-            ActiveGamePayload = "";
-        }
-        if (activeGameInstance != null)
-        {
-            Destroy(activeGameInstance);
-            activeGameInstance = null;
-        }
+        if (MiniGameMenuPanel.Instance == null) return;
+        foreach (var entry in MiniGameMenuPanel.Instance.games)
+            if (entry.gamePanel != null) entry.gamePanel.SetActive(false);
+    }
+
+    public void PositionInFrontOfUser()
+    {
+        Transform cam = Camera.main != null ? Camera.main.transform : null;
+        if (cam == null) return;
+        Vector3 fwd = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+        if (fwd == Vector3.zero) fwd = Vector3.forward;
+        transform.position = cam.position + fwd * 1.5f;
+        Vector3 toPlayer = cam.position - transform.position;
+        toPlayer.y = 0;
+        if (toPlayer.sqrMagnitude > 0.0001f)
+            transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
+    }
+
+    private void HideWristWatch()
+    {
+        if (WristWatch.Instance != null && WristWatch.Instance.wristWatchButtonObj != null)
+            WristWatch.Instance.wristWatchButtonObj.SetActive(false);
+        if (wristWatchCanvas != null)
+            wristWatchCanvas.SetActive(false);
+    }
+
+    private void ShowWristWatch()
+    {
+        if (WristWatch.Instance != null)
+            WristWatch.Instance.EnsureWatchButtonVisible();
+        else if (wristWatchCanvas != null)
+            wristWatchCanvas.SetActive(true);
+    }
+
+    private GameObject FindDirectChild(string childName)
+    {
+        Transform t = transform.Find(childName);
+        return t != null ? t.gameObject : null;
     }
 }

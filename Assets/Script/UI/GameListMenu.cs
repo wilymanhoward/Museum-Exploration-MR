@@ -246,13 +246,13 @@ public class GameListMenu : MonoBehaviour
             pose.rotation = Quaternion.LookRotation(forward, Vector3.up);
         }
 
-        if (Minigames.Instance != null)
+        if (MiniGames.Instance != null)
         {
-            Minigames.Instance.StartGame(gameId, pose);
+            MiniGames.Instance.StartGame(gameId, pose);
         }
         else
         {
-            Debug.LogWarning("GameListMenu: Minigames.Instance is null; cannot start the game.");
+            Debug.LogWarning("GameListMenu: MiniGames.Instance is null; cannot start the game.");
         }
 
         Close();
