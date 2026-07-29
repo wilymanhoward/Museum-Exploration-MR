@@ -73,6 +73,10 @@ public class Artifact : MonoBehaviour
     private Room previousRoomPanel;
     private AudioSource audioSource;
 
+    // Only ONE artifact narration may play at a time. Tracks whichever panel is currently
+    // narrating so a newly-opened/played panel can silence the previous one.
+    private static Artifact s_activeNarration;
+
     private void Awake()
     {
         // Ensure detail panel is hidden at startup until opened by scan or menu
@@ -933,6 +937,27 @@ public class Artifact : MonoBehaviour
     }
 
     /// <summary>
+    /// Makes this panel the sole active narrator: stops whichever other panel was narrating so
+    /// only one narration is ever audible at a time (the most recently played one).
+    /// </summary>
+    private void BecomeActiveNarrator()
+    {
+        if (s_activeNarration != null && s_activeNarration != this)
+        {
+            s_activeNarration.StopNarration();
+        }
+        s_activeNarration = this;
+    }
+
+    /// <summary>Stops this panel's narration (used when another panel takes over, or on close).</summary>
+    public void StopNarration()
+    {
+        if (audioSource != null) audioSource.Stop();
+        if (s_activeNarration == this) s_activeNarration = null;
+        UpdateAudioUI();
+    }
+
+    /// <summary>
     /// Called whenever the panel is (re)shown. Auto-plays the real narration clip if one is
     /// assigned; otherwise preloads the fallback so the Play button still does something without
     /// ringing a chime on reveal. Plays on the NEXT frame because the cloned panel is
@@ -953,6 +978,7 @@ public class Artifact : MonoBehaviour
             audioSource.clip = artifactData.narrationClip;
             if (isActiveAndEnabled)
             {
+                BecomeActiveNarrator(); // silence any other narrating panel immediately
                 StopCoroutine(nameof(PlayClipNextFrame));
                 StartCoroutine(nameof(PlayClipNextFrame));
             }
@@ -971,6 +997,7 @@ public class Artifact : MonoBehaviour
         yield return null; // let the panel finish (re)activating this frame
         if (audioSource != null && audioSource.clip != null && !audioSource.isPlaying)
         {
+            BecomeActiveNarrator();
             audioSource.Play();
         }
         UpdateAudioUI();
@@ -987,6 +1014,7 @@ public class Artifact : MonoBehaviour
             }
             if (audioSource.clip != null)
             {
+                BecomeActiveNarrator();
                 audioSource.Play();
                 Debug.Log($"ArtifactPanel: Narration playing for {artifactData?.artifactName}.");
             }
@@ -1015,12 +1043,21 @@ public class Artifact : MonoBehaviour
             }
             if (audioSource.clip != null)
             {
+                BecomeActiveNarrator();
                 audioSource.Stop();
                 audioSource.Play();
                 Debug.Log("ArtifactPanel: Narration restarted.");
             }
         }
         UpdateAudioUI();
+    }
+
+    private void OnDisable()
+    {
+        // Releasing the narrator slot when this panel is hidden/closed/destroyed keeps the
+        // "only one at a time" tracker from pointing at a gone panel. (An inactive GameObject's
+        // AudioSource stops on its own.)
+        if (s_activeNarration == this) s_activeNarration = null;
     }
 
     private void PlayInstrumentAudio()
