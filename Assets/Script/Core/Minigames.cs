@@ -24,17 +24,14 @@ public class MiniGames : MonoBehaviour
     private void Awake()
     {
         if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
+        else { Destroy(this); return; }
 
-        // Auto-find child panels by name if not assigned
-        if (minigameMenuPanel == null)
-            minigameMenuPanel = FindDirectChild("MiniGameMenuPanel");
-        if (gameListPanel == null)
-            gameListPanel = FindDirectChild("GameListPanel");
+        AutoFindPanels();
     }
 
     private void OnEnable()
     {
+        AutoFindPanels();
         PositionInFrontOfUser();
         ShowMenuPanel();
         HideWristWatch();
@@ -45,6 +42,14 @@ public class MiniGames : MonoBehaviour
         ShowWristWatch();
     }
 
+    private void AutoFindPanels()
+    {
+        if (minigameMenuPanel == null)
+            minigameMenuPanel = FindObjectInScene("MiniGameMenuPanel");
+        if (gameListPanel == null)
+            gameListPanel = FindObjectInScene("GameListPanel");
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Public routing API
     // ─────────────────────────────────────────────────────────────────────────
@@ -52,6 +57,7 @@ public class MiniGames : MonoBehaviour
     /// <summary>Show MiniGameMenuPanel; hide GameListPanel and all game panels.</summary>
     public void ShowMenuPanel()
     {
+        EnsureCanvasActive();
         if (minigameMenuPanel != null) minigameMenuPanel.SetActive(true);
         if (gameListPanel != null) gameListPanel.SetActive(false);
         HideAllGamePanels();
@@ -60,6 +66,7 @@ public class MiniGames : MonoBehaviour
     /// <summary>Show GameListPanel; hide MiniGameMenuPanel and all game panels.</summary>
     public void ShowGameListPanel()
     {
+        EnsureCanvasActive();
         if (minigameMenuPanel != null) minigameMenuPanel.SetActive(false);
         if (gameListPanel != null) gameListPanel.SetActive(true);
         HideAllGamePanels();
@@ -74,6 +81,7 @@ public class MiniGames : MonoBehaviour
             return;
         }
 
+        EnsureCanvasActive();
         if (minigameMenuPanel != null) minigameMenuPanel.SetActive(false);
         if (gameListPanel != null) gameListPanel.SetActive(false);
         HideAllGamePanels();
@@ -86,6 +94,7 @@ public class MiniGames : MonoBehaviour
     /// </summary>
     public void StartGame(string gameId, Pose pose)
     {
+        EnsureCanvasActive();
         if (!gameObject.activeSelf)
         {
             transform.position = pose.position;
@@ -100,12 +109,24 @@ public class MiniGames : MonoBehaviour
         }
     }
 
+    private void EnsureCanvasActive()
+    {
+        if (minigameMenuPanel != null && minigameMenuPanel.transform.parent != null)
+        {
+            minigameMenuPanel.transform.parent.gameObject.SetActive(true);
+        }
+    }
+
     /// <summary>
     /// Hide this canvas; OnDisable will restore the wrist watch.
     /// Also called by in-game "Close" buttons via BaseGame.
     /// </summary>
     public void CloseCanvas()
     {
+        if (minigameMenuPanel != null && minigameMenuPanel.transform.parent != null)
+        {
+            minigameMenuPanel.transform.parent.gameObject.SetActive(false);
+        }
         gameObject.SetActive(false);
     }
 
@@ -129,11 +150,19 @@ public class MiniGames : MonoBehaviour
         if (cam == null) return;
         Vector3 fwd = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
         if (fwd == Vector3.zero) fwd = Vector3.forward;
-        transform.position = cam.position + fwd * 1.5f;
-        Vector3 toPlayer = cam.position - transform.position;
+
+        // Position MiniGamesCanvas (or transform if on canvas root)
+        Transform targetTransform = transform;
+        if (minigameMenuPanel != null && minigameMenuPanel.transform.parent != null)
+        {
+            targetTransform = minigameMenuPanel.transform.parent; // MiniGamesCanvas
+        }
+
+        targetTransform.position = cam.position + fwd * 1.5f;
+        Vector3 toPlayer = cam.position - targetTransform.position;
         toPlayer.y = 0;
         if (toPlayer.sqrMagnitude > 0.0001f)
-            transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
+            targetTransform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
     }
 
     private void HideWristWatch()
@@ -152,9 +181,16 @@ public class MiniGames : MonoBehaviour
             wristWatchCanvas.SetActive(true);
     }
 
-    private GameObject FindDirectChild(string childName)
+    private GameObject FindObjectInScene(string objName)
     {
-        Transform t = transform.Find(childName);
-        return t != null ? t.gameObject : null;
+        Transform direct = transform.Find(objName);
+        if (direct != null) return direct.gameObject;
+
+        foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+        {
+            if (t.name == objName && t.gameObject.scene.IsValid())
+                return t.gameObject;
+        }
+        return null;
     }
 }

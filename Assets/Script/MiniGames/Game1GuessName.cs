@@ -1,0 +1,533 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using TMPro;
+
+/// <summary>
+/// Mini-Game 1: "Tebak Bayangan Artefak".
+/// Inherits from BaseGame.
+/// All UI references, buttons, panels, and silhouette material are assigned via the Inspector.
+/// </summary>
+public class Game1GuessName : BaseGame
+{
+    [Header("Game Flow Settings")]
+    public int totalRounds = 5;
+
+    [Header("3D Model Spawner & Material (Assign in Inspector)")]
+    [Tooltip("Pivot transform where the 3D model will be spawned.")]
+    public Transform modelSpawnerPivot;
+
+    [Tooltip("Black material assigned to renderers to create the silhouette effect.")]
+    public Material silhouetteMaterial;
+
+    [Tooltip("Sensitivity for drag-to-rotate interaction.")]
+    public float rotationSensitivity = 0.4f;
+
+    [Header("Header & Progress UI (Assign in Inspector)")]
+    public TMP_Text progressText;
+    public TMP_Text taskText;
+
+    [Header("Guess Panel UI (Assign in Inspector)")]
+    public GameObject guessPanel;
+
+    [Tooltip("Container LayoutGroup inside GuessPanel where option buttons are generated.")]
+    public Transform guessList;
+
+    [Tooltip("Prefab for option choice buttons to instantiate inside guessList.")]
+    public GameObject optionButtonPrefab;
+
+
+    [Tooltip("'Periksa Jawaban' Check Button.")]
+    public Button checkAnswerButton;
+
+    [Header("Answer Panel UI (Assign in Inspector)")]
+    public GameObject answerPanel;
+
+    [Tooltip("Displays 'Benar' or 'Salah'.")]
+    public TMP_Text resultText;
+
+    [Tooltip("Green check icon shown when correct.")]
+    public GameObject correctIcon;
+
+    [Tooltip("Red cross icon shown when wrong.")]
+    public GameObject incorrectIcon;
+
+    [Tooltip("Displays the name of the correct artifact.")]
+    public TMP_Text answerText;
+
+    [Tooltip("'Lanjut >' Next Button.")]
+    public Button lanjutButton;
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Private State
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private int currentRound = 0;
+    private int score = 0;
+
+    private List<ArtifactData> availableArtifacts = new List<ArtifactData>();
+    private List<ArtifactData> usedArtifacts = new List<ArtifactData>();
+    private ArtifactData currentTargetArtifact;
+
+    private GameObject spawnedModel;
+    private Dictionary<Renderer, Material[]> originalMaterialsMap = new Dictionary<Renderer, Material[]>();
+
+    private string selectedAnswerName = "";
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BaseGame Overrides & Unity Lifecycle
+    // ─────────────────────────────────────────────────────────────────────────
+
+    protected override void Awake()
+    {
+        base.Awake();
+        WireStaticButtons();
+    }
+
+    /// <summary>
+    /// Overridden from BaseGame. Triggered automatically on OnEnable.
+    /// Restarts the 5-round game session.
+    /// </summary>
+    public override void OnGameStart()
+    {
+        base.OnGameStart();
+
+        currentRound = 0;
+        score = 0;
+        usedArtifacts.Clear();
+
+        LoadArtifactsWith3DModels();
+        StartRound(currentRound);
+    }
+
+    public override void OnGameEnd()
+    {
+        base.OnGameEnd();
+        ClearSpawnedModel();
+        ClearSpawnedDynamicButtons();
+    }
+
+    private void ClearSpawnedDynamicButtons()
+    {
+        foreach (GameObject obj in spawnedDynamicButtons)
+        {
+            if (obj != null) Destroy(obj);
+        }
+        spawnedDynamicButtons.Clear();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Round Management
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void StartRound(int roundIndex)
+    {
+        selectedAnswerName = "";
+
+        // Reset panel states
+        if (guessPanel != null) guessPanel.SetActive(true);
+        if (answerPanel != null) answerPanel.SetActive(false);
+
+        if (checkAnswerButton != null)
+        {
+            checkAnswerButton.interactable = false;
+        }
+
+        // Update progress text
+        if (progressText != null)
+        {
+            progressText.text = $"{roundIndex + 1}/{totalRounds} Namakan Artefak berikut";
+        }
+
+        if (taskText != null)
+        {
+            taskText.text = "Drag to Rotate Model";
+        }
+
+        // 1. Pick a random target artifact with a 3D model
+        currentTargetArtifact = PickRandomArtifact();
+
+        // 2. Spawn the 3D model with black silhouette material
+        SpawnSilhouetteModel(currentTargetArtifact);
+
+        // 3. Populate choice buttons randomly
+        PopulateOptionButtons();
+    }
+
+    private void OnOptionSelected(string optionName, Button clickedButton)
+    {
+        selectedAnswerName = optionName;
+
+        // Highlight selection state across spawned buttons
+        foreach (GameObject btnObj in spawnedDynamicButtons)
+        {
+            if (btnObj == null) continue;
+            Button btn = btnObj.GetComponent<Button>();
+            Image img = btnObj.GetComponent<Image>();
+            if (img != null && btn != null)
+            {
+                img.color = (btn == clickedButton)
+                    ? new Color(0.784f, 0.765f, 0.353f, 1f) // Selected (Khaki)
+                    : new Color(0.45f, 0.47f, 0.40f, 0.85f); // Default
+            }
+        }
+
+        // Enable Check Answer Button
+        if (checkAnswerButton != null)
+        {
+            checkAnswerButton.interactable = true;
+        }
+    }
+
+    private void OnCheckAnswerPressed()
+    {
+        if (string.IsNullOrEmpty(selectedAnswerName)) return;
+
+        bool isCorrect = (currentTargetArtifact != null && selectedAnswerName == currentTargetArtifact.artifactName);
+        if (isCorrect) score++;
+
+        // 1. Reveal true 3D model textures
+        RevealModelTextures();
+
+        // 2. Transition panels
+        if (guessPanel != null) guessPanel.SetActive(false);
+        if (answerPanel != null) answerPanel.SetActive(true);
+
+        // 3. Show Result Info
+        if (resultText != null)
+        {
+            resultText.text = isCorrect ? "Benar" : "Salah";
+            resultText.color = isCorrect ? new Color(0.4f, 0.85f, 0.4f) : new Color(0.9f, 0.35f, 0.35f);
+        }
+
+        if (correctIcon != null) correctIcon.SetActive(isCorrect);
+        if (incorrectIcon != null) incorrectIcon.SetActive(!isCorrect);
+
+        if (answerText != null)
+        {
+            answerText.text = currentTargetArtifact != null ? currentTargetArtifact.artifactName : "";
+        }
+    }
+
+    private void OnLanjutPressed()
+    {
+        currentRound++;
+        if (currentRound < totalRounds)
+        {
+            StartRound(currentRound);
+        }
+        else
+        {
+            // 5 rounds finished -> Return to main mini-game menu
+            Debug.Log($"Game 1 Complete! Final score: {score}/{totalRounds}");
+            OnClose();
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3D Model Spawning & Silhouette Material Logic
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void LoadArtifactsWith3DModels()
+    {
+        availableArtifacts.Clear();
+
+        // 1. Auto-detect all ArtifactData ScriptableObjects from Resources
+        ArtifactData[] resArtifacts = Resources.LoadAll<ArtifactData>("");
+        foreach (ArtifactData art in resArtifacts)
+        {
+            if (art != null && art.modelPrefab != null && !availableArtifacts.Contains(art))
+            {
+                availableArtifacts.Add(art);
+            }
+        }
+
+        // 2. Also check RoomManager for any additional room artifacts with 3D models
+        if (RoomManager.Instance != null && RoomManager.Instance.rooms != null)
+        {
+            foreach (RoomData room in RoomManager.Instance.rooms)
+            {
+                if (room != null && room.artifacts != null)
+                {
+                    foreach (ArtifactData art in room.artifacts)
+                    {
+                        if (art != null && art.modelPrefab != null && !availableArtifacts.Contains(art))
+                        {
+                            availableArtifacts.Add(art);
+                        }
+                    }
+                }
+            }
+        }
+
+        Debug.Log($"Game1GuessName: Loaded {availableArtifacts.Count} 3D artifacts from Resources & RoomManager.");
+    }
+
+    private ArtifactData PickRandomArtifact()
+    {
+        if (availableArtifacts.Count == 0) return null;
+
+        List<ArtifactData> pool = new List<ArtifactData>();
+        foreach (ArtifactData art in availableArtifacts)
+        {
+            if (!usedArtifacts.Contains(art)) pool.Add(art);
+        }
+
+        if (pool.Count == 0) pool = new List<ArtifactData>(availableArtifacts);
+
+        ArtifactData chosen = pool[Random.Range(0, pool.Count)];
+        usedArtifacts.Add(chosen);
+        return chosen;
+    }
+
+    private void SpawnSilhouetteModel(ArtifactData data)
+    {
+        ClearSpawnedModel();
+        originalMaterialsMap.Clear();
+
+        if (modelSpawnerPivot == null || data == null || data.modelPrefab == null) return;
+
+        // Instantiate inside spawner pivot
+        spawnedModel = Instantiate(data.modelPrefab, modelSpawnerPivot, false);
+        spawnedModel.transform.localPosition = Vector3.zero;
+        spawnedModel.transform.localRotation = Quaternion.identity;
+
+        // Fit model size inside spawner bounds
+        FitModelToBounds(spawnedModel);
+
+        // Attach drag-to-rotate listener to spawner
+        SetupDragRotation(modelSpawnerPivot.gameObject);
+
+        // Store original materials and apply black silhouette material
+        Renderer[] renderers = spawnedModel.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer rend in renderers)
+        {
+            originalMaterialsMap[rend] = rend.sharedMaterials;
+
+            if (silhouetteMaterial != null)
+            {
+                Material[] silMats = new Material[rend.sharedMaterials.Length];
+                for (int i = 0; i < silMats.Length; i++)
+                {
+                    silMats[i] = silhouetteMaterial;
+                }
+                rend.materials = silMats;
+            }
+        }
+    }
+
+    private void RevealModelTextures()
+    {
+        if (spawnedModel == null) return;
+
+        foreach (var pair in originalMaterialsMap)
+        {
+            if (pair.Key != null && pair.Value != null)
+            {
+                pair.Key.materials = pair.Value;
+            }
+        }
+    }
+
+    private void ClearSpawnedModel()
+    {
+        if (spawnedModel != null)
+        {
+            Destroy(spawnedModel);
+            spawnedModel = null;
+        }
+        originalMaterialsMap.Clear();
+    }
+
+    private void FitModelToBounds(GameObject model)
+    {
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
+        if (renderers.Length == 0) return;
+
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++)
+        {
+            bounds.Encapsulate(renderers[i].bounds);
+        }
+
+        float maxExtent = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+        if (maxExtent > 0.0001f)
+        {
+            float targetSize = 0.25f;
+            float scale = targetSize / maxExtent;
+            model.transform.localScale = Vector3.one * scale;
+
+            Vector3 centerOffset = model.transform.position - bounds.center;
+            model.transform.localPosition += centerOffset * scale;
+        }
+    }
+
+    private void SetupDragRotation(GameObject pivotObject)
+    {
+        if (pivotObject == null) return;
+
+        EventTrigger trigger = pivotObject.GetComponent<EventTrigger>();
+        if (trigger == null) trigger = pivotObject.AddComponent<EventTrigger>();
+
+        trigger.triggers.Clear();
+
+        EventTrigger.Entry dragEntry = new EventTrigger.Entry();
+        dragEntry.eventID = EventTriggerType.Drag;
+        dragEntry.callback.AddListener((data) =>
+        {
+            PointerEventData pointerData = (PointerEventData)data;
+            if (spawnedModel != null)
+            {
+                spawnedModel.transform.Rotate(Vector3.up, -pointerData.delta.x * rotationSensitivity, Space.World);
+                spawnedModel.transform.Rotate(Vector3.right, pointerData.delta.y * rotationSensitivity, Space.World);
+            }
+        });
+        trigger.triggers.Add(dragEntry);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Option Buttons Wiring
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private List<GameObject> spawnedDynamicButtons = new List<GameObject>();
+
+    private void PopulateOptionButtons()
+    {
+        // 1. Resolve guessList container if not explicitly set
+        if (guessList == null && guessPanel != null)
+        {
+            Transform found = guessPanel.transform.Find("GuessList") 
+                           ?? guessPanel.transform.Find("OptionContainer")
+                           ?? guessPanel.transform.Find("Content");
+            if (found != null) guessList = found;
+        }
+
+        // Clear previously spawned dynamic buttons under guessList
+        foreach (GameObject obj in spawnedDynamicButtons)
+        {
+            if (obj != null) Destroy(obj);
+        }
+        spawnedDynamicButtons.Clear();
+
+        // Target number of choices (5 choices)
+        int numChoices = 5;
+
+        // Build list of choice names (1 correct answer + random wrong answers)
+        List<string> options = new List<string>();
+        string correctName = currentTargetArtifact != null ? currentTargetArtifact.artifactName : "";
+        if (!string.IsNullOrEmpty(correctName)) options.Add(correctName);
+
+        List<string> wrongPool = new List<string>();
+        foreach (ArtifactData art in availableArtifacts)
+        {
+            if (art != null && !string.IsNullOrEmpty(art.artifactName) && art.artifactName != correctName && !wrongPool.Contains(art.artifactName))
+            {
+                wrongPool.Add(art.artifactName);
+            }
+        }
+
+        // Search Resources for any other ArtifactData with 3D models if needed
+        if (wrongPool.Count < numChoices - 1)
+        {
+            ArtifactData[] resArtifacts = Resources.LoadAll<ArtifactData>("");
+            foreach (ArtifactData art in resArtifacts)
+            {
+                if (art != null && art.modelPrefab != null && !string.IsNullOrEmpty(art.artifactName) && art.artifactName != correctName && !wrongPool.Contains(art.artifactName))
+                {
+                    wrongPool.Add(art.artifactName);
+                }
+            }
+        }
+
+        ShuffleList(wrongPool);
+        for (int i = 0; i < numChoices - 1 && i < wrongPool.Count; i++)
+        {
+            options.Add(wrongPool[i]);
+        }
+
+        // Randomize option locations
+        ShuffleList(options);
+
+        // Instantiate dynamic buttons into guessList IF optionButtonPrefab & guessList are available
+        if (guessList != null && optionButtonPrefab != null)
+        {
+            for (int i = 0; i < options.Count; i++)
+            {
+                string optName = options[i];
+                GameObject btnObj = Instantiate(optionButtonPrefab, guessList, false);
+                btnObj.name = $"Option_{i + 1}_{optName}";
+                btnObj.SetActive(true);
+
+                TMP_Text label = btnObj.GetComponentInChildren<TMP_Text>(true);
+                if (label != null) label.text = optName;
+
+                Button btn = btnObj.GetComponent<Button>();
+                if (btn == null) btn = btnObj.AddComponent<Button>();
+
+                Button capturedBtn = btn;
+                string capturedName = optName;
+
+                WireVRButton(btnObj, () => OnOptionSelected(capturedName, capturedBtn));
+
+                spawnedDynamicButtons.Add(btnObj);
+            }
+        }
+    }
+
+    private void WireStaticButtons()
+    {
+        if (checkAnswerButton != null)
+        {
+            WireVRButton(checkAnswerButton.gameObject, OnCheckAnswerPressed);
+        }
+
+        if (lanjutButton != null)
+        {
+            WireVRButton(lanjutButton.gameObject, OnLanjutPressed);
+        }
+    }
+
+    private static void WireVRButton(GameObject obj, UnityEngine.Events.UnityAction action)
+    {
+        if (obj == null) return;
+
+        Button btn = obj.GetComponent<Button>() ?? obj.AddComponent<Button>();
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(action);
+
+        XRButtonSelection xr = obj.GetComponent<XRButtonSelection>();
+        if (xr != null)
+        {
+            xr.onClick.RemoveAllListeners();
+            xr.onClick.AddListener(action);
+        }
+
+        // Ensure BoxCollider exists for VR Raycast and Direct Poke interaction in 3D world space
+        BoxCollider col = obj.GetComponent<BoxCollider>();
+        if (col == null)
+        {
+            RectTransform rt = obj.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                col = obj.AddComponent<BoxCollider>();
+                float w = rt.rect.width > 0 ? rt.rect.width : 120f;
+                float h = rt.rect.height > 0 ? rt.rect.height : 40f;
+                col.size = new Vector3(w, h, 10f);
+                col.isTrigger = true;
+            }
+        }
+    }
+
+    private static void ShuffleList<T>(List<T> list)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            T temp = list[i];
+            int randIndex = Random.Range(i, list.Count);
+            list[i] = list[randIndex];
+            list[randIndex] = temp;
+        }
+    }
+}
