@@ -72,7 +72,7 @@ public class MiniGameMenuPanel : MonoBehaviour
     private void Awake()
     {
         if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
+        else { Destroy(this); return; }
 
         AutoFindButtons();
         WireButtons();
@@ -80,8 +80,10 @@ public class MiniGameMenuPanel : MonoBehaviour
 
     private void OnEnable()
     {
-        // Reset to first game each time the menu panel is shown
-        currentIndex = 0;
+        if (games != null && games.Length > 0)
+        {
+            currentIndex = Mathf.Clamp(currentIndex, 0, games.Length - 1);
+        }
         RefreshTitle();
     }
 

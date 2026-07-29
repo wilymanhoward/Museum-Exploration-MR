@@ -934,14 +934,32 @@ public class WristWatch : MonoBehaviour
         MainMenu.IsExplorationStarted = true;
         CloseOptionsPanel();
 
-        // Hide the old single-game carousel if it exists.
-        if (gamesPanel != null) gamesPanel.SetActive(false);
+        // 1. If gamesPanel is explicitly assigned in Inspector, activate it
+        if (gamesPanel != null)
+        {
+            gamesPanel.SetActive(true);
+            return;
+        }
 
-        // Show the "List Game" chooser. It's cloned from the room-list panel and parented under
-        // the ExplorationCanvas, so it rides the wrist through the same follow as the room list.
-        GameListMenu menu = GameListMenu.Instance;
-        if (menu == null) menu = gameObject.AddComponent<GameListMenu>();
-        menu.Show();
+        // 2. If MiniGames.Instance exists, activate its canvas GameObject directly
+        if (MiniGames.Instance != null)
+        {
+            MiniGames.Instance.gameObject.SetActive(true);
+            return;
+        }
+
+        // 3. Fallback: Search scene for MiniGamesCanvas or MiniGames root GameObject
+        foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+        {
+            if ((t.name == "MiniGamesCanvas" || t.name == "MiniGames") && t.gameObject.scene.IsValid())
+            {
+                gamesPanel = t.gameObject;
+                gamesPanel.SetActive(true);
+                return;
+            }
+        }
+
+        Debug.LogWarning("WristWatch: Could not find MiniGamesCanvas in scene.");
     }
 
     /// <summary>
