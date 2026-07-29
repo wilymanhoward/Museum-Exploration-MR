@@ -114,7 +114,8 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     {
         if (eventData is TrackedDeviceEventData trackedData && trackedData.interactor != null)
         {
-            return trackedData.interactor.transform;
+            Transform interactorTransform = (trackedData.interactor as Component)?.transform;
+            if (interactorTransform != null) return interactorTransform;
         }
         if (eventData != null && eventData.pressEventCamera != null)
         {
