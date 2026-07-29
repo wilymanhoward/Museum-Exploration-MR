@@ -152,6 +152,31 @@ public class Artifact : MonoBehaviour
             backButtonXR.onClick.AddListener(OnBackPressed);
         }
 
+        // Auto-resolve top header play button if unassigned
+        if (playButton == null && playButtonXR == null)
+        {
+            Transform pBtn = transform.Find("AudioPlayButton") ?? transform.Find("HeaderPlayButton") ?? transform.Find("PlayButton");
+            if (pBtn == null && transform.parent != null)
+            {
+                pBtn = transform.parent.Find("AudioPlayButton") ?? transform.parent.Find("HeaderPlayButton");
+            }
+            if (pBtn != null)
+            {
+                playButton = pBtn.GetComponent<Button>();
+                playButtonXR = pBtn.GetComponent<XRButtonSelection>();
+                if (playIconObj == null)
+                {
+                    Transform pIcon = pBtn.Find("PlayIcon");
+                    if (pIcon != null) playIconObj = pIcon.gameObject;
+                }
+                if (pauseIconObj == null)
+                {
+                    Transform psIcon = pBtn.Find("PauseIcon");
+                    if (psIcon != null) pauseIconObj = psIcon.gameObject;
+                }
+            }
+        }
+
         // Hook audio buttons
         if (playButton != null) playButton.onClick.AddListener(OnPlayPauseClicked);
         if (playButtonXR != null) playButtonXR.onClick.AddListener(OnPlayPauseClicked);
@@ -445,13 +470,18 @@ public class Artifact : MonoBehaviour
             fallbackObj.transform.localPosition = new Vector3(0, 0, -0.05f);
             fallbackObj.transform.localScale = Vector3.one * 0.25f;
 
+            // Only the placeholder cube gets the photo mapped onto it (there's no real model).
+            ApplyTextureToModel(fallbackObj, artifactData);
+
             spawnedModel = fallbackObj;
         }
 
         if (spawnedModel != null)
         {
             spawnedModel.SetActive(true);
-            ApplyTextureToModel(spawnedModel, artifactData);
+            // Keep the prefab's own materials/textures (do NOT paint the 2D photo over the model),
+            // and stop any auto-rotation the model prefab may drive (Animator or spin script).
+            StopAutoRotation(spawnedModel);
             FitModelToWorldSize(spawnedModel, 0.35f);
         }
 
@@ -495,6 +525,30 @@ public class Artifact : MonoBehaviour
                     mat.SetTexture("_MainTex", textureToApply);
                 }
                 mat.color = Color.white;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Stops a spawned model from spinning on its own: disables Animators and any behaviour that
+    /// looks like a rotator/spinner. The artifact should sit still (the player rotates it by hand).
+    /// </summary>
+    private void StopAutoRotation(GameObject model)
+    {
+        if (model == null) return;
+
+        foreach (Animator anim in model.GetComponentsInChildren<Animator>(true))
+        {
+            if (anim != null) anim.enabled = false;
+        }
+
+        foreach (MonoBehaviour mb in model.GetComponentsInChildren<MonoBehaviour>(true))
+        {
+            if (mb == null) continue;
+            string typeName = mb.GetType().Name.ToLower();
+            if (typeName.Contains("rotat") || typeName.Contains("spin") || typeName.Contains("turntable"))
+            {
+                mb.enabled = false;
             }
         }
     }
@@ -831,20 +885,51 @@ public class Artifact : MonoBehaviour
         }
     }
 
+    public AudioClip GetOrCreateNarrationClip(ArtifactData data)
+    {
+        if (data != null && data.narrationClip != null) return data.narrationClip;
+        if (data != null && data.instrumentClip != null) return data.instrumentClip;
+
+        if (data != null)
+        {
+            AudioClip loaded = Resources.Load<AudioClip>($"Audio/{data.artifactId}") ?? Resources.Load<AudioClip>($"Audio/{data.artifactName}");
+            if (loaded != null) return loaded;
+        }
+
+        // Generate clean procedural narration chime fallback so EVERY artifact 100% has audio
+        string clipName = data != null ? $"Narration_{data.artifactId}" : "Narration_Fallback";
+        int sampleRate = 44100;
+        int samples = sampleRate * 2;
+        AudioClip clip = AudioClip.Create(clipName, samples, 1, sampleRate, false);
+
+        float[] dataSamples = new float[samples];
+        float freq = 440f;
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / sampleRate;
+            float env = Mathf.Exp(-t * 2.2f);
+            dataSamples[i] = Mathf.Sin(2f * Mathf.PI * freq * t) * env * 0.25f;
+        }
+        clip.SetData(dataSamples, 0);
+        return clip;
+    }
+
     public void PlayNarration()
     {
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
         if (audioSource != null)
         {
-            if (artifactData != null && audioSource.clip != artifactData.narrationClip)
+            if (audioSource.clip == null && artifactData != null)
             {
-                audioSource.clip = artifactData.narrationClip;
+                audioSource.clip = GetOrCreateNarrationClip(artifactData);
             }
             if (audioSource.clip != null)
             {
                 audioSource.Play();
-                Debug.Log("ArtifactPanel: Narration playing.");
+                Debug.Log($"ArtifactPanel: Narration playing for {artifactData?.artifactName}.");
             }
         }
+        UpdateAudioUI();
     }
 
     public void PauseNarration()
@@ -854,16 +939,26 @@ public class Artifact : MonoBehaviour
             audioSource.Pause();
             Debug.Log("ArtifactPanel: Narration paused.");
         }
+        UpdateAudioUI();
     }
 
     public void RestartNarration()
     {
-        if (audioSource != null && audioSource.clip != null)
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+        if (audioSource != null)
         {
-            audioSource.Stop();
-            audioSource.Play();
-            Debug.Log("ArtifactPanel: Narration restarted.");
+            if (audioSource.clip == null && artifactData != null)
+            {
+                audioSource.clip = GetOrCreateNarrationClip(artifactData);
+            }
+            if (audioSource.clip != null)
+            {
+                audioSource.Stop();
+                audioSource.Play();
+                Debug.Log("ArtifactPanel: Narration restarted.");
+            }
         }
+        UpdateAudioUI();
     }
 
     private void PlayInstrumentAudio()
@@ -875,6 +970,7 @@ public class Artifact : MonoBehaviour
             audioSource.Play();
             Debug.Log("ArtifactPanel: Playing instrument audio.");
         }
+        UpdateAudioUI();
     }
 
     private void Update()
@@ -897,7 +993,13 @@ public class Artifact : MonoBehaviour
 
     public void OnPlayPauseClicked()
     {
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
         if (audioSource == null) return;
+
+        if (audioSource.clip == null && artifactData != null)
+        {
+            audioSource.clip = GetOrCreateNarrationClip(artifactData);
+        }
 
         if (audioSource.isPlaying)
         {

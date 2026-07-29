@@ -319,6 +319,68 @@ public class MuseumSceneSetupEditor : EditorWindow
         closeRect.anchorMax = new Vector2(0.965f, 0.961667f); // Exactly 32x32px (1:1 square)
         closeRect.sizeDelta = Vector2.zero;
 
+        // Top Header Audio Play Button (AudioPlayButton - next to Close button)
+        GameObject audioPlayBtn = new GameObject("AudioPlayButton");
+        audioPlayBtn.transform.SetParent(panelObj.transform, false);
+
+        Image audioPlayBg = audioPlayBtn.AddComponent<Image>();
+        Material audioBtnMat = GetOrCreateRoundedMaterial("Mat_AudioBtn",
+            new Color(0.72f, 0.76f, 0.44f, 0.95f),
+            new Color(0.62f, 0.66f, 0.36f, 0.98f),
+            0.02f,
+            0.25f,
+            120f / 36f
+        );
+        audioPlayBg.material = audioBtnMat;
+
+        Button playBtnComp = audioPlayBtn.AddComponent<Button>();
+        XRButtonSelection playBtnXR = audioPlayBtn.AddComponent<XRButtonSelection>();
+
+        RectTransform audioPlayRect = audioPlayBtn.GetComponent<RectTransform>();
+        audioPlayRect.anchorMin = new Vector2(0.72f, 0.895f);
+        audioPlayRect.anchorMax = new Vector2(0.89f, 0.961667f);
+        audioPlayRect.sizeDelta = Vector2.zero;
+
+        // Play Icon / Pause Icon Container
+        GameObject playIconObj = new GameObject("PlayIcon");
+        playIconObj.transform.SetParent(audioPlayBtn.transform, false);
+        TextMeshProUGUI playIconTxt = playIconObj.AddComponent<TextMeshProUGUI>();
+        playIconTxt.text = "▶";
+        playIconTxt.fontSize = 18;
+        playIconTxt.alignment = TextAlignmentOptions.Center;
+        playIconTxt.color = Color.white;
+        RectTransform playIconRect = playIconObj.GetComponent<RectTransform>();
+        playIconRect.anchorMin = new Vector2(0.06f, 0.10f);
+        playIconRect.anchorMax = new Vector2(0.35f, 0.90f);
+        playIconRect.sizeDelta = Vector2.zero;
+
+        GameObject pauseIconObj = new GameObject("PauseIcon");
+        pauseIconObj.transform.SetParent(audioPlayBtn.transform, false);
+        TextMeshProUGUI pauseIconTxt = pauseIconObj.AddComponent<TextMeshProUGUI>();
+        pauseIconTxt.text = "❚❚";
+        pauseIconTxt.fontSize = 18;
+        pauseIconTxt.alignment = TextAlignmentOptions.Center;
+        pauseIconTxt.color = Color.white;
+        RectTransform pauseIconRect = pauseIconObj.GetComponent<RectTransform>();
+        pauseIconRect.anchorMin = new Vector2(0.06f, 0.10f);
+        pauseIconRect.anchorMax = new Vector2(0.35f, 0.90f);
+        pauseIconRect.sizeDelta = Vector2.zero;
+        pauseIconObj.SetActive(false);
+
+        // Audio Label Text
+        GameObject audioTxtObj = new GameObject("AudioText");
+        audioTxtObj.transform.SetParent(audioPlayBtn.transform, false);
+        TextMeshProUGUI audioTxt = audioTxtObj.AddComponent<TextMeshProUGUI>();
+        audioTxt.text = "Audio";
+        audioTxt.fontSize = 15;
+        audioTxt.fontStyle = FontStyles.Bold;
+        audioTxt.alignment = TextAlignmentOptions.Center;
+        audioTxt.color = Color.white;
+        RectTransform audioTxtRect = audioTxtObj.GetComponent<RectTransform>();
+        audioTxtRect.anchorMin = new Vector2(0.36f, 0.0f);
+        audioTxtRect.anchorMax = new Vector2(0.95f, 1.0f);
+        audioTxtRect.sizeDelta = Vector2.zero;
+
         // =========================================================
         // LEFT COLUMN: Media Viewport + Carousel Title + Mode Buttons
         // =========================================================
@@ -692,6 +754,10 @@ public class MuseumSceneSetupEditor : EditorWindow
         panelComp.materialText = matTxt;
         panelComp.displayImage = dispImg;
         panelComp.objectSpawner = spawnerObj.transform;
+        panelComp.playButton = playBtnComp;
+        panelComp.playButtonXR = playBtnXR;
+        panelComp.playIconObj = playIconObj;
+        panelComp.pauseIconObj = pauseIconObj;
 
         return panelObj;
     }
