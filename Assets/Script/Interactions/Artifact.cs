@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using TMPro;
 using UnityEngine.UI;
+using UnityEngine.XR.Interaction.Toolkit;
 
 public class Artifact : MonoBehaviour
 {
@@ -84,10 +85,32 @@ public class Artifact : MonoBehaviour
         }
         audioSource.playOnAwake = false;
         audioSource.loop = false;
+
+        EnsureGrabbablePanel();
+    }
+
+    /// <summary>
+    /// Configures the panel with ArtifactPanelDragger so player can pinch & hold (e.g. 1.5s - 3s) to move it around in 3D space.
+    /// Instant UI button taps pass through normally without obstruction.
+    /// </summary>
+    public void EnsureGrabbablePanel()
+    {
+        // Remove standard XRGrabInteractable if present so UI button clicks are never blocked
+        XRGrabInteractable oldGrab = GetComponent<XRGrabInteractable>();
+        if (oldGrab != null && !(oldGrab is ArtifactPanelDragger))
+        {
+            Destroy(oldGrab);
+        }
+
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger == null) dragger = gameObject.AddComponent<ArtifactPanelDragger>();
+        dragger.enabled = true;
     }
 
     private void Start()
     {
+        EnsureGrabbablePanel();
+
         // Hook view toggle buttons
         if (imagesButton != null)
         {
@@ -129,6 +152,31 @@ public class Artifact : MonoBehaviour
             backButtonXR.onClick.AddListener(OnBackPressed);
         }
 
+        // Auto-resolve top header play button if unassigned
+        if (playButton == null && playButtonXR == null)
+        {
+            Transform pBtn = transform.Find("AudioPlayButton") ?? transform.Find("HeaderPlayButton") ?? transform.Find("PlayButton");
+            if (pBtn == null && transform.parent != null)
+            {
+                pBtn = transform.parent.Find("AudioPlayButton") ?? transform.parent.Find("HeaderPlayButton");
+            }
+            if (pBtn != null)
+            {
+                playButton = pBtn.GetComponent<Button>();
+                playButtonXR = pBtn.GetComponent<XRButtonSelection>();
+                if (playIconObj == null)
+                {
+                    Transform pIcon = pBtn.Find("PlayIcon");
+                    if (pIcon != null) playIconObj = pIcon.gameObject;
+                }
+                if (pauseIconObj == null)
+                {
+                    Transform psIcon = pBtn.Find("PauseIcon");
+                    if (psIcon != null) pauseIconObj = psIcon.gameObject;
+                }
+            }
+        }
+
         // Hook audio buttons
         if (playButton != null) playButton.onClick.AddListener(OnPlayPauseClicked);
         if (playButtonXR != null) playButtonXR.onClick.AddListener(OnPlayPauseClicked);
@@ -147,6 +195,12 @@ public class Artifact : MonoBehaviour
 
     public void PositionInFrontOfUser()
     {
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger != null)
+        {
+            dragger.ResetUserMoved();
+        }
+
         if (trackedPlayer == null && Camera.main != null)
         {
             trackedPlayer = Camera.main.transform;
@@ -164,7 +218,8 @@ public class Artifact : MonoBehaviour
             directionToPlayer.y = 0;
             if (directionToPlayer != Vector3.zero)
             {
-                transform.rotation = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+                Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+                transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
             }
         }
     }
@@ -181,6 +236,7 @@ public class Artifact : MonoBehaviour
         if (playerTransform != null) trackedPlayer = playerTransform;
 
         PositionInFrontOfUser();
+        EnsureGrabbablePanel();
 
         Canvas canvas = GetComponent<Canvas>();
         if (canvas != null && canvas.worldCamera == null)
@@ -216,6 +272,11 @@ public class Artifact : MonoBehaviour
         // Reset image gallery index & show photo
         currentImageIndex = 0;
         UpdateImageUI();
+
+        // Show the photo (2D) view by default so the picture is visible. The 2D panel that holds
+        // the image (DisplayImage) starts inactive, and Setup - unlike ShowArtifact - never switched
+        // to it, so the picture never rendered on the QR-spawned panel.
+        SetViewMode(true);
 
         // Clean up previous models inside the ObjectSpawner (3D model only appears when 3D View button is clicked)
         ClearSpawnedModel();
@@ -321,11 +382,18 @@ public class Artifact : MonoBehaviour
     }
 
     /// <summary>
-    /// Keeps the panel at the player's eye level and billboarded to face them while it's open.
+    /// Keeps the panel at the player's eye level and billboarded to face them while it's open,
+    /// unless the player is actively moving or has custom-positioned the panel.
     /// </summary>
     private void LateUpdate()
     {
         if (trackedPlayer == null) return;
+
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger != null && (dragger.IsMoving || dragger.IsUserMoved))
+        {
+            return;
+        }
 
         Vector3 pos = transform.position;
         pos.y = trackedPlayer.position.y;
@@ -335,7 +403,8 @@ public class Artifact : MonoBehaviour
         directionToPlayer.y = 0; // yaw only, keep the panel upright
         if (directionToPlayer != Vector3.zero)
         {
-            transform.rotation = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+            Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+            transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
         }
     }
 
@@ -401,13 +470,18 @@ public class Artifact : MonoBehaviour
             fallbackObj.transform.localPosition = new Vector3(0, 0, -0.05f);
             fallbackObj.transform.localScale = Vector3.one * 0.25f;
 
+            // Only the placeholder cube gets the photo mapped onto it (there's no real model).
+            ApplyTextureToModel(fallbackObj, artifactData);
+
             spawnedModel = fallbackObj;
         }
 
         if (spawnedModel != null)
         {
             spawnedModel.SetActive(true);
-            ApplyTextureToModel(spawnedModel, artifactData);
+            // Keep the prefab's own materials/textures (do NOT paint the 2D photo over the model),
+            // and stop any auto-rotation the model prefab may drive (Animator or spin script).
+            StopAutoRotation(spawnedModel);
             FitModelToWorldSize(spawnedModel, 0.35f);
         }
 
@@ -456,6 +530,30 @@ public class Artifact : MonoBehaviour
     }
 
     /// <summary>
+    /// Stops a spawned model from spinning on its own: disables Animators and any behaviour that
+    /// looks like a rotator/spinner. The artifact should sit still (the player rotates it by hand).
+    /// </summary>
+    private void StopAutoRotation(GameObject model)
+    {
+        if (model == null) return;
+
+        foreach (Animator anim in model.GetComponentsInChildren<Animator>(true))
+        {
+            if (anim != null) anim.enabled = false;
+        }
+
+        foreach (MonoBehaviour mb in model.GetComponentsInChildren<MonoBehaviour>(true))
+        {
+            if (mb == null) continue;
+            string typeName = mb.GetType().Name.ToLower();
+            if (typeName.Contains("rotat") || typeName.Contains("spin") || typeName.Contains("turntable"))
+            {
+                mb.enabled = false;
+            }
+        }
+    }
+
+    /// <summary>
     /// Scales the spawned model so its largest world-space bounding-box dimension is
     /// targetSizeMeters. Works regardless of the parent's scale (e.g. a 0.001 world-space
     /// canvas), because it measures true world bounds and multiplies the local scale.
@@ -491,7 +589,13 @@ public class Artifact : MonoBehaviour
     public void StartClose()
     {
         ClearSpawnedModel();
-        onCloseCallback?.Invoke();
+        if (audioSource != null)
+        {
+            audioSource.Stop();
+        }
+        Action cb = onCloseCallback;
+        onCloseCallback = null;
+        cb?.Invoke();
     }
 
     private void ClearSpawnedModelSilently()
@@ -523,12 +627,10 @@ public class Artifact : MonoBehaviour
     {
         ClearSpawnedModelSilently();
 
-        // Restore photo image when 3D model is cleared
-        if (displayImage != null)
-        {
-            displayImage.gameObject.SetActive(true);
-        }
-        if (noImagesText != null) noImagesText.gameObject.SetActive(true);
+        // Restore the photo view when the 3D model is cleared. Use UpdateImageUI so it shows the
+        // photo XOR the "no images" text - never both. (Previously this force-activated BOTH the
+        // image and noImagesText, so "No Images Available" showed on top of a valid photo.)
+        UpdateImageUI();
     }
 
     #region Image Gallery Functions
@@ -560,16 +662,36 @@ public class Artifact : MonoBehaviour
     {
         if (artifactData == null) return;
 
-        if (artifactData.images != null && artifactData.images.Length > 0)
+        // Treat a null sprite as "no image" too, so we never show a blank image box next to text.
+        bool hasImage = artifactData.images != null
+                        && artifactData.images.Length > 0
+                        && currentImageIndex >= 0 && currentImageIndex < artifactData.images.Length
+                        && artifactData.images[currentImageIndex].sprite != null;
+
+        if (hasImage)
         {
             if (displayImage != null)
             {
                 displayImage.gameObject.SetActive(true);
                 displayImage.sprite = artifactData.images[currentImageIndex].sprite;
+                displayImage.color = Color.white;
             }
             if (noImagesText != null)
             {
                 noImagesText.gameObject.SetActive(false);
+            }
+
+            // Belt-and-suspenders: hide ANY "no images" text in the panel, not just the wired one.
+            // On a cloned panel the serialized noImagesText can differ from the visible placeholder,
+            // which left "No Images Available" showing on top of a valid photo.
+            foreach (TextMeshProUGUI tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                if (tmp == null || tmp == noImagesText) continue;
+                string t = (tmp.text ?? string.Empty).ToLower();
+                if (t.Contains("no image") || t.Contains("tidak ada gambar"))
+                {
+                    tmp.gameObject.SetActive(false);
+                }
             }
         }
         else
@@ -584,6 +706,15 @@ public class Artifact : MonoBehaviour
                 noImagesText.text = "Artefak tidak ada Gambar";
             }
         }
+    }
+
+    /// <summary>
+    /// Re-applies the 2D image view (photo XOR "no images" text). Used when a panel is reused for
+    /// the same artifact without re-running Setup, so it never keeps a stale image+text state.
+    /// </summary>
+    public void RefreshView()
+    {
+        SetViewMode(true);
     }
     #endregion
 
@@ -688,13 +819,17 @@ public class Artifact : MonoBehaviour
             threeDViewPanel.SetActive(!show2D);
         }
 
-        if (twoDViewPanel != null || threeDViewPanel != null)
+        if (show2D)
         {
-            if (displayImage != null)
-            {
-                displayImage.gameObject.SetActive(show2D);
-            }
-            if (noImagesText != null) noImagesText.gameObject.SetActive(show2D && (artifactData == null || artifactData.images == null || artifactData.images.Length == 0));
+            // Let the data decide: show the photo OR the "no images" text, never both. (Previously
+            // this force-activated displayImage AND toggled the text, so an artifact with no images
+            // showed the placeholder image AND "No Images Available" at the same time.)
+            UpdateImageUI();
+        }
+        else
+        {
+            if (displayImage != null) displayImage.gameObject.SetActive(false);
+            if (noImagesText != null) noImagesText.gameObject.SetActive(false);
         }
     }
 
@@ -714,16 +849,14 @@ public class Artifact : MonoBehaviour
         gameObject.SetActive(false);
     }
 
+
+
     /// <summary>
-    /// Hides the canvas/parent canvas. This function can be called from UnityEvents.
-    /// Since the panel state is not altered, revealing the canvas again will show the last active panel.
+    /// Hides/destroys the canvas/parent canvas. This function can be called from UnityEvents.
     /// </summary>
     public void CloseCanvas()
     {
-        if (audioSource != null)
-        {
-            audioSource.Stop();
-        }
+        StartClose();
 
         if (canvasObject != null)
         {
@@ -742,6 +875,10 @@ public class Artifact : MonoBehaviour
                 {
                     transform.parent.gameObject.SetActive(false);
                 }
+                else
+                {
+                    gameObject.SetActive(false);
+                }
             }
         }
 
@@ -749,27 +886,53 @@ public class Artifact : MonoBehaviour
         {
             WristWatch.Instance.EnsureWatchButtonVisible();
         }
-        else
+    }
+
+    public AudioClip GetOrCreateNarrationClip(ArtifactData data)
+    {
+        if (data != null && data.narrationClip != null) return data.narrationClip;
+        if (data != null && data.instrumentClip != null) return data.instrumentClip;
+
+        if (data != null)
         {
-            WristWatch ww = FindObjectOfType<WristWatch>();
-            if (ww != null) ww.EnsureWatchButtonVisible();
+            AudioClip loaded = Resources.Load<AudioClip>($"Audio/{data.artifactId}") ?? Resources.Load<AudioClip>($"Audio/{data.artifactName}");
+            if (loaded != null) return loaded;
         }
+
+        // Generate clean procedural narration chime fallback so EVERY artifact 100% has audio
+        string clipName = data != null ? $"Narration_{data.artifactId}" : "Narration_Fallback";
+        int sampleRate = 44100;
+        int samples = sampleRate * 2;
+        AudioClip clip = AudioClip.Create(clipName, samples, 1, sampleRate, false);
+
+        float[] dataSamples = new float[samples];
+        float freq = 440f;
+        for (int i = 0; i < samples; i++)
+        {
+            float t = (float)i / sampleRate;
+            float env = Mathf.Exp(-t * 2.2f);
+            dataSamples[i] = Mathf.Sin(2f * Mathf.PI * freq * t) * env * 0.25f;
+        }
+        clip.SetData(dataSamples, 0);
+        return clip;
     }
 
     public void PlayNarration()
     {
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
         if (audioSource != null)
         {
-            if (artifactData != null && audioSource.clip != artifactData.narrationClip)
+            if (audioSource.clip == null && artifactData != null)
             {
-                audioSource.clip = artifactData.narrationClip;
+                audioSource.clip = GetOrCreateNarrationClip(artifactData);
             }
             if (audioSource.clip != null)
             {
                 audioSource.Play();
-                Debug.Log("ArtifactPanel: Narration playing.");
+                Debug.Log($"ArtifactPanel: Narration playing for {artifactData?.artifactName}.");
             }
         }
+        UpdateAudioUI();
     }
 
     public void PauseNarration()
@@ -779,16 +942,26 @@ public class Artifact : MonoBehaviour
             audioSource.Pause();
             Debug.Log("ArtifactPanel: Narration paused.");
         }
+        UpdateAudioUI();
     }
 
     public void RestartNarration()
     {
-        if (audioSource != null && audioSource.clip != null)
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+        if (audioSource != null)
         {
-            audioSource.Stop();
-            audioSource.Play();
-            Debug.Log("ArtifactPanel: Narration restarted.");
+            if (audioSource.clip == null && artifactData != null)
+            {
+                audioSource.clip = GetOrCreateNarrationClip(artifactData);
+            }
+            if (audioSource.clip != null)
+            {
+                audioSource.Stop();
+                audioSource.Play();
+                Debug.Log("ArtifactPanel: Narration restarted.");
+            }
         }
+        UpdateAudioUI();
     }
 
     private void PlayInstrumentAudio()
@@ -800,6 +973,7 @@ public class Artifact : MonoBehaviour
             audioSource.Play();
             Debug.Log("ArtifactPanel: Playing instrument audio.");
         }
+        UpdateAudioUI();
     }
 
     private void Update()
@@ -822,7 +996,13 @@ public class Artifact : MonoBehaviour
 
     public void OnPlayPauseClicked()
     {
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
         if (audioSource == null) return;
+
+        if (audioSource.clip == null && artifactData != null)
+        {
+            audioSource.clip = GetOrCreateNarrationClip(artifactData);
+        }
 
         if (audioSource.isPlaying)
         {

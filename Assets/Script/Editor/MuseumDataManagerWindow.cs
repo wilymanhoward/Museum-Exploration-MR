@@ -22,6 +22,8 @@ public class MuseumDataManagerWindow : EditorWindow
         public string description = "";
         public GameObject modelPrefab;
         public Sprite primarySprite;
+        public AudioClip narrationClip;
+        public AudioClip instrumentClip;
         public bool isExpanded = true;
     }
 
@@ -153,6 +155,8 @@ public class MuseumDataManagerWindow : EditorWindow
                         art.material = EditorGUILayout.TextField("Material / Medium", art.material);
                         art.modelPrefab = (GameObject)EditorGUILayout.ObjectField("3D Model Prefab", art.modelPrefab, typeof(GameObject), false);
                         art.primarySprite = (Sprite)EditorGUILayout.ObjectField("Thumbnail Image", art.primarySprite, typeof(Sprite), false);
+                        art.narrationClip = (AudioClip)EditorGUILayout.ObjectField("Narration Audio Clip", art.narrationClip, typeof(AudioClip), false);
+                        art.instrumentClip = (AudioClip)EditorGUILayout.ObjectField("Instrument Sound (Optional)", art.instrumentClip, typeof(AudioClip), false);
 
                         GUILayout.Label("Description:");
                         art.description = EditorGUILayout.TextArea(art.description, GUILayout.Height(60));
@@ -251,7 +255,9 @@ public class MuseumDataManagerWindow : EditorWindow
                         material = art.material,
                         description = art.description,
                         modelPrefab = art.modelPrefab,
-                        primarySprite = (art.images != null && art.images.Length > 0) ? art.images[0].sprite : null
+                        primarySprite = (art.images != null && art.images.Length > 0) ? art.images[0].sprite : null,
+                        narrationClip = art.narrationClip,
+                        instrumentClip = art.instrumentClip
                     };
                     rd.artifacts.Add(ad);
                 }
@@ -365,6 +371,8 @@ public class MuseumDataManagerWindow : EditorWindow
                 artAsset.material = ad.material;
                 artAsset.description = ad.description;
                 artAsset.modelPrefab = ad.modelPrefab;
+                artAsset.narrationClip = ad.narrationClip;
+                artAsset.instrumentClip = ad.instrumentClip;
 
                 if (ad.primarySprite != null)
                 {

@@ -7093,10 +7093,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2b62a4c233f77d48ab9c0b3e4e5b5d5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panelTemplatePrefab: {fileID: 7891610825025665133, guid: 3c7a5dfd259f0a4429ea91feb4d049a0,
-    type: 3}
-  activeGameInstance: {fileID: 0}
-  <ActiveGamePayload>k__BackingField: 
 --- !u!4 &969066486
 Transform:
   m_ObjectHideFlags: 0
@@ -9613,7 +9609,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1334939617
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -20561,28 +20557,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 64b1af85ba7412e49b314530e9d6e7a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  customFont: {fileID: 0}
-  questionIndex: 0
-  score: 0
-  allArtifacts: []
-  usedArtifacts: []
-  correctAnswer: {fileID: 0}
-  selectedOption: 
-  answerChecked: 0
-  spawnedModel: {fileID: 0}
-  modelViewAnchor: {fileID: 0}
-  questionRoot: {fileID: 0}
-  resultsRoot: {fileID: 0}
-  titleText: {fileID: 0}
-  feedbackText: {fileID: 0}
-  checkButton: {fileID: 0}
-  checkButtonLabel: {fileID: 0}
-  roundedFillSprite: {fileID: 0}
-  roundedBorderSprite: {fileID: 0}
-  circleSprite: {fileID: 0}
-  rotateIconSprite: {fileID: 0}
-  generatedTextures: []
-  silhouetteMaterial: {fileID: 0}
 --- !u!1 &9054479873805895238
 GameObject:
   m_ObjectHideFlags: 0

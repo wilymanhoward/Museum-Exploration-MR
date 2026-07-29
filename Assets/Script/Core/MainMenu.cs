@@ -16,6 +16,14 @@ public class MainMenu : MonoBehaviour
     public XRButtonSelection skipButtonXR;
     public Button skipButton;
 
+    [Header("Background Fade Settings")]
+    [Tooltip("Duration in seconds to smoothly transition background between Black and Passthrough (Transparent).")]
+    public float fadeDuration = 0.8f;
+
+    private GameObject backgroundFadeOverlayObj;
+    private CanvasGroup backgroundFadeCanvasGroup;
+    private Coroutine currentFadeCoroutine;
+
     [Header("Exploration References")]
     public GameObject wayfindingSystem;
     public GameObject wristMenuSystem;
@@ -127,6 +135,11 @@ public class MainMenu : MonoBehaviour
         if (introVideoPanel != null)
         {
             introVideoPanel.SetActive(true);
+            FadeBackground(1f, fadeDuration);
+        }
+        else
+        {
+            FadeBackground(0f, 0f);
         }
         if (enterNamePanel != null)
         {
@@ -244,6 +257,16 @@ public class MainMenu : MonoBehaviour
         {
             RestoreRayDistances();
             return;
+        }
+
+        // Ensure background fade overlay is created & fading to black if intro video panel is currently active
+        if (backgroundFadeOverlayObj == null && introVideoPanel != null && introVideoPanel.activeInHierarchy)
+        {
+            EnsureBackgroundFadeOverlay();
+            if (backgroundFadeOverlayObj != null)
+            {
+                FadeBackground(1f, fadeDuration);
+            }
         }
 
         // 1. Position the menu dynamically at eye level 1 meter in front of the player ONLY when headset tracking starts
@@ -439,5 +462,93 @@ public class MainMenu : MonoBehaviour
         {
             enterNamePanel.SetActive(true);
         }
+
+        // Smoothly transition background back to transparent (passthrough turned on)
+        FadeBackground(0f, fadeDuration);
+    }
+
+    /// <summary>
+    /// Creates a screen-covering black overlay canvas attached to the main camera if it doesn't already exist.
+    /// </summary>
+    private void EnsureBackgroundFadeOverlay()
+    {
+        if (backgroundFadeOverlayObj != null) return;
+
+        Transform camTransform = ResolveCameraTransform();
+        if (camTransform == null) return;
+
+        backgroundFadeOverlayObj = new GameObject("BackgroundFadeOverlay");
+        backgroundFadeOverlayObj.transform.SetParent(camTransform, false);
+        backgroundFadeOverlayObj.transform.localPosition = new Vector3(0, 0, 0.4f);
+        backgroundFadeOverlayObj.transform.localRotation = Quaternion.identity;
+
+        Canvas canvas = backgroundFadeOverlayObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.sortingOrder = -1000;
+
+        RectTransform rect = backgroundFadeOverlayObj.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(20f, 20f);
+
+        backgroundFadeCanvasGroup = backgroundFadeOverlayObj.AddComponent<CanvasGroup>();
+        backgroundFadeCanvasGroup.alpha = 0f;
+        backgroundFadeCanvasGroup.blocksRaycasts = false;
+        backgroundFadeCanvasGroup.interactable = false;
+
+        GameObject imageObj = new GameObject("BlackImage");
+        imageObj.transform.SetParent(backgroundFadeOverlayObj.transform, false);
+
+        RectTransform imgRect = imageObj.AddComponent<RectTransform>();
+        imgRect.anchorMin = Vector2.zero;
+        imgRect.anchorMax = Vector2.one;
+        imgRect.sizeDelta = Vector2.zero;
+
+        UnityEngine.UI.Image img = imageObj.AddComponent<UnityEngine.UI.Image>();
+        img.color = Color.black;
+        img.raycastTarget = false;
+    }
+
+    /// <summary>
+    /// Smoothly fades the background between Black (targetAlpha = 1) and Passthrough/Transparent (targetAlpha = 0).
+    /// </summary>
+    public void FadeBackground(float targetAlpha, float duration)
+    {
+        EnsureBackgroundFadeOverlay();
+        if (backgroundFadeOverlayObj == null || backgroundFadeCanvasGroup == null) return;
+
+        if (currentFadeCoroutine != null)
+        {
+            StopCoroutine(currentFadeCoroutine);
+        }
+        currentFadeCoroutine = StartCoroutine(AnimateBackgroundFade(targetAlpha, duration));
+    }
+
+    private System.Collections.IEnumerator AnimateBackgroundFade(float targetAlpha, float duration)
+    {
+        backgroundFadeOverlayObj.SetActive(true);
+        float startAlpha = backgroundFadeCanvasGroup.alpha;
+        float elapsed = 0f;
+
+        if (duration <= 0f)
+        {
+            backgroundFadeCanvasGroup.alpha = targetAlpha;
+        }
+        else
+        {
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                backgroundFadeCanvasGroup.alpha = Mathf.SmoothStep(startAlpha, targetAlpha, t);
+                yield return null;
+            }
+            backgroundFadeCanvasGroup.alpha = targetAlpha;
+        }
+
+        if (Mathf.Approximately(targetAlpha, 0f))
+        {
+            backgroundFadeOverlayObj.SetActive(false);
+        }
+
+        currentFadeCoroutine = null;
     }
 }

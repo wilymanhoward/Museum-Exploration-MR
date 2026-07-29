@@ -26,7 +26,7 @@ public class WristWatch : MonoBehaviour
     [Tooltip("Pin the room list rigidly to the left wrist (moves AND rotates with the wrist, does not billboard to the head). Turn off to keep it a free-floating world canvas.")]
     public bool attachRoomListToWrist = true;
     [Tooltip("Position of the room list relative to the wrist, expressed in the wrist's local space (so it stays put as the wrist rotates). Tune to place it above/in front of the wrist.")]
-    public Vector3 roomListWristOffset = new Vector3(0f, 0.12f, 0.02f);
+    public Vector3 roomListWristOffset = new Vector3(0f, 0.48f, 0.02f);
     [Tooltip("Rotation offset (Euler) of the room list relative to the wrist. Tune so the panel faces you when you raise your wrist.")]
     public Vector3 roomListWristEuler = Vector3.zero;
 
@@ -35,7 +35,7 @@ public class WristWatch : MonoBehaviour
     public Vector3 watchOffset = new Vector3(0f, 0.09f, 0f);
 
     [Tooltip("World-space offset for the floating options panel relative to the left wrist (Y = up).")]
-    public Vector3 panelOffset = new Vector3(0f, 0.22f, 0f);
+    public Vector3 panelOffset = new Vector3(0f, 0.20f, 0.02f);
 
     [Header("Fixed Scale Locking")]
     [Tooltip("If true, keeps the watch button scale completely fixed so hand tracking or distance never resizes it.")]
@@ -66,9 +66,20 @@ public class WristWatch : MonoBehaviour
 
     public static WristWatch Instance { get; private set; }
 
+    private Vector3 galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
+
     private void Awake()
     {
         Instance = this;
+
+        // Ensure Options Panel sits low near wrist button (Y = 0.20f)
+        panelOffset = new Vector3(0f, 0.20f, 0.02f);
+
+        // Ensure List Ruang (Room List) panel sits a little bit higher (Y = 0.54f)
+        roomListWristOffset = new Vector3(0f, 0.54f, 0.02f);
+
+        // Ensure Galery Panel (individual room view) sits lower (Y = 0.28f)
+        galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
     }
 
     private bool hasAnchorPose;
@@ -446,34 +457,27 @@ public class WristWatch : MonoBehaviour
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
-            // Hide the little watch icon while a big panel (room list / games) is open. The room
-            // list is its own object (not a child), so hiding the wrist menu doesn't hide it.
-            bool otherCanvasOpen = (roomHudCanvas != null && roomHudCanvas.activeInHierarchy) || (gamesPanel != null && gamesPanel.activeInHierarchy);
-
-            // Ensure all panels and watch button are hidden if exploration has not started or other canvas is open
-            if (!MainMenu.IsExplorationStarted || otherCanvasOpen)
+            if (!MainMenu.IsExplorationStarted)
             {
                 if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
 
-                if (!MainMenu.IsExplorationStarted)
+                if (optionsPanelObj != null && optionsPanelObj.activeSelf)
                 {
-                    if (optionsPanelObj != null && optionsPanelObj.activeSelf)
-                    {
-                        optionsPanelObj.SetActive(false);
-                        optionsPanelActive = false;
-                    }
-                    if (gamesPanel != null && gamesPanel.activeSelf)
-                    {
-                        gamesPanel.SetActive(false);
-                    }
+                    optionsPanelObj.SetActive(false);
+                    optionsPanelActive = false;
+                }
+                if (gamesPanel != null && gamesPanel.activeSelf)
+                {
+                    gamesPanel.SetActive(false);
                 }
             }
             else
             {
+                // Once exploration is started, the wrist watch menu button ALWAYS stays active and visible on the left hand
+                if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
+
                 if (hasAnchorPose)
                 {
-                    if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
-
                     Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
                     wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
 
@@ -494,30 +498,52 @@ public class WristWatch : MonoBehaviour
                         }
                     }
                 }
-                else
-                {
-                    if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
-                }
             }
         }
 
         // 2. Keep panels anchored to the left wrist hovering cleanly above the hand facing the user.
         if (optionsPanelObj != null && optionsPanelObj.activeInHierarchy)
         {
-            FollowHand(optionsPanelObj, playerCam);
+            FollowHand(optionsPanelObj, playerCam, panelOffset);
         }
 
         if (roomHudCanvas != null && roomHudCanvas.activeInHierarchy)
         {
-            GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
-            if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
-            FollowHand(roomHudCanvas, playerCam);
+            // Do not follow hand if showing an Artifact Detail Panel - detail panels must stay fixed in world space!
+            bool showingArtifactDetail = false;
+            bool showingGalleryRoomPanel = false;
 
             foreach (Transform child in roomHudCanvas.transform)
             {
                 if (child != null && child.gameObject.activeInHierarchy)
                 {
-                    child.localRotation = Quaternion.identity;
+                    if (child.name.Contains("ArtifactDetail") || child.name.Contains("ArtifactUI"))
+                    {
+                        showingArtifactDetail = true;
+                    }
+                    if (child.name == "RoomPanel" || child.GetComponent<Room>() != null)
+                    {
+                        showingGalleryRoomPanel = true;
+                    }
+                }
+            }
+
+            if (!showingArtifactDetail)
+            {
+                GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
+                if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
+
+                // Use lower galleryPanelOffset (0.28f) when showing a specific gallery room view,
+                // and higher roomListWristOffset (0.54f) when showing the list room chooser panel.
+                Vector3 activeOffset = showingGalleryRoomPanel ? galleryPanelOffset : roomListWristOffset;
+                FollowHand(roomHudCanvas, playerCam, activeOffset);
+
+                foreach (Transform child in roomHudCanvas.transform)
+                {
+                    if (child != null && child.gameObject.activeInHierarchy)
+                    {
+                        child.localRotation = Quaternion.identity;
+                    }
                 }
             }
         }
@@ -525,17 +551,17 @@ public class WristWatch : MonoBehaviour
         GameObject roomPanelObj = GameObject.Find("RoomPanel");
         if (roomPanelObj != null && roomPanelObj.activeInHierarchy && (roomHudCanvas == null || roomPanelObj.transform.parent != roomHudCanvas.transform))
         {
-            FollowHand(roomPanelObj, playerCam);
+            FollowHand(roomPanelObj, playerCam, galleryPanelOffset);
         }
 
         if (roomListPanel != null && roomListPanel.activeInHierarchy && roomListPanel != roomHudCanvas)
         {
-            FollowHand(roomListPanel, playerCam);
+            FollowHand(roomListPanel, playerCam, roomListWristOffset);
         }
 
         if (gamesPanel != null && gamesPanel.activeInHierarchy)
         {
-            FollowHand(gamesPanel, playerCam);
+            FollowHand(gamesPanel, playerCam, panelOffset);
         }
     }
 
@@ -691,9 +717,19 @@ public class WristWatch : MonoBehaviour
     /// Smoothly keeps a panel hovering above the left hand, billboarded to the player.
     /// Runs in LateUpdate so it wins over any other script moving the panel's parent.
     /// </summary>
-    private void FollowHand(GameObject panel, Transform playerCam)
+    /// <summary>
+    /// Smoothly keeps a panel hovering above the left hand, billboarded to the player.
+    /// Runs in LateUpdate so it wins over any other script moving the panel's parent.
+    /// </summary>
+    /// <summary>
+    /// Smoothly keeps a panel hovering above the left hand, billboarded to the player.
+    /// Runs in LateUpdate so it wins over any other script moving the panel's parent.
+    /// </summary>
+    private void FollowHand(GameObject panel, Transform playerCam, Vector3 offset = default)
     {
         if (panel == null || !panel.activeInHierarchy) return;
+
+        if (offset == default) offset = panelOffset;
 
         if (playerCam == null && Camera.main != null)
         {
@@ -709,7 +745,7 @@ public class WristWatch : MonoBehaviour
             handRot = anchorRot;
         }
 
-        Vector3 targetPos = handPos + panelOffset;
+        Vector3 targetPos = handPos + offset;
 
         if (Vector3.Distance(panel.transform.position, targetPos) > 0.4f)
         {
@@ -826,8 +862,10 @@ public class WristWatch : MonoBehaviour
                 RoomManager.Instance.PopulateRoomListUI();
             }
 
-            // Position the Exploration canvas in front of the user camera
-            PositionCanvasInFrontOfUser(roomHudCanvas.transform);
+            if (hasAnchorPose)
+            {
+                roomHudCanvas.transform.position = AnchorTransformPoint(roomListWristOffset);
+            }
         }
         if (gamesPanel != null) gamesPanel.SetActive(false);
     }
@@ -840,44 +878,38 @@ public class WristWatch : MonoBehaviour
         }
         if (roomHudCanvas == null) return;
 
-        RoomList rList = roomHudCanvas.GetComponentInChildren<RoomList>(true);
-        if (rList != null)
+        // Make sure the List Game panel isn't left showing alongside the room list.
+        if (GameListMenu.Instance != null) GameListMenu.Instance.HidePanel();
+
+        // Resolve the REAL room-list panel by name. The cloned GameListPanel may also carry a
+        // RoomList component, so we must not rely on GetComponentInChildren<RoomList> here -
+        // that could grab the game panel and open it when the player taps Explore.
+        if (roomListPanel == null)
         {
-            if (rList.roomPanel != null)
-            {
-                rList.roomPanel.gameObject.SetActive(false);
-            }
-            rList.gameObject.SetActive(true);
-            rList.PopulateRoomsList();
+            Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
+            roomListPanel = t != null ? t.gameObject : FindInactiveObject("RoomListPanel");
+        }
+        if (roomListPanel == null) return;
+
+        // Show ONLY the room list among the canvas panels (hides GameListPanel, RoomPanel, etc.).
+        Transform parent = roomListPanel.transform.parent;
+        if (parent != null)
+        {
+            foreach (Transform sibling in parent)
+                sibling.gameObject.SetActive(sibling.gameObject == roomListPanel);
         }
         else
         {
-            if (roomListPanel == null)
-            {
-                Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
-                if (t != null) roomListPanel = t.gameObject;
-            }
-            if (roomListPanel == null) roomListPanel = FindInactiveObject("RoomListPanel");
+            roomListPanel.SetActive(true);
+        }
 
-            if (roomListPanel != null)
-            {
-                roomListPanel.SetActive(true);
-                Transform parent = roomListPanel.transform.parent;
-                if (parent != null)
-                {
-                    foreach (Transform sibling in parent)
-                    {
-                        if (sibling.name == "RoomListPanel")
-                        {
-                            sibling.gameObject.SetActive(true);
-                        }
-                        else if (sibling.name == "ArtifactDetailPanel" || sibling.name == "RoomPanel")
-                        {
-                            sibling.gameObject.SetActive(false);
-                        }
-                    }
-                }
-            }
+        RoomList rList = roomListPanel.GetComponent<RoomList>();
+        if (rList == null) rList = roomListPanel.GetComponentInChildren<RoomList>(true);
+        if (rList != null)
+        {
+            rList.enabled = true;
+            if (rList.roomPanel != null) rList.roomPanel.gameObject.SetActive(false);
+            rList.PopulateRoomsList();
         }
     }
 
@@ -902,12 +934,14 @@ public class WristWatch : MonoBehaviour
         MainMenu.IsExplorationStarted = true;
         CloseOptionsPanel();
 
-        if (gamesPanel != null)
-        {
-            gamesPanel.SetActive(true);
-            // Position the Games panel in front of the user camera
-            PositionCanvasInFrontOfUser(gamesPanel.transform);
-        }
+        // Hide the old single-game carousel if it exists.
+        if (gamesPanel != null) gamesPanel.SetActive(false);
+
+        // Show the "List Game" chooser. It's cloned from the room-list panel and parented under
+        // the ExplorationCanvas, so it rides the wrist through the same follow as the room list.
+        GameListMenu menu = GameListMenu.Instance;
+        if (menu == null) menu = gameObject.AddComponent<GameListMenu>();
+        menu.Show();
     }
 
     /// <summary>
@@ -920,27 +954,5 @@ public class WristWatch : MonoBehaviour
             gamesPanel.SetActive(false);
         }
         Debug.Log("WristWatch: Games Panel Closed.");
-    }
-
-    /// <summary>
-    /// Snaps the given transform 1.5 metres in front of the player camera, facing the player.
-    /// Mirrors the same pattern used by MiniGames.cs and Artifact.cs.
-    /// </summary>
-    private void PositionCanvasInFrontOfUser(Transform target)
-    {
-        Transform cam = Camera.main != null ? Camera.main.transform : null;
-        if (cam == null || target == null) return;
-
-        // Project camera forward onto the horizontal plane so the panel stays upright
-        Vector3 forwardDir = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
-        if (forwardDir == Vector3.zero) forwardDir = Vector3.forward;
-
-        target.position = cam.position + forwardDir * 1.5f;
-
-        // Rotate to face the player (panel's forward points toward camera)
-        Vector3 toPlayer = cam.position - target.position;
-        toPlayer.y = 0;
-        if (toPlayer != Vector3.zero)
-            target.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
     }
 }

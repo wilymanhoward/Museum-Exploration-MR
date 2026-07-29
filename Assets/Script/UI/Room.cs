@@ -220,16 +220,19 @@ public class Room : MonoBehaviour
 
     private void OnArtifactSelected(ArtifactData artifact)
     {
-        if (artifactDetailPanel != null)
+        if (artifact == null) return;
+
+        if (ArtifactManager.Instance != null)
         {
-            // Show the artifact details panel
+            ArtifactManager.Instance.SpawnArtifactDetailPanel(artifact);
+        }
+        else if (artifactDetailPanel != null)
+        {
             artifactDetailPanel.ShowArtifact(artifact, this);
-            // Hide this panel (canvas remains active)
-            gameObject.SetActive(false);
         }
         else
         {
-            Debug.LogError("Room: artifactDetailPanel reference is missing!");
+            Debug.LogError("Room: No ArtifactManager or artifactDetailPanel available to show artifact details!");
         }
     }
 
