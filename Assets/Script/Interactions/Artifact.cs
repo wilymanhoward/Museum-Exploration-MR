@@ -85,6 +85,10 @@ public class Artifact : MonoBehaviour
         }
         audioSource.playOnAwake = false;
         audioSource.loop = false;
+        // Make sure narration is actually audible: 2D (position-independent), full volume, not muted.
+        audioSource.mute = false;
+        audioSource.volume = 1f;
+        audioSource.spatialBlend = 0f;
 
         EnsureGrabbablePanel();
     }
@@ -284,16 +288,13 @@ public class Artifact : MonoBehaviour
         // Configure 3D View button visibility
         Refresh3DViewButtonState();
 
-        // Auto-play narration audio on reveal
+        // Preload the narration clip but do NOT auto-play. Auto-playing on reveal meant the panel
+        // was already playing, so the first Play-button press hit the "pause" branch and it looked
+        // like the button did nothing. Now the Play button is the trigger and plays it on click.
         if (audioSource != null)
         {
             audioSource.Stop();
-            if (data != null && data.narrationClip != null)
-            {
-                audioSource.clip = data.narrationClip;
-                audioSource.Play();
-                Debug.Log($"ArtifactPanel: Auto-playing narration for {data.artifactName}");
-            }
+            audioSource.clip = (data != null) ? GetOrCreateNarrationClip(data) : null;
         }
 
         // Show instrument button if this is an instrument artifact
@@ -796,16 +797,11 @@ public class Artifact : MonoBehaviour
             OnSpawnModelClicked();
         }
 
-        // Auto-play narration audio on update details
+        // Preload the narration clip but do NOT auto-play (Play button is the trigger).
         if (audioSource != null)
         {
             audioSource.Stop();
-            if (data != null && data.narrationClip != null)
-            {
-                audioSource.clip = data.narrationClip;
-                audioSource.Play();
-                Debug.Log($"ArtifactPanel: Auto-playing narration for {data.artifactName}");
-            }
+            audioSource.clip = (data != null) ? GetOrCreateNarrationClip(data) : null;
         }
 
         if (playInstrumentButton != null)
