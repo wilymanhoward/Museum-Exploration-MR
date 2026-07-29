@@ -438,6 +438,22 @@ public class Artifact : MonoBehaviour
             }
         }
 
+        // The ObjectSpawner carries a Rigidbody. Parented under a moving, tiny-scaled world-space
+        // UI canvas, a non-kinematic Rigidbody (with gravity) tumbles because physics fights the
+        // parent transform - which is why every displayed model was "always spinning". Force it
+        // kinematic and still so the model sits put (hand-grab still rotates it via the transform).
+        Rigidbody spawnerRb = objectSpawner.GetComponent<Rigidbody>();
+        if (spawnerRb != null)
+        {
+            if (!spawnerRb.isKinematic)
+            {
+                spawnerRb.velocity = Vector3.zero;
+                spawnerRb.angularVelocity = Vector3.zero;
+            }
+            spawnerRb.useGravity = false;
+            spawnerRb.isKinematic = true;
+        }
+
         RotateArtifact rotator = objectSpawner.GetComponent<RotateArtifact>();
         GameObject prefabToSpawn = artifactData.modelPrefab;
 
@@ -550,6 +566,20 @@ public class Artifact : MonoBehaviour
             {
                 mb.enabled = false;
             }
+        }
+
+        // If the model itself carries a Rigidbody, stop it from being driven by physics (which
+        // would tumble it under the moving UI parent).
+        foreach (Rigidbody rb in model.GetComponentsInChildren<Rigidbody>(true))
+        {
+            if (rb == null) continue;
+            if (!rb.isKinematic)
+            {
+                rb.velocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+            rb.useGravity = false;
+            rb.isKinematic = true;
         }
     }
 
