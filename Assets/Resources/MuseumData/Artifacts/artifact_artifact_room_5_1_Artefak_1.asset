@@ -24,4 +24,6 @@ MonoBehaviour:
   material: Batu / Kayu
   description: 
   modelPrefab: {fileID: 0}
+  narrationClip: {fileID: 0}
+  instrumentClip: {fileID: 0}
   images: []

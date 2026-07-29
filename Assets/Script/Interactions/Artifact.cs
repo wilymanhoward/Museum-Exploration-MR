@@ -288,14 +288,8 @@ public class Artifact : MonoBehaviour
         // Configure 3D View button visibility
         Refresh3DViewButtonState();
 
-        // Preload the narration clip but do NOT auto-play. Auto-playing on reveal meant the panel
-        // was already playing, so the first Play-button press hit the "pause" branch and it looked
-        // like the button did nothing. Now the Play button is the trigger and plays it on click.
-        if (audioSource != null)
-        {
-            audioSource.Stop();
-            audioSource.clip = (data != null) ? GetOrCreateNarrationClip(data) : null;
-        }
+        // Auto-play the narration when the artifact is shown.
+        PlayNarrationOnShow();
 
         // Show instrument button if this is an instrument artifact
         if (playInstrumentButton != null)
@@ -746,6 +740,8 @@ public class Artifact : MonoBehaviour
     public void RefreshView()
     {
         SetViewMode(true);
+        // A reused panel is re-shown without running Setup, so replay the narration here too.
+        PlayNarrationOnShow();
     }
     #endregion
 
@@ -797,12 +793,8 @@ public class Artifact : MonoBehaviour
             OnSpawnModelClicked();
         }
 
-        // Preload the narration clip but do NOT auto-play (Play button is the trigger).
-        if (audioSource != null)
-        {
-            audioSource.Stop();
-            audioSource.clip = (data != null) ? GetOrCreateNarrationClip(data) : null;
-        }
+        // Auto-play the narration when the artifact is shown.
+        PlayNarrationOnShow();
 
         if (playInstrumentButton != null)
         {
@@ -938,6 +930,50 @@ public class Artifact : MonoBehaviour
         }
         clip.SetData(dataSamples, 0);
         return clip;
+    }
+
+    /// <summary>
+    /// Called whenever the panel is (re)shown. Auto-plays the real narration clip if one is
+    /// assigned; otherwise preloads the fallback so the Play button still does something without
+    /// ringing a chime on reveal. Plays on the NEXT frame because the cloned panel is
+    /// deactivated/reactivated during spawn, and Play() on the same frame can be dropped.
+    /// </summary>
+    public void PlayNarrationOnShow()
+    {
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+        if (audioSource == null) return;
+
+        audioSource.mute = false;
+        audioSource.volume = 1f;
+        audioSource.spatialBlend = 0f;
+        audioSource.Stop();
+
+        if (artifactData != null && artifactData.narrationClip != null)
+        {
+            audioSource.clip = artifactData.narrationClip;
+            if (isActiveAndEnabled)
+            {
+                StopCoroutine(nameof(PlayClipNextFrame));
+                StartCoroutine(nameof(PlayClipNextFrame));
+            }
+            Debug.Log($"ArtifactPanel: Auto-playing narration '{artifactData.narrationClip.name}' for {artifactData.artifactName}.");
+        }
+        else if (artifactData != null)
+        {
+            // No real narration assigned: just preload the fallback for the Play button.
+            audioSource.clip = GetOrCreateNarrationClip(artifactData);
+            Debug.LogWarning($"ArtifactPanel: No narrationClip assigned on '{artifactData.artifactName}' - Play button will use the fallback tone.");
+        }
+    }
+
+    private System.Collections.IEnumerator PlayClipNextFrame()
+    {
+        yield return null; // let the panel finish (re)activating this frame
+        if (audioSource != null && audioSource.clip != null && !audioSource.isPlaying)
+        {
+            audioSource.Play();
+        }
+        UpdateAudioUI();
     }
 
     public void PlayNarration()

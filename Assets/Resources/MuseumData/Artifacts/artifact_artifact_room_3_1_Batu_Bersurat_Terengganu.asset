@@ -25,6 +25,8 @@ MonoBehaviour:
   description: Keterangan ringkas bagi Artefak 1.
   modelPrefab: {fileID: 919132149155446097, guid: 76fbfaf0da8c09d43801758d2f22e4b0,
     type: 3}
+  narrationClip: {fileID: 0}
+  instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: 9892b064d1f1bcf4395de0eab51ef572, type: 3}
     title: Batu Bersurat Terengganu

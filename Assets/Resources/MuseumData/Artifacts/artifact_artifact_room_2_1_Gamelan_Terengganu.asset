@@ -25,6 +25,8 @@ MonoBehaviour:
   description: 
   modelPrefab: {fileID: 919132149155446097, guid: 755f212e80cacfe4a9dc9643b9867896,
     type: 3}
+  narrationClip: {fileID: 8300000, guid: 0e3ee46e638b0d14ca79566463ebb5da, type: 3}
+  instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: ef3e51dbc66378a45ba82e36e64ab639, type: 3}
     title: Gamelan Terengganu
