@@ -25,7 +25,7 @@ MonoBehaviour:
   description: Keterangan ringkas bagi Artefak 2.
   modelPrefab: {fileID: 919132149155446097, guid: a5d60641a026246418aaaf308e7b5aab,
     type: 3}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: a9c9310401eda1347a3e033051a2e030, type: 3}
   instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: edc9a6ebd3403f24f8bfac4fe911e6d3, type: 3}

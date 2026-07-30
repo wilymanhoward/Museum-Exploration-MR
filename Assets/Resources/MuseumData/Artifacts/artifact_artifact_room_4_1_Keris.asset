@@ -25,7 +25,7 @@ MonoBehaviour:
   description: 
   modelPrefab: {fileID: 919132149155446097, guid: f1c2fb5ed61a2234cb31c2fad813aece,
     type: 3}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: 50b22409f9c4b8d4ba12b505cf88a8bf, type: 3}
   instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: 4d3020b1cab52b4429fcc7aaa1e7f31b, type: 3}

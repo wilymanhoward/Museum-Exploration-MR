@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.EventSystems;
@@ -5,13 +6,13 @@ using UnityEngine.EventSystems;
 [RequireComponent(typeof(SphereCollider))]
 [RequireComponent(typeof(XRGrabInteractable))]
 [RequireComponent(typeof(Rigidbody))]
-public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
+public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IDragHandler, IPointerExitHandler
 {
-    [Tooltip("Degrees of rotation per meter of hand movement. Higher = more responsive.")]
-    public float rotationSensitivity = 350f;
+    [Tooltip("Degrees of rotation per meter of single-finger/hand movement. Higher = more responsive.")]
+    public float rotationSensitivity = 500f;
 
     [Tooltip("Padding added around the spawned model's bounds when sizing the grab collider, in meters.")]
-    public float grabColliderPadding = 0.05f;
+    public float grabColliderPadding = 0.15f;
 
     private XRGrabInteractable grabInteractable;
     private Rigidbody rb;
@@ -22,21 +23,45 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
     private GameObject spawnedModel;
     private string activeArtifactId;
 
-    // Original local pose of the spawner, restored on every new spawn since
-    // two-hand grabbing translates/scales this transform directly
+    // Original local pose of the spawner, restored on every new spawn
     private Vector3 initialLocalPosition;
     private Quaternion initialLocalRotation;
     private Vector3 initialLocalScale;
 
-    // Track single and double hand selection states across frames
+    // Track hand selection states across frames
     private int activeInteractorsCount = 0;
     private Vector3 lastSingleInteractorPos;
-    private Vector3 lastMidpoint;
-    private float lastDistance;
-    private Vector3 lastDir;
+
+    // UI Pointer tracking for single-finger UI Raycast drag
+    private readonly Dictionary<int, Vector2> activePointers = new Dictionary<int, Vector2>();
+
+    public bool IsBeingRotated
+    {
+        get
+        {
+            if (grabInteractable != null && grabInteractable.interactorsSelecting.Count > 0) return true;
+            if (activePointers != null && activePointers.Count > 0) return true;
+            return false;
+        }
+    }
 
     private void Awake()
     {
+        // Record original intended layout pose BEFORE any modifications
+        initialLocalPosition = transform.localPosition;
+        initialLocalRotation = transform.localRotation;
+        initialLocalScale = transform.localScale;
+
+        // Ensure RectTransform on ObjectSpawner has a clean interaction size for GraphicRaycaster without shifting position
+        RectTransform rect = GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            if (rect.sizeDelta.x < 300f || rect.sizeDelta.y < 300f)
+            {
+                rect.sizeDelta = new Vector2(350f, 350f);
+            }
+        }
+
         // Programmatically add a transparent Image if missing so this RectTransform receives UI raycasts
         UnityEngine.UI.Image uiImage = GetComponent<UnityEngine.UI.Image>();
         if (uiImage == null)
@@ -50,22 +75,19 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
         rb = GetComponent<Rigidbody>();
         grabCollider = GetComponent<SphereCollider>();
 
-        initialLocalPosition = transform.localPosition;
-        initialLocalRotation = transform.localRotation;
-        initialLocalScale = transform.localScale;
-
         // Configure Rigidbody automatically for static/kinematic XRI dragging
         rb.useGravity = false;
         rb.isKinematic = true;
 
-        // Configure XRGrabInteractable automatically for rotation dragging
+        // Configure XRGrabInteractable automatically for single-finger/hand rotation dragging
         grabInteractable.movementType = XRBaseInteractable.MovementType.VelocityTracking;
-        grabInteractable.trackPosition = false;   // Stay anchored, only rotate
-        grabInteractable.trackRotation = false;   // Rotation is calculated manually by this script
-        grabInteractable.selectMode = InteractableSelectMode.Multiple; // Support two-handed grab
+        grabInteractable.trackPosition = false;   // Stay anchored to panel, only rotate
+        grabInteractable.trackRotation = false;   // Rotation calculated manually in Update
+        grabInteractable.selectMode = InteractableSelectMode.Multiple; // Support left or right hand pinch
         grabInteractable.useDynamicAttach = true;
         grabInteractable.matchAttachPosition = true;
         grabInteractable.matchAttachRotation = true;
+        grabInteractable.interactionLayers = ~0;  // Allow all interactors (hands, rays, controllers)
 
         grabInteractable.selectEntered.AddListener(OnGrabbed);
         grabInteractable.selectExited.AddListener(OnReleased);
@@ -94,8 +116,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
         // 1. Clear previous models
         ClearModel();
 
-        // 2. Restore the spawner's original pose (a previous two-hand grab may have
-        // translated/scaled this transform away from its home under the canvas)
+        // 2. Restore the spawner's original intended layout pose
         transform.localPosition = initialLocalPosition;
         transform.localRotation = initialLocalRotation;
         transform.localScale = initialLocalScale;
@@ -104,79 +125,217 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
 
         activeArtifactId = artifactId;
 
-        // 3. Instantiate under the spawner
+        // 3. Instantiate under the spawner, floating 15cm forward in front of its intended layout position
         spawnedModel = Instantiate(prefab, transform.position, transform.rotation, transform);
         
-        spawnedModel.transform.localPosition = new Vector3(0, 0, -0.05f);
-        spawnedModel.transform.localRotation = Quaternion.identity;
-        spawnedModel.transform.localScale = Vector3.one;
+        spawnedModel.transform.localPosition = new Vector3(0f, 0f, -0.15f);
+        spawnedModel.transform.localRotation = GetUprightOrientation(prefab.name, artifactId);
 
-        // 4. Fit model bounds so it is cleanly sized ~0.3 meters wide in front of the panel
-        FitModelToBounds(spawnedModel, 0.3f);
+        // 4. Fit model bounds so it is cleanly sized ~0.25 meters wide in world space
+        FitModelToBounds(spawnedModel, 0.25f);
 
-        // 5. Resize grab collider so the model can be grabbed and rotated with hands
-        ResizeGrabCollider(spawnedModel);
+        // 5. Setup non-trigger colliders so Physics Raycasts hit the 3D model instantly
+        SetupCollidersAndInteractable(spawnedModel);
 
         return spawnedModel;
     }
 
-    /// <summary>
-    /// Scales the spawned 3D model so its largest bounding box dimension is targetSizeMeters.
-    /// </summary>
-    private void FitModelToBounds(GameObject model, float targetSizeMeters = 0.3f)
+    private Quaternion GetUprightOrientation(string prefabName, string artifactId)
+    {
+        string key = ((prefabName ?? "") + " " + (artifactId ?? "")).ToLower();
+
+        if (key.Contains("batu"))
+        {
+            // Batu Bersurat Terengganu: Stand upright and face forward toward player
+            return Quaternion.Euler(-90f, 180f, 0f);
+        }
+        if (key.Contains("songket"))
+        {
+            // Kain Songket: Stand upright and face forward toward player
+            return Quaternion.Euler(-90f, 180f, 0f);
+        }
+
+        return Quaternion.identity;
+    }
+
+    private void FitModelToBounds(GameObject model, float targetWorldSizeMeters = 0.25f)
     {
         if (model == null) return;
 
-        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return;
+        // Reset local scale to 1 to measure natural unscaled bounds
+        model.transform.localScale = Vector3.one;
 
-        Bounds b = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
+        MeshFilter[] filters = model.GetComponentsInChildren<MeshFilter>(true);
+        SkinnedMeshRenderer[] skinned = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+
+        Bounds combinedLocalBounds = new Bounds();
+        bool hasBounds = false;
+
+        foreach (MeshFilter mf in filters)
         {
-            b.Encapsulate(renderers[i].bounds);
+            if (mf == null || mf.sharedMesh == null) continue;
+            Bounds b = GetMeshBoundsInRootSpace(model.transform, mf.transform, mf.sharedMesh.bounds);
+            if (!hasBounds)
+            {
+                combinedLocalBounds = b;
+                hasBounds = true;
+            }
+            else
+            {
+                combinedLocalBounds.Encapsulate(b);
+            }
         }
 
-        float maxDimension = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
-        if (maxDimension > 0.0001f)
+        foreach (SkinnedMeshRenderer smr in skinned)
         {
-            float scaleFactor = targetSizeMeters / maxDimension;
-            model.transform.localScale *= scaleFactor;
+            if (smr == null || smr.sharedMesh == null) continue;
+            Bounds b = GetMeshBoundsInRootSpace(model.transform, smr.transform, smr.sharedMesh.bounds);
+            if (!hasBounds)
+            {
+                combinedLocalBounds = b;
+                hasBounds = true;
+            }
+            else
+            {
+                combinedLocalBounds.Encapsulate(b);
+            }
+        }
+
+        if (!hasBounds)
+        {
+            Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length > 0)
+            {
+                Bounds b = renderers[0].bounds;
+                for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+                float worldDim = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+                if (worldDim > 0.0001f)
+                {
+                    float scaleFactor = targetWorldSizeMeters / worldDim;
+                    model.transform.localScale = Vector3.one * scaleFactor;
+                }
+            }
+            return;
+        }
+
+        // 1. Re-center model geometry so it spins around its exact geometric center
+        Vector3 centerOffset = combinedLocalBounds.center;
+        if (centerOffset.sqrMagnitude > 0.00001f)
+        {
+            foreach (Transform child in model.transform)
+            {
+                child.localPosition -= centerOffset;
+            }
+            Debug.Log($"[RotateArtifact] Re-centered model '{model.name}' geometry offset by: {centerOffset}");
+        }
+
+        // 2. Scale model to targetWorldSizeMeters
+        float localMaxDim = Mathf.Max(combinedLocalBounds.size.x, Mathf.Max(combinedLocalBounds.size.y, combinedLocalBounds.size.z));
+        float spawnerScale = Mathf.Max(transform.lossyScale.x, 0.0001f);
+
+        if (localMaxDim > 0.00001f)
+        {
+            float desiredLocalScale = targetWorldSizeMeters / (localMaxDim * spawnerScale);
+
+            if (float.IsNaN(desiredLocalScale) || float.IsInfinity(desiredLocalScale) || desiredLocalScale <= 0.00001f)
+            {
+                desiredLocalScale = 1.0f;
+            }
+
+            model.transform.localScale = Vector3.one * desiredLocalScale;
+            Debug.Log($"[RotateArtifact] FitModelToBounds for '{model.name}': localMaxDim={localMaxDim}, spawnerScale={spawnerScale}, set localScale={desiredLocalScale}");
         }
     }
 
-    /// <summary>
-    /// Grows/shrinks and re-centers the grab SphereCollider to match the true world-space
-    /// bounds of the spawned model, so it can actually be pinch-grabbed by hand.
-    /// </summary>
-    private void ResizeGrabCollider(GameObject model)
+    private Bounds GetMeshBoundsInRootSpace(Transform root, Transform child, Bounds meshBounds)
     {
-        if (grabCollider == null || model == null) return;
+        Vector3 center = meshBounds.center;
+        Vector3 extents = meshBounds.extents;
 
-        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
+        Vector3[] corners = new Vector3[8]
         {
-            Debug.LogWarning("[RotateArtifact] No renderers found on spawned model!");
-            return;
+            center + new Vector3(-extents.x, -extents.y, -extents.z),
+            center + new Vector3(-extents.x, -extents.y,  extents.z),
+            center + new Vector3(-extents.x,  extents.y, -extents.z),
+            center + new Vector3(-extents.x,  extents.y,  extents.z),
+            center + new Vector3( extents.x, -extents.y, -extents.z),
+            center + new Vector3( extents.x, -extents.y,  extents.z),
+            center + new Vector3( extents.x,  extents.y, -extents.z),
+            center + new Vector3( extents.x,  extents.y,  extents.z),
+        };
+
+        Bounds rootBounds = new Bounds();
+        bool first = true;
+
+        for (int i = 0; i < 8; i++)
+        {
+            Vector3 worldCorner = child.TransformPoint(corners[i]);
+            Vector3 rootCorner = root.InverseTransformPoint(worldCorner);
+
+            if (first)
+            {
+                rootBounds = new Bounds(rootCorner, Vector3.zero);
+                first = false;
+            }
+            else
+            {
+                rootBounds.Encapsulate(rootCorner);
+            }
         }
+
+        return rootBounds;
+    }
+
+    private void SetupCollidersAndInteractable(GameObject model)
+    {
+        if (model == null) return;
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0) return;
 
         Bounds bounds = renderers[0].bounds;
         for (int i = 1; i < renderers.Length; i++)
         {
-            bounds.Encapsulate(renderers[i].bounds);
+            if (renderers[i] != null && renderers[i].enabled)
+            {
+                bounds.Encapsulate(renderers[i].bounds);
+            }
         }
 
-        float worldRadius = bounds.extents.magnitude + grabColliderPadding;
+        // 1. Spawner's SphereCollider (isTrigger = false so Physics.Raycast hits it!)
+        if (grabCollider == null) grabCollider = GetComponent<SphereCollider>();
+        if (grabCollider == null) grabCollider = gameObject.AddComponent<SphereCollider>();
+
+        float worldRadius = Mathf.Max(bounds.extents.magnitude + grabColliderPadding, 0.30f);
         float uniformScale = Mathf.Max(transform.lossyScale.x, 0.0001f);
 
         grabCollider.radius = worldRadius / uniformScale;
         grabCollider.center = transform.InverseTransformPoint(bounds.center);
+        grabCollider.isTrigger = false; // NON-TRIGGER so Physics Raycasts detect hand pinches!
 
-        Debug.Log($"[RotateArtifact] Resized grab collider: radius = {grabCollider.radius} (world radius = {worldRadius}), center = {grabCollider.center}");
+        // 2. Spawned model's BoxCollider (isTrigger = false so hand rays hit the model directly)
+        BoxCollider modelBox = model.GetComponent<BoxCollider>();
+        if (modelBox == null) modelBox = model.AddComponent<BoxCollider>();
+        modelBox.isTrigger = false; // NON-TRIGGER
+        modelBox.center = model.transform.InverseTransformPoint(bounds.center);
+        modelBox.size = model.transform.InverseTransformDirection(bounds.size * 1.3f);
+
+        // 3. Ensure Kinematic Rigidbody
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+
+        // 4. Register both colliders explicitly with XRGrabInteractable
+        if (grabInteractable != null)
+        {
+            grabInteractable.colliders.Clear();
+            grabInteractable.colliders.Add(grabCollider);
+            grabInteractable.colliders.Add(modelBox);
+            grabInteractable.interactionLayers = ~0; // All interactors
+        }
     }
 
-    /// <summary>
-    /// Clears any currently spawned model and resets state.
-    /// </summary>
     public void ClearModel()
     {
         foreach (Transform child in transform)
@@ -189,10 +348,9 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
 
     private void OnGrabbed(SelectEnterEventArgs args)
     {
-        Debug.Log($"[RotateArtifact] OnGrabbed: Grabbed by {args.interactorObject.transform.name}. Interactors count: {grabInteractable.interactorsSelecting.Count}");
-        activeInteractorsCount = 0;
+        Debug.Log($"[RotateArtifact] OnGrabbed by {args.interactorObject.transform.name}. Total selecting interactors: {grabInteractable.interactorsSelecting.Count}");
+        activeInteractorsCount = 0; // Force re-anchoring on state change
 
-        // Mark artifact completed on grab
         if (!string.IsNullOrEmpty(activeArtifactId) && ArtifactManager.Instance != null)
         {
             ArtifactManager.Instance.MarkArtifactInteracted(activeArtifactId);
@@ -201,7 +359,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
 
     private void OnReleased(SelectExitEventArgs args)
     {
-        Debug.Log($"[RotateArtifact] OnReleased: Released by {args.interactorObject.transform.name}");
+        Debug.Log($"[RotateArtifact] OnReleased by {args.interactorObject.transform.name}. Clean release.");
         activeInteractorsCount = 0;
     }
 
@@ -227,128 +385,90 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IDragHandler
             return;
         }
 
-        if (grabCount == 1)
+        // SINGLE FINGER / SINGLE HAND PINCH & DRAG ROTATION
+        var interactor = grabInteractable.interactorsSelecting[0];
+        Vector3 currentPos = GetInteractorPos(interactor);
+
+        if (activeInteractorsCount == 0)
         {
-            var interactor = grabInteractable.interactorsSelecting[0];
-            Vector3 currentPos = GetInteractorPos(interactor);
-
-            Debug.Log($"[RotateArtifact] Update single-grab: Current Position = {currentPos}, Last Position = {lastSingleInteractorPos}");
-
-            if (activeInteractorsCount != 1)
-            {
-                lastSingleInteractorPos = currentPos;
-                activeInteractorsCount = 1;
-                return;
-            }
-
-            Vector3 delta = currentPos - lastSingleInteractorPos;
             lastSingleInteractorPos = currentPos;
-
-            if (delta.sqrMagnitude < 0.000001f) return;
-
-            // Project the hand-movement delta into camera-relative directions
-            Vector3 camRight = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up).normalized;
-            Vector3 camUp = mainCamera.transform.up;
-
-            float horizontal = Vector3.Dot(delta, camRight);
-            float vertical = Vector3.Dot(delta, camUp);
-
-            // Hand moves right  → positive Y rotation (spawner spins right)
-            // Hand moves left   → negative Y rotation (spawner spins left)
-            transform.Rotate(Vector3.up, -horizontal * rotationSensitivity, Space.World);
-
-            // Hand moves up     → spawner tilts upward
-            // Hand moves down   → spawner tilts downward
-            transform.Rotate(camRight, vertical * rotationSensitivity, Space.World);
+            activeInteractorsCount = 1;
+            return;
         }
-        else if (grabCount >= 2)
-        {
-            var interactor1 = grabInteractable.interactorsSelecting[0];
-            var interactor2 = grabInteractable.interactorsSelecting[1];
 
-            Vector3 pos1 = GetInteractorPos(interactor1);
-            Vector3 pos2 = GetInteractorPos(interactor2);
+        Vector3 delta = currentPos - lastSingleInteractorPos;
+        lastSingleInteractorPos = currentPos;
 
-            Vector3 currentMidpoint = (pos1 + pos2) * 0.5f;
-            float currentDistance = Vector3.Distance(pos1, pos2);
-            Vector3 currentDir = (pos2 - pos1).normalized;
+        if (delta.sqrMagnitude < 0.000001f) return;
 
-            if (activeInteractorsCount != 2)
-            {
-                lastMidpoint = currentMidpoint;
-                lastDistance = currentDistance;
-                lastDir = currentDir;
-                activeInteractorsCount = 2;
-                return;
-            }
+        Vector3 camRight = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up).normalized;
+        Vector3 camUp = mainCamera.transform.up;
 
-            // Translate (move) the spawner with the midpoint of the hands
-            Vector3 translationDelta = currentMidpoint - lastMidpoint;
-            transform.position += translationDelta;
+        float horizontal = Vector3.Dot(delta, camRight);
+        float vertical = Vector3.Dot(delta, camUp);
 
-            // Scale (zoom) the spawner based on distance between hands
-            if (lastDistance > 0.001f && currentDistance > 0.001f)
-            {
-                float scaleRatio = currentDistance / lastDistance;
-                transform.localScale *= scaleRatio;
-            }
+        // Moving finger right -> spins model right around Y axis
+        // Moving finger left  -> spins model left around Y axis
+        transform.Rotate(Vector3.up, -horizontal * rotationSensitivity, Space.World);
 
-            // Rotate based on direction change between the two hands
-            if (lastDir.sqrMagnitude > 0.001f && currentDir.sqrMagnitude > 0.001f)
-            {
-                Quaternion handRotation = Quaternion.FromToRotation(lastDir, currentDir);
-                transform.rotation = handRotation * transform.rotation;
-            }
-
-            lastMidpoint = currentMidpoint;
-            lastDistance = currentDistance;
-            lastDir = currentDir;
-        }
+        // Moving finger up    -> tilts model upward around camera right axis
+        // Moving finger down  -> tilts model downward around camera right axis
+        transform.Rotate(camRight, vertical * rotationSensitivity, Space.World);
     }
 
     private Vector3 GetInteractorPos(IXRSelectInteractor interactor)
     {
-        // Use the interactor's actual attach/pinch point rather than its root transform.
-        // The root transform (e.g. a hand's palm/wrist anchor) can be offset from where the
-        // fingers are actually pinching, and that offset changes as the wrist rotates while
-        // walking - using the raw root position caused the held model to visibly drift/slide
-        // relative to the hands whenever the player moved.
-        return interactor.GetAttachTransform(grabInteractable).position;
+        if (interactor == null) return transform.position;
+        Transform attachT = interactor.GetAttachTransform(grabInteractable);
+        if (attachT != null) return attachT.position;
+        Component comp = interactor as Component;
+        if (comp != null) return comp.transform.position;
+        return transform.position;
     }
 
-    #region UI Pointer Handlers (For Graphic Raycasting / Trigger Dragging)
+    #region UI Pointer Handlers (For Graphic Raycasting / Single Finger Pointer Support)
     public void OnPointerDown(PointerEventData eventData)
     {
-        Debug.Log($"[RotateArtifact] OnPointerDown UI Drag start by pointer: {eventData.pointerId}");
-        
-        // Mark artifact completed on grab/drag interaction
+        Debug.Log($"[RotateArtifact] OnPointerDown: Pointer {eventData.pointerId}");
+        activePointers[eventData.pointerId] = eventData.position;
+
         if (!string.IsNullOrEmpty(activeArtifactId) && ArtifactManager.Instance != null)
         {
             ArtifactManager.Instance.MarkArtifactInteracted(activeArtifactId);
         }
     }
 
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        if (activePointers.ContainsKey(eventData.pointerId))
+        {
+            activePointers.Remove(eventData.pointerId);
+        }
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        if (activePointers.ContainsKey(eventData.pointerId))
+        {
+            activePointers.Remove(eventData.pointerId);
+        }
+    }
+
     public void OnDrag(PointerEventData eventData)
     {
-        // Drag delta in pixels
-        Vector2 delta = eventData.delta;
+        activePointers[eventData.pointerId] = eventData.position;
 
+        // Single Finger UI Pinch & Drag Rotation
+        Vector2 delta = eventData.delta;
         if (delta.sqrMagnitude < 0.0001f) return;
 
-        // Dynamic camera resolution
         if (mainCamera == null)
         {
             mainCamera = Camera.main;
-            if (mainCamera == null)
-            {
-                mainCamera = FindObjectOfType<Camera>();
-            }
+            if (mainCamera == null) mainCamera = FindObjectOfType<Camera>();
         }
 
-        // Rotate the model
-        // Dragging horizontally rotates around local Y-axis (spins it left/right)
-        // Dragging vertically rotates around the camera's right direction (tilts it up/down)
-        float sensitivity = 0.25f; // Adjust sensitivity for comfortable dragging
+        float sensitivity = 0.40f;
         transform.Rotate(Vector3.up, -delta.x * sensitivity, Space.World);
 
         if (mainCamera != null)

@@ -105,6 +105,10 @@ public class WristWatch : MonoBehaviour
         // button around even when we want it held still. World pose is preserved on detach.
         if (wristWatchButtonObj != null)
         {
+            if (wristWatchButtonObj.GetComponent<WristWatchButtonGuard>() == null)
+            {
+                wristWatchButtonObj.AddComponent<WristWatchButtonGuard>();
+            }
             if (wristWatchButtonObj.transform.localScale != Vector3.zero)
             {
                 fixedWatchScale = wristWatchButtonObj.transform.localScale;

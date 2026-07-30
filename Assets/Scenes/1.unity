@@ -1250,14 +1250,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c67b44ac5bdf6a46bda9edcacea3cee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  customFont: {fileID: 0}
-  customSlotsContainer: {fileID: 0}
-  customTrayContainer: {fileID: 0}
-  customCardPrefab: {fileID: 0}
-  customCheckAnswerButton: {fileID: 0}
-  customTitleText: {fileID: 0}
-  customFeedbackText: {fileID: 0}
-  customCloseButton: {fileID: 0}
 --- !u!114 &86617996
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1795,14 +1787,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c67b44ac5bdf6a46bda9edcacea3cee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  customFont: {fileID: 0}
-  customSlotsContainer: {fileID: 0}
-  customTrayContainer: {fileID: 0}
-  customCardPrefab: {fileID: 0}
-  customCheckAnswerButton: {fileID: 0}
-  customTitleText: {fileID: 0}
-  customFeedbackText: {fileID: 0}
-  customCloseButton: {fileID: 0}
 --- !u!114 &163024197
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8397,8 +8381,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2b62a4c233f77d48ab9c0b3e4e5b5d5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panelTemplatePrefab: {fileID: 7891610825025665133, guid: 3c7a5dfd259f0a4429ea91feb4d049a0,
-    type: 3}
+  minigameMenuPanel: {fileID: 0}
+  gameListPanel: {fileID: 0}
+  wristWatchCanvas: {fileID: 0}
 --- !u!4 &969066486
 Transform:
   m_ObjectHideFlags: 0
@@ -8895,7 +8880,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f2b62a4c233f77d48ab9c0b3e4e5b5d5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  panelTemplatePrefab: {fileID: 0}
+  minigameMenuPanel: {fileID: 0}
+  gameListPanel: {fileID: 0}
+  wristWatchCanvas: {fileID: 0}
 --- !u!224 &1034956517
 RectTransform:
   m_ObjectHideFlags: 0
@@ -13641,14 +13628,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c67b44ac5bdf6a46bda9edcacea3cee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  customFont: {fileID: 0}
-  customSlotsContainer: {fileID: 0}
-  customTrayContainer: {fileID: 0}
-  customCardPrefab: {fileID: 0}
-  customCheckAnswerButton: {fileID: 0}
-  customTitleText: {fileID: 0}
-  customFeedbackText: {fileID: 0}
-  customCloseButton: {fileID: 0}
 --- !u!114 &1669450206
 MonoBehaviour:
   m_ObjectHideFlags: 0

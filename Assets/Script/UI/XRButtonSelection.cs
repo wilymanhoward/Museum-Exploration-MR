@@ -28,6 +28,37 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
     private Vector3 targetScale;
     private Color targetColor;
 
+    private bool IsWristWatchButton()
+    {
+        if (WristWatch.Instance != null && WristWatch.Instance.wristWatchButtonObj != null)
+        {
+            if (gameObject == WristWatch.Instance.wristWatchButtonObj || transform.IsChildOf(WristWatch.Instance.wristWatchButtonObj.transform))
+            {
+                return true;
+            }
+        }
+        string n = gameObject.name.ToLower();
+        return n.Contains("wristwatch") || n.Contains("watchbutton");
+    }
+
+    public override bool IsSelectableBy(IXRSelectInteractor interactor)
+    {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(interactor))
+        {
+            return false;
+        }
+        return base.IsSelectableBy(interactor);
+    }
+
+    public override bool IsHoverableBy(IXRHoverInteractor interactor)
+    {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(interactor))
+        {
+            return false;
+        }
+        return base.IsHoverableBy(interactor);
+    }
+
     protected override void Awake()
     {
         base.Awake();
@@ -37,10 +68,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
             scaleTarget = transform;
         }
 
-        // Guard against bad hover scales. Several buttons were authored with 0.5, which makes them
-        // shrink to half on hover - so as the wrist moves and the ray flickers on/off, the button
-        // visibly pulses big/small. A hover effect should only grow slightly (or do nothing), so
-        // clamp it to a sane range: values < 1 (shrink) become 1 (no size change).
+        // Guard against bad hover scales.
         hoverScaleMultiplier = Mathf.Clamp(hoverScaleMultiplier, 1f, 1.15f);
 
         originalScale = scaleTarget.localScale;
@@ -51,6 +79,8 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         {
             buttonImage.color = normalColor;
         }
+
+        onClick.AddListener(ButtonClickAudio.PlayClickSound);
     }
 
     private void Update()
@@ -69,13 +99,12 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
 
     protected override void OnHoverEntered(HoverEnterEventArgs args)
     {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
         base.OnHoverEntered(args);
         
-        // Hand hover entered: Highlight state
         targetScale = originalScale * hoverScaleMultiplier;
         targetColor = hoverColor;
         
-        // Optional: Play a tiny haptic click in controllers if they are used
         if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
         {
             controllerInteractor.xrController.SendHapticImpulse(0.2f, 0.05f);
@@ -84,22 +113,22 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
 
     protected override void OnHoverExited(HoverExitEventArgs args)
     {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
         base.OnHoverExited(args);
         
-        // Hand hover exited: Return to normal state
         targetScale = originalScale;
         targetColor = normalColor;
     }
 
     protected override void OnSelectEntered(SelectEnterEventArgs args)
     {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
         base.OnSelectEntered(args);
         
-        // Finger tap / Pinch gesture: Trigger click
         Debug.Log($"Button Selected/Pressed: {gameObject.name}");
+        ButtonClickAudio.PlayClickSound();
         onClick.Invoke();
 
-        // Send a stronger haptic impulse on press
         if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
         {
             controllerInteractor.xrController.SendHapticImpulse(0.5f, 0.1f);
@@ -109,19 +138,23 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
     #region UI Pointer Handlers (For Graphic Raycasting / Pinching)
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
         targetScale = originalScale * hoverScaleMultiplier;
         targetColor = hoverColor;
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
         targetScale = originalScale;
         targetColor = normalColor;
     }
 
     public void OnPointerDown(PointerEventData eventData)
     {
+        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
         Debug.Log($"Button UI Clicked/Pressed: {gameObject.name}");
+        ButtonClickAudio.PlayClickSound();
         onClick.Invoke();
     }
     #endregion
