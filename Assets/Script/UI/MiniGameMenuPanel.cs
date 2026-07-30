@@ -52,6 +52,9 @@ public class MiniGameMenuPanel : MonoBehaviour
     [Tooltip("Starts the currently selected game.")]
     public Button startButton;
 
+    [Tooltip("Opens the LeaderboardPanel for the current game.")]
+    public Button leaderboardButton;
+
     [Tooltip("Opens the GameListPanel.")]
     public Button listButton;
 
@@ -85,6 +88,18 @@ public class MiniGameMenuPanel : MonoBehaviour
             currentIndex = Mathf.Clamp(currentIndex, 0, games.Length - 1);
         }
         RefreshTitle();
+        EnsureLeaderboardButtonVisible();
+    }
+
+    private void EnsureLeaderboardButtonVisible()
+    {
+        if (leaderboardButton == null)
+            leaderboardButton = FindChildButton("LeaderboardButton", "ButtonLeaderboard", "Leaderboard");
+
+        if (leaderboardButton != null && !leaderboardButton.gameObject.activeSelf)
+        {
+            leaderboardButton.gameObject.SetActive(true);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -117,6 +132,15 @@ public class MiniGameMenuPanel : MonoBehaviour
     {
         if (games == null || games.Length == 0) return;
         MiniGames.Instance?.StartGame(games[currentIndex].gamePanel);
+    }
+
+    /// <summary>Tell MiniGames to show the LeaderboardPanel for the active game selection.</summary>
+    public void ShowLeaderboard()
+    {
+        if (games == null || games.Length == 0) return;
+        string gameId = games[currentIndex].gameID;
+        string gameName = games[currentIndex].gameName;
+        MiniGames.Instance?.ShowLeaderboardPanel(gameId, gameName);
     }
 
     /// <summary>Tell MiniGames to show the GameListPanel.</summary>
@@ -172,21 +196,23 @@ public class MiniGameMenuPanel : MonoBehaviour
     private void AutoFindButtons()
     {
         // Try to find buttons by common child names if not assigned in Inspector
-        if (gameTitle    == null) gameTitle    = FindChildTMP("GameTitle", "TitleText", "GameTitleText");
-        if (previousButton == null) previousButton = FindChildButton("PreviousButton", "PrevButton", "ButtonPrev", "LeftArrow");
-        if (nextButton     == null) nextButton     = FindChildButton("NextButton",     "ButtonNext",  "RightArrow");
-        if (startButton    == null) startButton    = FindChildButton("StartButton",    "ButtonStart", "Mulai", "MulaiButton");
-        if (listButton     == null) listButton     = FindChildButton("ListButton",     "ExpandButton","ButtonList","ButtonExpand");
-        if (closeButton    == null) closeButton    = FindChildButton("CloseButton",    "ButtonClose", "CloseBtn");
+        if (gameTitle         == null) gameTitle         = FindChildTMP("GameTitle", "TitleText", "GameTitleText");
+        if (previousButton    == null) previousButton    = FindChildButton("PreviousButton", "PrevButton", "ButtonPrev", "LeftArrow");
+        if (nextButton        == null) nextButton        = FindChildButton("NextButton",     "ButtonNext",  "RightArrow");
+        if (startButton       == null) startButton       = FindChildButton("StartButton",    "ButtonStart", "Mulai", "MulaiButton");
+        if (leaderboardButton == null) leaderboardButton = FindChildButton("LeaderboardButton", "ButtonLeaderboard", "Leaderboard");
+        if (listButton        == null) listButton        = FindChildButton("ListButton",     "ExpandButton","ButtonList","ButtonExpand");
+        if (closeButton       == null) closeButton       = FindChildButton("CloseButton",    "ButtonClose", "CloseBtn");
     }
 
     private void WireButtons()
     {
-        WireButton(previousButton?.gameObject, OnPrevious);
-        WireButton(nextButton?.gameObject,     OnNext);
-        WireButton(startButton?.gameObject,    StartSelected);
-        WireButton(listButton?.gameObject,     ShowList);
-        WireButton(closeButton?.gameObject,    Close);
+        WireButton(previousButton?.gameObject,    OnPrevious);
+        WireButton(nextButton?.gameObject,        OnNext);
+        WireButton(startButton?.gameObject,       StartSelected);
+        WireButton(leaderboardButton?.gameObject, ShowLeaderboard);
+        WireButton(listButton?.gameObject,        ShowList);
+        WireButton(closeButton?.gameObject,       Close);
     }
 
     private static void WireButton(GameObject obj, UnityEngine.Events.UnityAction action)
