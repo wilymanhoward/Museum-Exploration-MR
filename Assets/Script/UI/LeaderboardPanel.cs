@@ -8,9 +8,8 @@ using TMPro;
 
 /// <summary>
 /// Controls the LeaderboardPanel UI.
-/// Fetches rankings for the selected game from Firebase Firestore REST API,
-/// updates the top 3 podium entries and rank 4-6 (or more) row items,
-/// and sets the subtitle to the active game name.
+/// Supports game-specific local high scores (PlayerPrefs) and Firebase Firestore REST API rankings.
+/// Compares player completion times (fastest time = 1st place).
 /// </summary>
 public class LeaderboardPanel : MonoBehaviour
 {
@@ -23,7 +22,7 @@ public class LeaderboardPanel : MonoBehaviour
     {
         [Tooltip("Text displaying player name.")]
         public TMP_Text nameText;
-        [Tooltip("Text displaying player score.")]
+        [Tooltip("Text displaying player score/time.")]
         public TMP_Text scoreText;
     }
 
@@ -31,8 +30,22 @@ public class LeaderboardPanel : MonoBehaviour
     public class LeaderboardEntry
     {
         public string name;
-        public int score;
+        public float timeSeconds;
+        public string formattedScore;
         public string gameID;
+    }
+
+    [System.Serializable]
+    public class LocalEntry
+    {
+        public string name;
+        public float timeSeconds;
+    }
+
+    [System.Serializable]
+    private class LocalEntryListWrapper
+    {
+        public List<LocalEntry> entries = new List<LocalEntry>();
     }
 
     [Header("Firebase Config")]
@@ -94,16 +107,146 @@ public class LeaderboardPanel : MonoBehaviour
             subtitleText.text = string.IsNullOrEmpty(currentGameName) ? currentGameId : currentGameName;
         }
 
-        // 2. Clear / Reset UI to '-' placeholders
-        ResetUIPlaceholders();
+        // 2. Load Local Entries first (instant response)
+        List<LeaderboardEntry> localDisplayEntries = GetLocalDisplayEntries(currentGameId);
+        DisplayLeaderboard(localDisplayEntries);
 
-        // 3. Fetch from Firebase Firestore
+        // 3. Fetch from Firebase Firestore in background
         StopAllCoroutines();
         StartCoroutine(FetchLeaderboardCoroutine());
     }
 
     /// <summary>
-    /// Resets all podium and row text slots to '-' when loading or if no player exists.
+    /// Saves a player's completion time for a mini-game and updates the leaderboard.
+    /// </summary>
+    public static void SavePlayerTime(string gameId, string playerName, float timeInSeconds)
+    {
+        if (string.IsNullOrEmpty(gameId) || timeInSeconds <= 0f) return;
+
+        string cleanGameId = gameId.Trim().ToLower();
+        string key = $"LocalLeaderboard_{cleanGameId}";
+
+        List<LocalEntry> entries = LoadLocalEntries(cleanGameId);
+
+        LocalEntry newEntry = new LocalEntry
+        {
+            name = string.IsNullOrWhiteSpace(playerName) ? "Anda" : playerName,
+            timeSeconds = timeInSeconds
+        };
+
+        entries.Add(newEntry);
+        // Sort by fastest time ascending (lowest time = 1st place)
+        entries.Sort((a, b) => a.timeSeconds.CompareTo(b.timeSeconds));
+
+        if (entries.Count > 10) entries.RemoveRange(10, entries.Count - 10);
+
+        // Save to PlayerPrefs
+        LocalEntryListWrapper wrapper = new LocalEntryListWrapper { entries = entries };
+        string json = JsonUtility.ToJson(wrapper);
+        PlayerPrefs.SetString(key, json);
+        PlayerPrefs.Save();
+
+        Debug.Log($"[Leaderboard] Saved local time for '{cleanGameId}': {playerName} - {FormatTime(timeInSeconds)}");
+
+        // Asynchronously post to Firestore
+        if (Instance != null)
+        {
+            Instance.StartCoroutine(PostScore(cleanGameId, newEntry.name, Mathf.RoundToInt(timeInSeconds)));
+        }
+    }
+
+    private static List<LocalEntry> LoadLocalEntries(string gameId)
+    {
+        string cleanGameId = (gameId ?? "").Trim().ToLower();
+        string key = $"LocalLeaderboard_{cleanGameId}";
+        string json = PlayerPrefs.GetString(key, "");
+
+        if (!string.IsNullOrEmpty(json))
+        {
+            try
+            {
+                LocalEntryListWrapper wrapper = JsonUtility.FromJson<LocalEntryListWrapper>(json);
+                if (wrapper != null && wrapper.entries != null && wrapper.entries.Count > 0)
+                {
+                    return wrapper.entries;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[Leaderboard] Failed to parse local PlayerPrefs JSON: {ex.Message}");
+            }
+        }
+
+        // Return default sample entries if no local entries exist
+        return GetDefaultSampleEntries(cleanGameId);
+    }
+
+    private static List<LocalEntry> GetDefaultSampleEntries(string gameId)
+    {
+        List<LocalEntry> sample = new List<LocalEntry>();
+        string gid = (gameId ?? "").ToLower();
+
+        if (gid.Contains("game_1") || gid.Contains("guess") || gid.Contains("bayangan"))
+        {
+            sample.Add(new LocalEntry { name = "Howard", timeSeconds = 24f });
+            sample.Add(new LocalEntry { name = "Nelsen", timeSeconds = 31f });
+            sample.Add(new LocalEntry { name = "Celyne", timeSeconds = 38f });
+            sample.Add(new LocalEntry { name = "Stephanie", timeSeconds = 45f });
+            sample.Add(new LocalEntry { name = "Michael", timeSeconds = 53f });
+        }
+        else if (gid.Contains("game_2") || gid.Contains("order") || gid.Contains("batik"))
+        {
+            sample.Add(new LocalEntry { name = "Rayhan", timeSeconds = 28f });
+            sample.Add(new LocalEntry { name = "Howard", timeSeconds = 35f });
+            sample.Add(new LocalEntry { name = "Siti", timeSeconds = 42f });
+            sample.Add(new LocalEntry { name = "Ahmad", timeSeconds = 49f });
+            sample.Add(new LocalEntry { name = "Farhan", timeSeconds = 58f });
+        }
+        else
+        {
+            sample.Add(new LocalEntry { name = "Pemain #1", timeSeconds = 30f });
+            sample.Add(new LocalEntry { name = "Pemain #2", timeSeconds = 40f });
+            sample.Add(new LocalEntry { name = "Pemain #3", timeSeconds = 50f });
+            sample.Add(new LocalEntry { name = "Pemain #4", timeSeconds = 60f });
+            sample.Add(new LocalEntry { name = "Pemain #5", timeSeconds = 70f });
+        }
+
+        return sample;
+    }
+
+    private static List<LeaderboardEntry> GetLocalDisplayEntries(string gameId)
+    {
+        List<LocalEntry> local = LoadLocalEntries(gameId);
+        List<LeaderboardEntry> display = new List<LeaderboardEntry>();
+
+        foreach (LocalEntry e in local)
+        {
+            display.Add(new LeaderboardEntry
+            {
+                name = e.name,
+                timeSeconds = e.timeSeconds,
+                formattedScore = FormatTime(e.timeSeconds),
+                gameID = gameId
+            });
+        }
+
+        return display;
+    }
+
+    public static string FormatTime(float totalSeconds)
+    {
+        if (totalSeconds <= 0f) return "-";
+        int mins = Mathf.FloorToInt(totalSeconds / 60f);
+        int secs = Mathf.FloorToInt(totalSeconds % 60f);
+        if (mins > 0)
+        {
+            return $"{mins:D2}:{secs:D2}m";
+        }
+        return $"{secs:D2}s";
+    }
+
+    /// <summary>
+    /// Resets all podium and row text slots to '-' when loading.
     /// </summary>
     public void ResetUIPlaceholders()
     {
@@ -124,7 +267,6 @@ public class LeaderboardPanel : MonoBehaviour
     {
         string baseUrl = string.IsNullOrEmpty(firestoreUrl) ? DefaultFirestoreUrl : firestoreUrl;
         
-        // Try fetching game-specific collection first (leaderboard_{gameID})
         string primaryUrl = $"{baseUrl}/leaderboard_{currentGameId}";
         string fallbackUrl = $"{baseUrl}/leaderboard";
 
@@ -141,7 +283,6 @@ public class LeaderboardPanel : MonoBehaviour
             }
         }
 
-        // If game-specific collection was empty or returned 0 entries, try the shared 'leaderboard' collection
         if (fetchedEntries.Count == 0)
         {
             using (UnityWebRequest reqFallback = UnityWebRequest.Get(fallbackUrl))
@@ -156,30 +297,31 @@ public class LeaderboardPanel : MonoBehaviour
             }
         }
 
-        // Sort entries by score descending (highest score = 1st place)
-        fetchedEntries.Sort((a, b) => b.score.CompareTo(a.score));
-
-        // Display scores on UI
-        DisplayLeaderboard(fetchedEntries);
+        if (fetchedEntries.Count > 0)
+        {
+            // Sort by fastest completion time ascending (lowest score/time = 1st place)
+            fetchedEntries.Sort((a, b) => a.timeSeconds.CompareTo(b.timeSeconds));
+            DisplayLeaderboard(fetchedEntries);
+        }
     }
 
     private void DisplayLeaderboard(List<LeaderboardEntry> entries)
     {
         // 1st Place
         if (entries.Count > 0 && entries[0] != null)
-            SetSlotUI(firstPlaceSlot, entries[0].name, entries[0].score.ToString());
+            SetSlotUI(firstPlaceSlot, entries[0].name, GetFormattedOrScore(entries[0]));
         else
             SetSlotUI(firstPlaceSlot, "-", "-");
 
         // 2nd Place
         if (entries.Count > 1 && entries[1] != null)
-            SetSlotUI(secondPlaceSlot, entries[1].name, entries[1].score.ToString());
+            SetSlotUI(secondPlaceSlot, entries[1].name, GetFormattedOrScore(entries[1]));
         else
             SetSlotUI(secondPlaceSlot, "-", "-");
 
         // 3rd Place
         if (entries.Count > 2 && entries[2] != null)
-            SetSlotUI(thirdPlaceSlot, entries[2].name, entries[2].score.ToString());
+            SetSlotUI(thirdPlaceSlot, entries[2].name, GetFormattedOrScore(entries[2]));
         else
             SetSlotUI(thirdPlaceSlot, "-", "-");
 
@@ -191,7 +333,7 @@ public class LeaderboardPanel : MonoBehaviour
                 int entryIndex = i + 3; // 4th place is index 3
                 if (entryIndex < entries.Count && entries[entryIndex] != null)
                 {
-                    SetSlotUI(rowSlots[i], entries[entryIndex].name, entries[entryIndex].score.ToString());
+                    SetSlotUI(rowSlots[i], entries[entryIndex].name, GetFormattedOrScore(entries[entryIndex]));
                 }
                 else
                 {
@@ -199,6 +341,13 @@ public class LeaderboardPanel : MonoBehaviour
                 }
             }
         }
+    }
+
+    private string GetFormattedOrScore(LeaderboardEntry entry)
+    {
+        if (entry == null) return "-";
+        if (!string.IsNullOrEmpty(entry.formattedScore)) return entry.formattedScore;
+        return FormatTime(entry.timeSeconds);
     }
 
     private void SetSlotUI(LeaderboardSlotUI slot, string playerName, string scoreStr)
@@ -216,7 +365,6 @@ public class LeaderboardPanel : MonoBehaviour
         List<LeaderboardEntry> results = new List<LeaderboardEntry>();
         if (string.IsNullOrEmpty(json) || json == "null" || json == "{}" || json == "[]") return results;
 
-        // Split JSON by "fields" or document objects
         string[] docs = json.Split(new string[] { "\"fields\":" }, StringSplitOptions.RemoveEmptyEntries);
 
         for (int i = 1; i < docs.Length; i++)
@@ -240,10 +388,10 @@ public class LeaderboardPanel : MonoBehaviour
                 }
             }
 
-            // 2. Extract Score (supports integerValue, doubleValue, stringValue)
-            int score = 0;
+            // 2. Extract Score (time in seconds)
+            float timeSec = 0f;
             int scoreIdx = doc.IndexOf("\"score\":");
-            if (scoreIdx == -1) scoreIdx = doc.IndexOf("\"time\":"); // Fallback check for time field
+            if (scoreIdx == -1) scoreIdx = doc.IndexOf("\"time\":");
 
             if (scoreIdx != -1)
             {
@@ -273,13 +421,13 @@ public class LeaderboardPanel : MonoBehaviour
                         string scoreStr = doc.Substring(start, end - start);
                         if (float.TryParse(scoreStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float parsedVal))
                         {
-                            score = Mathf.RoundToInt(parsedVal);
+                            timeSec = parsedVal;
                         }
                     }
                 }
             }
 
-            // 3. Extract Game ID (optional filter if entries come from a shared 'leaderboard' collection)
+            // 3. Extract Game ID
             string entryGameId = "";
             int gameIdIdx = doc.IndexOf("\"gameID\":");
             if (gameIdIdx == -1) gameIdIdx = doc.IndexOf("\"game_id\":");
@@ -297,15 +445,20 @@ public class LeaderboardPanel : MonoBehaviour
                 }
             }
 
-            // Filter if gameID is specified in the doc and doesn't match target
             if (!string.IsNullOrEmpty(entryGameId) && !string.IsNullOrEmpty(targetGameId) && entryGameId != targetGameId)
             {
                 continue;
             }
 
-            if (!string.IsNullOrEmpty(name))
+            if (!string.IsNullOrEmpty(name) && timeSec > 0f)
             {
-                results.Add(new LeaderboardEntry { name = name, score = score, gameID = entryGameId });
+                results.Add(new LeaderboardEntry 
+                { 
+                    name = name, 
+                    timeSeconds = timeSec,
+                    formattedScore = FormatTime(timeSec),
+                    gameID = entryGameId 
+                });
             }
         }
 
@@ -322,7 +475,6 @@ public class LeaderboardPanel : MonoBehaviour
         string safeName = string.IsNullOrWhiteSpace(playerName) ? "Player" : playerName.Replace("\\", "\\\\").Replace("\"", "\\\"");
         string json = $"{{\"fields\":{{\"name\":{{\"stringValue\":\"{safeName}\"}},\"score\":{{\"integerValue\":\"{score}\"}},\"gameID\":{{\"stringValue\":\"{gameID}\"}}}}}}";
 
-        // Post to game specific collection
         string postUrl = $"{firestoreUrl}/leaderboard_{gameID}";
 
         using (UnityWebRequest req = new UnityWebRequest(postUrl, "POST"))
@@ -383,7 +535,6 @@ public class LeaderboardPanel : MonoBehaviour
         {
             List<LeaderboardSlotUI> foundRows = new List<LeaderboardSlotUI>();
 
-            // Try to find Row4/Stephanie, Row5/Michael, Row6/Rayhan or 4, 5, 6
             LeaderboardSlotUI r4 = FindSlotUI("4", "Stephanie", "Row4", "Item4");
             LeaderboardSlotUI r5 = FindSlotUI("5", "Michael", "Row5", "Item5");
             LeaderboardSlotUI r6 = FindSlotUI("6", "Rayhan", "Row6", "Item6");
@@ -411,7 +562,6 @@ public class LeaderboardPanel : MonoBehaviour
 
                 if (texts.Length >= 2)
                 {
-                    // If 2 texts: [0] = name, [1] = score
                     slot.nameText = texts[0];
                     slot.scoreText = texts[1];
                 }

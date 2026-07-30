@@ -3,19 +3,15 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Base class for all mini-game panels (Game1Panel, Game2Panel, Game3Panel, …).
-/// Provides a Close button that returns the player to MiniGameMenuPanel.
-///
-/// Usage:
-///   - Attach a subclass (e.g. Game1GuessName : BaseGame) to the game panel GameObject.
-///   - Assign the close button in the Inspector, OR name it "CloseButton" / "ButtonClose"
-///     and it will be found automatically.
-///   - Override OnGameStart() and OnGameEnd() to initialise / clean up your game state.
+/// Provides game timer tracking, leaderboard presentation on completion, and a Close button that returns the player to MiniGameMenuPanel.
 /// </summary>
 public class BaseGame : MonoBehaviour
 {
     [Header("Close Button (auto-found by name if left empty)")]
     [Tooltip("Button that returns the player to the mini-game menu.")]
     public Button closeButton;
+
+    protected float gameStartTime = 0f;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unity
@@ -47,7 +43,8 @@ public class BaseGame : MonoBehaviour
     /// </summary>
     public virtual void OnGameStart()
     {
-        Debug.Log($"{GetType().Name}: OnGameStart");
+        gameStartTime = Time.time;
+        Debug.Log($"{GetType().Name}: OnGameStart at t={gameStartTime}");
     }
 
     /// <summary>
@@ -59,13 +56,46 @@ public class BaseGame : MonoBehaviour
         Debug.Log($"{GetType().Name}: OnGameEnd");
     }
 
+    public float GetElapsedTimeSeconds()
+    {
+        return Mathf.Max(0.1f, Time.time - gameStartTime);
+    }
+
+    /// <summary>
+    /// Call when a mini-game is completed. Saves player completion time and opens the LeaderboardPanel for this game.
+    /// </summary>
+    public void FinishGameAndShowLeaderboard(string gameId, string gameName)
+    {
+        float totalTime = GetElapsedTimeSeconds();
+        Debug.Log($"{GetType().Name}: Completed '{gameName}' ({gameId}) in {totalTime:F2} seconds!");
+
+        // 1. Save Player Completion Time
+        LeaderboardPanel.SavePlayerTime(gameId, "Anda", totalTime);
+
+        // 2. Hide game panel & open Leaderboard panel
+        gameObject.SetActive(false);
+
+        if (MiniGames.Instance != null)
+        {
+            MiniGames.Instance.ShowLeaderboardPanel(gameId, gameName);
+        }
+        else
+        {
+            LeaderboardPanel lb = FindObjectOfType<LeaderboardPanel>(true);
+            if (lb != null)
+            {
+                lb.gameObject.SetActive(true);
+                lb.LoadLeaderboard(gameId, gameName);
+            }
+        }
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Close / Back
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Deactivates this game panel and returns to the mini-game menu.
-    /// Override for custom close behaviour (e.g. stop coroutines before hiding).
     /// </summary>
     public virtual void OnClose()
     {

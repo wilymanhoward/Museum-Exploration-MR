@@ -159,6 +159,17 @@ public class Game2OrderProcess : BaseGame
                     cardComp = obj.AddComponent<DraggableProcessCard>();
                 }
 
+                TMP_Text label = obj.GetComponentInChildren<TMP_Text>(true);
+                if (label != null)
+                {
+                    label.enableAutoSizing = true;
+                    label.fontSizeMin = 8f;
+                    label.fontSizeMax = 18f;
+                    label.enableWordWrapping = true;
+                    label.overflowMode = TextOverflowModes.Ellipsis;
+                    label.alignment = TextAlignmentOptions.Center;
+                }
+
                 int stepIdx = GetStepIndexFromName(obj.name, i);
                 cardComp.Setup(this, stepIdx);
                 cards.Add(cardComp);
@@ -448,7 +459,8 @@ public class Game2OrderProcess : BaseGame
             Debug.Log("Game2OrderProcess: Player guessed CORRECT! Game ending.");
             if (wrongText != null) wrongText.SetActive(false);
 
-            OnClose();
+            // Show Game 2 Leaderboard with player completion time!
+            FinishGameAndShowLeaderboard("game_2", "Susun Proses Pembuatan Batik");
         }
         else
         {

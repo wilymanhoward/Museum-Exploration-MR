@@ -12,7 +12,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
     public float rotationSensitivity = 500f;
 
     [Tooltip("Padding added around the spawned model's bounds when sizing the grab collider, in meters.")]
-    public float grabColliderPadding = 0.15f;
+    public float grabColliderPadding = 0.05f;
 
     private XRGrabInteractable grabInteractable;
     private Rigidbody rb;
@@ -56,9 +56,9 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         RectTransform rect = GetComponent<RectTransform>();
         if (rect != null)
         {
-            if (rect.sizeDelta.x < 300f || rect.sizeDelta.y < 300f)
+            if (rect.sizeDelta.x < 200f || rect.sizeDelta.y < 200f)
             {
-                rect.sizeDelta = new Vector2(350f, 350f);
+                rect.sizeDelta = new Vector2(240f, 240f);
             }
         }
 
@@ -76,21 +76,37 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         grabCollider = GetComponent<SphereCollider>();
 
         // Configure Rigidbody automatically for static/kinematic XRI dragging
-        rb.useGravity = false;
-        rb.isKinematic = true;
+        if (rb != null)
+        {
+            rb.useGravity = false;
+            rb.isKinematic = true;
+            rb.constraints = RigidbodyConstraints.FreezeAll; // Freeze physical position/rotation changes
+        }
 
         // Configure XRGrabInteractable automatically for single-finger/hand rotation dragging
-        grabInteractable.movementType = XRBaseInteractable.MovementType.VelocityTracking;
-        grabInteractable.trackPosition = false;   // Stay anchored to panel, only rotate
-        grabInteractable.trackRotation = false;   // Rotation calculated manually in Update
-        grabInteractable.selectMode = InteractableSelectMode.Multiple; // Support left or right hand pinch
-        grabInteractable.useDynamicAttach = true;
-        grabInteractable.matchAttachPosition = true;
-        grabInteractable.matchAttachRotation = true;
-        grabInteractable.interactionLayers = ~0;  // Allow all interactors (hands, rays, controllers)
+        if (grabInteractable != null)
+        {
+            grabInteractable.movementType = XRBaseInteractable.MovementType.VelocityTracking;
+            grabInteractable.trackPosition = false;   // Stay anchored to panel, only rotate
+            grabInteractable.trackRotation = false;   // Rotation calculated manually in Update
+            grabInteractable.selectMode = InteractableSelectMode.Multiple; // Support left or right hand pinch
+            grabInteractable.useDynamicAttach = false; // Do NOT snap transform to hand attach pose on pinch!
+            grabInteractable.matchAttachPosition = false; // Prevents 3D artifact from jumping/disappearing on pinch!
+            grabInteractable.matchAttachRotation = false;
+            grabInteractable.interactionLayers = ~0;  // Allow all interactors (hands, rays, controllers)
 
-        grabInteractable.selectEntered.AddListener(OnGrabbed);
-        grabInteractable.selectExited.AddListener(OnReleased);
+            grabInteractable.selectEntered.AddListener(OnGrabbed);
+            grabInteractable.selectExited.AddListener(OnReleased);
+        }
+    }
+
+    private void LateUpdate()
+    {
+        // Enforce fixed local position - prevents ANY direct touch interactor or physics event from moving 3D model off the panel!
+        if (transform.localPosition != initialLocalPosition)
+        {
+            transform.localPosition = initialLocalPosition;
+        }
     }
 
     private void Start()
@@ -111,7 +127,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         }
     }
 
-    public GameObject SpawnModel(GameObject prefab, string artifactId)
+    public GameObject SpawnModel(GameObject prefab, string artifactId, float targetSizeMeters = 0.22f)
     {
         // 1. Clear previous models
         ClearModel();
@@ -139,12 +155,12 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         spawnedModel.transform.localRotation = GetUprightOrientation(prefab.name, artifactId);
 
         // 4. Determine target world size in meters
-        float targetSize = GetTargetWorldSize(key);
+        float targetSize = targetSizeMeters > 0f ? targetSizeMeters : GetTargetWorldSize(key);
 
         // 5. Fit model bounds and align geometric center at (0, 0, -0.15f) in spawner space
         FitModelToBounds(spawnedModel, targetSize);
 
-        // 6. Setup non-trigger colliders so Physics Raycasts hit the 3D model instantly
+        // 6. Setup colliders so raycasts can detect model without blocking UI buttons below
         SetupCollidersAndInteractable(spawnedModel);
 
         return spawnedModel;
@@ -167,9 +183,9 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             // Batu Bersurat Terengganu: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
-        if (key.Contains("songket") || key.Contains("batik"))
+        if (key.Contains("songket"))
         {
-            // Kain Songket / Batik: Stand upright and face forward toward player
+            // Kain Songket: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
         if (key.Contains("gamelan") || key.Contains("gamelen"))
@@ -177,21 +193,16 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             // Gamelan Terengganu: Rotate 180 degrees around Y so instrument faces forward toward player
             return Quaternion.Euler(0f, 180f, 0f);
         }
-        if (key.Contains("wayang"))
-        {
-            return Quaternion.Euler(0f, 180f, 0f);
-        }
 
         return Quaternion.identity;
     }
 
-    private void FitModelToBounds(GameObject model, float targetWorldSizeMeters = 0.18f)
+    private void FitModelToBounds(GameObject model, float targetWorldSizeMeters = 0.22f)
     {
         if (model == null) return;
 
-        // Reset local scale and position to measure natural unscaled bounds
+        // Reset local scale to 1 to measure natural unscaled bounds
         model.transform.localScale = Vector3.one;
-        model.transform.localPosition = Vector3.zero;
 
         MeshFilter[] filters = model.GetComponentsInChildren<MeshFilter>(true);
         SkinnedMeshRenderer[] skinned = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
@@ -336,29 +347,30 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             }
         }
 
-        // 1. Spawner's SphereCollider (isTrigger = false so Physics.Raycast hits it!)
+        // 1. Spawner's SphereCollider (isTrigger = true so UI buttons below receive raycasts cleanly)
         if (grabCollider == null) grabCollider = GetComponent<SphereCollider>();
         if (grabCollider == null) grabCollider = gameObject.AddComponent<SphereCollider>();
 
-        float worldRadius = Mathf.Max(bounds.extents.magnitude + grabColliderPadding, 0.30f);
+        float worldRadius = Mathf.Max(bounds.extents.magnitude, 0.12f);
         float uniformScale = Mathf.Max(transform.lossyScale.x, 0.0001f);
 
         grabCollider.radius = worldRadius / uniformScale;
         grabCollider.center = transform.InverseTransformPoint(bounds.center);
-        grabCollider.isTrigger = false; // NON-TRIGGER so Physics Raycasts detect hand pinches!
+        grabCollider.isTrigger = true; // TRIGGER so UI buttons below receive raycasts cleanly!
 
-        // 2. Spawned model's BoxCollider (isTrigger = false so hand rays hit the model directly)
+        // 2. Spawned model's BoxCollider (isTrigger = true so UI raycasts pass to buttons below)
         BoxCollider modelBox = model.GetComponent<BoxCollider>();
         if (modelBox == null) modelBox = model.AddComponent<BoxCollider>();
-        modelBox.isTrigger = false; // NON-TRIGGER
+        modelBox.isTrigger = true; // TRIGGER so UI raycasts pass to buttons below!
         modelBox.center = model.transform.InverseTransformPoint(bounds.center);
-        modelBox.size = model.transform.InverseTransformDirection(bounds.size * 1.3f);
+        modelBox.size = model.transform.InverseTransformDirection(bounds.size);
 
         // 3. Ensure Kinematic Rigidbody
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
         rb.isKinematic = true;
         rb.useGravity = false;
+        rb.constraints = RigidbodyConstraints.FreezeAll;
 
         // 4. Register both colliders explicitly with XRGrabInteractable
         if (grabInteractable != null)
@@ -441,13 +453,11 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         float horizontal = Vector3.Dot(delta, camRight);
         float vertical = Vector3.Dot(delta, camUp);
 
-        // Moving finger right -> spins model right around Y axis
-        // Moving finger left  -> spins model left around Y axis
-        transform.Rotate(Vector3.up, -horizontal * rotationSensitivity, Space.World);
+        // Rotate spawnedModel directly so the object NEVER hides or moves off-screen!
+        Transform targetTransform = spawnedModel != null ? spawnedModel.transform : transform;
 
-        // Moving finger up    -> tilts model upward around camera right axis
-        // Moving finger down  -> tilts model downward around camera right axis
-        transform.Rotate(camRight, vertical * rotationSensitivity, Space.World);
+        targetTransform.Rotate(Vector3.up, -horizontal * rotationSensitivity, Space.World);
+        targetTransform.Rotate(camRight, vertical * rotationSensitivity, Space.World);
     }
 
     private Vector3 GetInteractorPos(IXRSelectInteractor interactor)
@@ -503,12 +513,15 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         }
 
         float sensitivity = 0.40f;
-        transform.Rotate(Vector3.up, -delta.x * sensitivity, Space.World);
+        // Rotate spawnedModel directly so the object NEVER hides or moves off-screen!
+        Transform targetTransform = spawnedModel != null ? spawnedModel.transform : transform;
+
+        targetTransform.Rotate(Vector3.up, -delta.x * sensitivity, Space.World);
 
         if (mainCamera != null)
         {
             Vector3 camRight = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up).normalized;
-            transform.Rotate(camRight, delta.y * sensitivity, Space.World);
+            targetTransform.Rotate(camRight, delta.y * sensitivity, Space.World);
         }
     }
     #endregion

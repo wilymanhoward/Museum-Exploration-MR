@@ -191,6 +191,12 @@ public class MiniGameMenuPanel : MonoBehaviour
     {
         if (gameTitle == null || games == null || games.Length == 0) return;
         gameTitle.text = games[currentIndex].gameName;
+        gameTitle.enableAutoSizing = true;
+        gameTitle.fontSizeMin = 10f;
+        gameTitle.fontSizeMax = 24f;
+        gameTitle.enableWordWrapping = true;
+        gameTitle.overflowMode = TextOverflowModes.Ellipsis;
+        gameTitle.alignment = TextAlignmentOptions.Center;
     }
 
     private void AutoFindButtons()

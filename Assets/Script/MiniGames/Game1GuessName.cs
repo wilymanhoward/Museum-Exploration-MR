@@ -7,7 +7,7 @@ using TMPro;
 /// <summary>
 /// Mini-Game 1: "Tebak Bayangan Artefak".
 /// Inherits from BaseGame.
-/// All UI references, buttons, panels, and silhouette material are assigned via the Inspector.
+/// All UI references, buttons, panels, and silhouette material are assigned via the Inspector or auto-resolved.
 /// </summary>
 public class Game1GuessName : BaseGame
 {
@@ -36,7 +36,6 @@ public class Game1GuessName : BaseGame
 
     [Tooltip("Prefab for option choice buttons to instantiate inside guessList.")]
     public GameObject optionButtonPrefab;
-
 
     [Tooltip("'Periksa Jawaban' Check Button.")]
     public Button checkAnswerButton;
@@ -75,6 +74,7 @@ public class Game1GuessName : BaseGame
     private Dictionary<Renderer, Material[]> originalMaterialsMap = new Dictionary<Renderer, Material[]>();
 
     private string selectedAnswerName = "";
+    private List<GameObject> spawnedDynamicButtons = new List<GameObject>();
 
     // ─────────────────────────────────────────────────────────────────────────
     // BaseGame Overrides & Unity Lifecycle
@@ -83,6 +83,7 @@ public class Game1GuessName : BaseGame
     protected override void Awake()
     {
         base.Awake();
+        EnsureModelSpawnerPivot();
         WireStaticButtons();
     }
 
@@ -98,6 +99,7 @@ public class Game1GuessName : BaseGame
         score = 0;
         usedArtifacts.Clear();
 
+        EnsureModelSpawnerPivot();
         LoadArtifactsWith3DModels();
         StartRound(currentRound);
     }
@@ -220,15 +222,103 @@ public class Game1GuessName : BaseGame
         }
         else
         {
-            // 5 rounds finished -> Return to main mini-game menu
+            // 5 rounds finished -> Show Game 1 Leaderboard with player completion time!
             Debug.Log($"Game 1 Complete! Final score: {score}/{totalRounds}");
-            OnClose();
+            FinishGameAndShowLeaderboard("game_1", "Tebak Bayangan Artefak");
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // 3D Model Spawning & Silhouette Material Logic
+    // 3D Model Resolution & Spawning Logic
     // ─────────────────────────────────────────────────────────────────────────
+
+    public GameObject GetModelPrefab(ArtifactData data)
+    {
+        if (data == null) return null;
+        if (data.modelPrefab != null) return data.modelPrefab;
+
+        string id = data.artifactId != null ? data.artifactId.ToLower() : "";
+        string name = data.artifactName != null ? data.artifactName.ToLower() : "";
+
+        // 1. Direct ID / Name lookup in Resources/Models
+        GameObject model = Resources.Load<GameObject>($"Models/{data.artifactId}") ??
+                           Resources.Load<GameObject>($"Models/model_{data.artifactId}") ??
+                           Resources.Load<GameObject>($"Models/model_artifact_{data.artifactId}");
+        if (model != null) return model;
+
+        // 2. Keyword fallback matching for Batu, Songket, Keris, Gamelan, Wayang
+        if (id.Contains("batu") || name.Contains("batu"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_batu") ??
+                    Resources.Load<GameObject>("Models/Batu") ??
+                    Resources.Load<GameObject>("Prefabs/model_artifact_batu");
+            if (model != null) return model;
+        }
+        if (id.Contains("songket") || name.Contains("songket"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_songket") ??
+                    Resources.Load<GameObject>("Models/Songket") ??
+                    Resources.Load<GameObject>("Prefabs/model_artifact_songket");
+            if (model != null) return model;
+        }
+        if (id.Contains("keris") || name.Contains("keris"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_keris") ??
+                    Resources.Load<GameObject>("Models/Keris") ??
+                    Resources.Load<GameObject>("Prefabs/model_artifact_keris");
+            if (model != null) return model;
+        }
+        if (id.Contains("gamelan") || name.Contains("gamelan"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_gamelan") ??
+                    Resources.Load<GameObject>("Models/Gamelen") ??
+                    Resources.Load<GameObject>("Prefabs/model_artifact_gamelan");
+            if (model != null) return model;
+        }
+        if (id.Contains("wayang") || name.Contains("wayang"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_wayang") ??
+                    Resources.Load<GameObject>("Models/Wayang") ??
+                    Resources.Load<GameObject>("Prefabs/model_artifact_wayang");
+            if (model != null) return model;
+        }
+
+        return null;
+    }
+
+    private void EnsureModelSpawnerPivot()
+    {
+        if (modelSpawnerPivot != null) return;
+
+        // Search for ObjectSpawner under this game panel
+        Transform spawner = transform.Find("ObjectSpawner") 
+                         ?? transform.Find("3DViewPanel/ObjectSpawner") 
+                         ?? transform.Find("ModelSpawnerPivot")
+                         ?? transform.Find("Spawner");
+
+        if (spawner == null)
+        {
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "ObjectSpawner" || t.name.Contains("Spawner") || t.name.Contains("Pivot"))
+                {
+                    spawner = t;
+                    break;
+                }
+            }
+        }
+
+        if (spawner == null)
+        {
+            // Create ObjectSpawner dynamically in center of panel
+            GameObject newSpawner = new GameObject("ObjectSpawner");
+            newSpawner.transform.SetParent(transform, false);
+            newSpawner.transform.localPosition = new Vector3(0f, 0f, 0f);
+            spawner = newSpawner.transform;
+        }
+
+        modelSpawnerPivot = spawner;
+    }
 
     private void LoadArtifactsWith3DModels()
     {
@@ -238,7 +328,7 @@ public class Game1GuessName : BaseGame
         ArtifactData[] resArtifacts = Resources.LoadAll<ArtifactData>("");
         foreach (ArtifactData art in resArtifacts)
         {
-            if (art != null && art.modelPrefab != null && !availableArtifacts.Contains(art))
+            if (art != null && GetModelPrefab(art) != null && !availableArtifacts.Contains(art))
             {
                 availableArtifacts.Add(art);
             }
@@ -253,7 +343,7 @@ public class Game1GuessName : BaseGame
                 {
                     foreach (ArtifactData art in room.artifacts)
                     {
-                        if (art != null && art.modelPrefab != null && !availableArtifacts.Contains(art))
+                        if (art != null && GetModelPrefab(art) != null && !availableArtifacts.Contains(art))
                         {
                             availableArtifacts.Add(art);
                         }
@@ -287,7 +377,17 @@ public class Game1GuessName : BaseGame
         ClearSpawnedModel();
         originalMaterialsMap.Clear();
 
-        if (modelSpawnerPivot == null || data == null || data.modelPrefab == null) return;
+        if (data == null) return;
+
+        EnsureModelSpawnerPivot();
+        if (modelSpawnerPivot == null) return;
+
+        GameObject prefabToSpawn = GetModelPrefab(data);
+        if (prefabToSpawn == null)
+        {
+            Debug.LogWarning($"Game1GuessName: Could not resolve 3D model prefab for artifact '{data.artifactName}' ({data.artifactId}).");
+            return;
+        }
 
         RotateArtifact rotator = modelSpawnerPivot.GetComponent<RotateArtifact>();
         if (rotator == null)
@@ -295,13 +395,25 @@ public class Game1GuessName : BaseGame
             rotator = modelSpawnerPivot.gameObject.AddComponent<RotateArtifact>();
         }
 
-        spawnedModel = rotator.SpawnModel(data.modelPrefab, data.artifactId);
+        spawnedModel = rotator.SpawnModel(prefabToSpawn, data.artifactId, 0.16f);
         if (spawnedModel == null) return;
+
+        // Auto-create silhouetteMaterial if unassigned in Inspector
+        if (silhouetteMaterial == null)
+        {
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard") ?? Shader.Find("Diffuse");
+            if (shader != null)
+            {
+                silhouetteMaterial = new Material(shader);
+                silhouetteMaterial.color = Color.black;
+            }
+        }
 
         // Store original materials and apply black silhouette material
         Renderer[] renderers = spawnedModel.GetComponentsInChildren<Renderer>(true);
         foreach (Renderer rend in renderers)
         {
+            if (rend == null) continue;
             originalMaterialsMap[rend] = rend.sharedMaterials;
 
             if (silhouetteMaterial != null)
@@ -348,12 +460,9 @@ public class Game1GuessName : BaseGame
     }
 
 
-
     // ─────────────────────────────────────────────────────────────────────────
     // Option Buttons Wiring
     // ─────────────────────────────────────────────────────────────────────────
-
-    private List<GameObject> spawnedDynamicButtons = new List<GameObject>();
 
     private void PopulateOptionButtons()
     {
@@ -396,7 +505,7 @@ public class Game1GuessName : BaseGame
             ArtifactData[] resArtifacts = Resources.LoadAll<ArtifactData>("");
             foreach (ArtifactData art in resArtifacts)
             {
-                if (art != null && art.modelPrefab != null && !string.IsNullOrEmpty(art.artifactName) && art.artifactName != correctName && !wrongPool.Contains(art.artifactName))
+                if (art != null && GetModelPrefab(art) != null && !string.IsNullOrEmpty(art.artifactName) && art.artifactName != correctName && !wrongPool.Contains(art.artifactName))
                 {
                     wrongPool.Add(art.artifactName);
                 }
@@ -423,10 +532,18 @@ public class Game1GuessName : BaseGame
                 btnObj.SetActive(true);
 
                 TMP_Text label = btnObj.GetComponentInChildren<TMP_Text>(true);
-                if (label != null) label.text = optName;
+                if (label != null)
+                {
+                    label.text = optName;
+                    label.enableAutoSizing = true;
+                    label.fontSizeMin = 8f;
+                    label.fontSizeMax = 18f;
+                    label.enableWordWrapping = true;
+                    label.overflowMode = TextOverflowModes.Ellipsis;
+                    label.alignment = TextAlignmentOptions.Center;
+                }
 
-                Button btn = btnObj.GetComponent<Button>();
-                if (btn == null) btn = btnObj.AddComponent<Button>();
+                Button btn = btnObj.GetComponent<Button>() ?? btnObj.AddComponent<Button>();
 
                 Button capturedBtn = btn;
                 string capturedName = optName;
