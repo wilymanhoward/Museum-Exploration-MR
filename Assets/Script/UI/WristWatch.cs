@@ -562,11 +562,7 @@ public class WristWatch : MonoBehaviour
         {
             FollowHand(roomListPanel, playerCam, roomListWristOffset);
         }
-
-        if (gamesPanel != null && gamesPanel.activeInHierarchy)
-        {
-            FollowHand(gamesPanel, playerCam, panelOffset);
-        }
+        // Note: gamesPanel is kept fixed in world space and does NOT follow wrist
     }
 
     /// <summary>
@@ -938,29 +934,58 @@ public class WristWatch : MonoBehaviour
         MainMenu.IsExplorationStarted = true;
         CloseOptionsPanel();
 
+        GameObject targetPanel = gamesPanel;
+
         // 1. If gamesPanel is explicitly assigned in Inspector, activate it
-        if (gamesPanel != null)
+        if (targetPanel != null)
         {
-            gamesPanel.SetActive(true);
-            return;
+            targetPanel.SetActive(true);
         }
-
         // 2. If MiniGames.Instance exists, activate its canvas GameObject directly
-        if (MiniGames.Instance != null)
+        else if (MiniGames.Instance != null)
         {
-            MiniGames.Instance.gameObject.SetActive(true);
-            return;
+            targetPanel = MiniGames.Instance.gameObject;
+            targetPanel.SetActive(true);
+        }
+        // 3. Fallback: Search scene for MiniGamesCanvas or MiniGames root GameObject
+        else
+        {
+            foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+            {
+                if ((t.name == "MiniGamesCanvas" || t.name == "MiniGames") && t.gameObject.scene.IsValid())
+                {
+                    gamesPanel = t.gameObject;
+                    targetPanel = gamesPanel;
+                    targetPanel.SetActive(true);
+                    break;
+                }
+            }
         }
 
-        // 3. Fallback: Search scene for MiniGamesCanvas or MiniGames root GameObject
-        foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+        if (targetPanel != null)
         {
-            if ((t.name == "MiniGamesCanvas" || t.name == "MiniGames") && t.gameObject.scene.IsValid())
+            if (MiniGames.Instance != null)
             {
-                gamesPanel = t.gameObject;
-                gamesPanel.SetActive(true);
-                return;
+                MiniGames.Instance.PositionInFrontOfUser();
             }
+            else
+            {
+                Transform cam = Camera.main != null ? Camera.main.transform : null;
+                if (cam != null)
+                {
+                    Vector3 fwd = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+                    if (fwd == Vector3.zero) fwd = Vector3.forward;
+                    Vector3 targetPos = cam.position + fwd * 0.7f - Vector3.up * 0.1f;
+                    targetPanel.transform.position = targetPos;
+                    Vector3 toPlayer = cam.position - targetPanel.transform.position;
+                    toPlayer.y = 0;
+                    if (toPlayer.sqrMagnitude > 0.0001f)
+                    {
+                        targetPanel.transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
+                    }
+                }
+            }
+            return;
         }
 
         Debug.LogWarning("WristWatch: Could not find MiniGamesCanvas in scene.");

@@ -189,7 +189,8 @@ public class MiniGames : MonoBehaviour
             targetTransform = minigameMenuPanel.transform.parent; // MiniGamesCanvas
         }
 
-        targetTransform.position = cam.position + fwd * 1.5f;
+        Vector3 targetPos = cam.position + fwd * 0.7f - Vector3.up * 0.1f;
+        targetTransform.position = targetPos;
         Vector3 toPlayer = cam.position - targetTransform.position;
         toPlayer.y = 0;
         if (toPlayer.sqrMagnitude > 0.0001f)

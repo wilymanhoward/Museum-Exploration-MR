@@ -10,6 +10,6 @@ public class Spinner : MonoBehaviour
 
     private void Update()
     {
-        transform.Rotate(Vector3.up, spinSpeed * Time.deltaTime, Space.World);
+        transform.Rotate(Vector3.up, spinSpeed * Time.deltaTime, Space.Self);
     }
 }

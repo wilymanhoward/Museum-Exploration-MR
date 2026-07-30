@@ -128,6 +128,19 @@ public class Game2OrderProcess : BaseGame
         }
     }
 
+    private int GetStepIndexFromName(string objName, int fallbackIndex)
+    {
+        if (string.IsNullOrEmpty(objName)) return fallbackIndex;
+
+        System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(objName, @"\d+");
+        if (match.Success && int.TryParse(match.Value, out int num))
+        {
+            return num - 1;
+        }
+
+        return fallbackIndex;
+    }
+
     private void InitializeCardsAndSlots()
     {
         cards.Clear();
@@ -146,7 +159,8 @@ public class Game2OrderProcess : BaseGame
                     cardComp = obj.AddComponent<DraggableProcessCard>();
                 }
 
-                cardComp.Setup(this, i); // Index i is the correct step index
+                int stepIdx = GetStepIndexFromName(obj.name, i);
+                cardComp.Setup(this, stepIdx);
                 cards.Add(cardComp);
 
                 if (processLayout == null && obj.transform.parent != null)
@@ -168,7 +182,8 @@ public class Game2OrderProcess : BaseGame
                     cardComp = child.gameObject.AddComponent<DraggableProcessCard>();
                 }
 
-                cardComp.Setup(this, i);
+                int stepIdx = GetStepIndexFromName(child.name, i);
+                cardComp.Setup(this, stepIdx);
                 cards.Add(cardComp);
             }
         }
@@ -257,6 +272,9 @@ public class Game2OrderProcess : BaseGame
                 slotLocalPositions[i] = cards[i].transform.localPosition;
             }
         }
+
+        // Sort slotLocalPositions strictly left-to-right by X coordinate
+        System.Array.Sort(slotLocalPositions, (a, b) => a.x.CompareTo(b.x));
 
         // 2. Calculate bottom bank positions below top slots
         for (int i = 0; i < count; i++)
@@ -353,8 +371,8 @@ public class Game2OrderProcess : BaseGame
 
         int oldSlotIndex = droppedCard.AssignedSlotIndex;
 
-        // Snapping threshold distance to top slot
-        if (minDistance < 120f)
+        // Snapping threshold distance to top slot (using wider 250f snap radius)
+        if (minDistance < 250f)
         {
             DraggableProcessCard occupantCard = slotAssignments[closestSlotIndex];
 
@@ -411,8 +429,15 @@ public class Game2OrderProcess : BaseGame
         for (int slotIdx = 0; slotIdx < count; slotIdx++)
         {
             DraggableProcessCard cardInSlot = slotAssignments[slotIdx];
-            if (cardInSlot == null || cardInSlot.CorrectStepIndex != slotIdx)
+            if (cardInSlot == null)
             {
+                Debug.Log($"Game2OrderProcess: Slot {slotIdx} is empty.");
+                isCorrect = false;
+                break;
+            }
+            else if (cardInSlot.CorrectStepIndex != slotIdx)
+            {
+                Debug.Log($"Game2OrderProcess: Slot {slotIdx} contains card '{cardInSlot.gameObject.name}' (StepIndex={cardInSlot.CorrectStepIndex}), expected={slotIdx}.");
                 isCorrect = false;
                 break;
             }

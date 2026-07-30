@@ -50,7 +50,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         // Record original intended layout pose BEFORE any modifications
         initialLocalPosition = transform.localPosition;
         initialLocalRotation = transform.localRotation;
-        initialLocalScale = transform.localScale;
+        initialLocalScale = (transform.localScale != Vector3.zero) ? transform.localScale : Vector3.one;
 
         // Ensure RectTransform on ObjectSpawner has a clean interaction size for GraphicRaycaster without shifting position
         RectTransform rect = GetComponent<RectTransform>();
@@ -116,28 +116,46 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         // 1. Clear previous models
         ClearModel();
 
-        // 2. Restore the spawner's original intended layout pose
+        // 2. Restore the spawner's original intended layout pose (guarantee non-zero scale)
         transform.localPosition = initialLocalPosition;
         transform.localRotation = initialLocalRotation;
-        transform.localScale = initialLocalScale;
+        if (initialLocalScale != Vector3.zero)
+        {
+            transform.localScale = initialLocalScale;
+        }
+        else
+        {
+            transform.localScale = Vector3.one;
+        }
 
         if (prefab == null) return null;
 
         activeArtifactId = artifactId;
 
-        // 3. Instantiate under the spawner, floating 15cm forward in front of its intended layout position
+        string key = ((prefab.name ?? "") + " " + (artifactId ?? "")).ToLower();
+
+        // 3. Instantiate under the spawner
         spawnedModel = Instantiate(prefab, transform.position, transform.rotation, transform);
-        
-        spawnedModel.transform.localPosition = new Vector3(0f, 0f, -0.15f);
         spawnedModel.transform.localRotation = GetUprightOrientation(prefab.name, artifactId);
 
-        // 4. Fit model bounds so it is cleanly sized ~0.25 meters wide in world space
-        FitModelToBounds(spawnedModel, 0.25f);
+        // 4. Determine target world size in meters
+        float targetSize = GetTargetWorldSize(key);
 
-        // 5. Setup non-trigger colliders so Physics Raycasts hit the 3D model instantly
+        // 5. Fit model bounds and align geometric center at (0, 0, -0.15f) in spawner space
+        FitModelToBounds(spawnedModel, targetSize);
+
+        // 6. Setup non-trigger colliders so Physics Raycasts hit the 3D model instantly
         SetupCollidersAndInteractable(spawnedModel);
 
         return spawnedModel;
+    }
+
+    private float GetTargetWorldSize(string key)
+    {
+        if (key.Contains("wayang")) return 0.26f;
+        if (key.Contains("batu")) return 0.28f;
+        if (key.Contains("songket") || key.Contains("batik")) return 0.30f;
+        return 0.18f;
     }
 
     private Quaternion GetUprightOrientation(string prefabName, string artifactId)
@@ -149,9 +167,9 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             // Batu Bersurat Terengganu: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
-        if (key.Contains("songket"))
+        if (key.Contains("songket") || key.Contains("batik"))
         {
-            // Kain Songket: Stand upright and face forward toward player
+            // Kain Songket / Batik: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
         if (key.Contains("gamelan") || key.Contains("gamelen"))
@@ -159,16 +177,21 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             // Gamelan Terengganu: Rotate 180 degrees around Y so instrument faces forward toward player
             return Quaternion.Euler(0f, 180f, 0f);
         }
+        if (key.Contains("wayang"))
+        {
+            return Quaternion.Euler(0f, 180f, 0f);
+        }
 
         return Quaternion.identity;
     }
 
-    private void FitModelToBounds(GameObject model, float targetWorldSizeMeters = 0.25f)
+    private void FitModelToBounds(GameObject model, float targetWorldSizeMeters = 0.18f)
     {
         if (model == null) return;
 
-        // Reset local scale to 1 to measure natural unscaled bounds
+        // Reset local scale and position to measure natural unscaled bounds
         model.transform.localScale = Vector3.one;
+        model.transform.localPosition = Vector3.zero;
 
         MeshFilter[] filters = model.GetComponentsInChildren<MeshFilter>(true);
         SkinnedMeshRenderer[] skinned = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
@@ -206,41 +229,40 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             }
         }
 
+        float spawnerScale = Mathf.Max(transform.lossyScale.x, 0.0001f);
+
         if (!hasBounds)
         {
             Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
             if (renderers.Length > 0)
             {
                 Bounds b = renderers[0].bounds;
-                for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+                for (int i = 1; i < renderers.Length; i++)
+                {
+                    if (renderers[i] != null && renderers[i].enabled)
+                    {
+                        b.Encapsulate(renderers[i].bounds);
+                    }
+                }
+
                 float worldDim = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
                 if (worldDim > 0.0001f)
                 {
-                    float scaleFactor = targetWorldSizeMeters / worldDim;
+                    float scaleFactor = targetWorldSizeMeters / (worldDim * spawnerScale);
                     model.transform.localScale = Vector3.one * scaleFactor;
                 }
             }
+            model.transform.localPosition = new Vector3(0f, 0f, -0.15f);
             return;
         }
 
-        // 1. Re-center model geometry so it spins around its exact geometric center
-        Vector3 centerOffset = combinedLocalBounds.center;
-        if (centerOffset.sqrMagnitude > 0.00001f)
-        {
-            foreach (Transform child in model.transform)
-            {
-                child.localPosition -= centerOffset;
-            }
-            Debug.Log($"[RotateArtifact] Re-centered model '{model.name}' geometry offset by: {centerOffset}");
-        }
-
-        // 2. Scale model to targetWorldSizeMeters
+        // 1. Calculate scale to achieve targetWorldSizeMeters in world space
         float localMaxDim = Mathf.Max(combinedLocalBounds.size.x, Mathf.Max(combinedLocalBounds.size.y, combinedLocalBounds.size.z));
-        float spawnerScale = Mathf.Max(transform.lossyScale.x, 0.0001f);
+        float desiredLocalScale = 1.0f;
 
         if (localMaxDim > 0.00001f)
         {
-            float desiredLocalScale = targetWorldSizeMeters / (localMaxDim * spawnerScale);
+            desiredLocalScale = targetWorldSizeMeters / (localMaxDim * spawnerScale);
 
             if (float.IsNaN(desiredLocalScale) || float.IsInfinity(desiredLocalScale) || desiredLocalScale <= 0.00001f)
             {
@@ -248,8 +270,15 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             }
 
             model.transform.localScale = Vector3.one * desiredLocalScale;
-            Debug.Log($"[RotateArtifact] FitModelToBounds for '{model.name}': localMaxDim={localMaxDim}, spawnerScale={spawnerScale}, set localScale={desiredLocalScale}");
         }
+
+        // 2. Position model root so its geometric center aligns at (0, 0, -0.15f) in spawner space
+        Vector3 centerOffset = combinedLocalBounds.center;
+        Vector3 localPos = -centerOffset * desiredLocalScale;
+        localPos.z -= 0.15f; // Float 15cm forward in front of canvas plane
+        model.transform.localPosition = localPos;
+
+        Debug.Log($"[RotateArtifact] FitModelToBounds for '{model.name}': localMaxDim={localMaxDim}, spawnerScale={spawnerScale}, set localScale={desiredLocalScale}, localPos={localPos}");
     }
 
     private Bounds GetMeshBoundsInRootSpace(Transform root, Transform child, Bounds meshBounds)

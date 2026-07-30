@@ -289,16 +289,14 @@ public class Game1GuessName : BaseGame
 
         if (modelSpawnerPivot == null || data == null || data.modelPrefab == null) return;
 
-        // Instantiate inside spawner pivot
-        spawnedModel = Instantiate(data.modelPrefab, modelSpawnerPivot, false);
-        spawnedModel.transform.localPosition = Vector3.zero;
-        spawnedModel.transform.localRotation = Quaternion.identity;
+        RotateArtifact rotator = modelSpawnerPivot.GetComponent<RotateArtifact>();
+        if (rotator == null)
+        {
+            rotator = modelSpawnerPivot.gameObject.AddComponent<RotateArtifact>();
+        }
 
-        // Fit model size inside spawner bounds
-        FitModelToBounds(spawnedModel);
-
-        // Attach drag-to-rotate listener to spawner
-        SetupDragRotation(modelSpawnerPivot.gameObject);
+        spawnedModel = rotator.SpawnModel(data.modelPrefab, data.artifactId);
+        if (spawnedModel == null) return;
 
         // Store original materials and apply black silhouette material
         Renderer[] renderers = spawnedModel.GetComponentsInChildren<Renderer>(true);
@@ -333,6 +331,14 @@ public class Game1GuessName : BaseGame
 
     private void ClearSpawnedModel()
     {
+        if (modelSpawnerPivot != null)
+        {
+            RotateArtifact rotator = modelSpawnerPivot.GetComponent<RotateArtifact>();
+            if (rotator != null)
+            {
+                rotator.ClearModel();
+            }
+        }
         if (spawnedModel != null)
         {
             Destroy(spawnedModel);
@@ -341,51 +347,7 @@ public class Game1GuessName : BaseGame
         originalMaterialsMap.Clear();
     }
 
-    private void FitModelToBounds(GameObject model)
-    {
-        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0) return;
 
-        Bounds bounds = renderers[0].bounds;
-        for (int i = 1; i < renderers.Length; i++)
-        {
-            bounds.Encapsulate(renderers[i].bounds);
-        }
-
-        float maxExtent = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
-        if (maxExtent > 0.0001f)
-        {
-            float targetSize = 0.25f;
-            float scale = targetSize / maxExtent;
-            model.transform.localScale = Vector3.one * scale;
-
-            Vector3 centerOffset = model.transform.position - bounds.center;
-            model.transform.localPosition += centerOffset * scale;
-        }
-    }
-
-    private void SetupDragRotation(GameObject pivotObject)
-    {
-        if (pivotObject == null) return;
-
-        EventTrigger trigger = pivotObject.GetComponent<EventTrigger>();
-        if (trigger == null) trigger = pivotObject.AddComponent<EventTrigger>();
-
-        trigger.triggers.Clear();
-
-        EventTrigger.Entry dragEntry = new EventTrigger.Entry();
-        dragEntry.eventID = EventTriggerType.Drag;
-        dragEntry.callback.AddListener((data) =>
-        {
-            PointerEventData pointerData = (PointerEventData)data;
-            if (spawnedModel != null)
-            {
-                spawnedModel.transform.Rotate(Vector3.up, -pointerData.delta.x * rotationSensitivity, Space.World);
-                spawnedModel.transform.Rotate(Vector3.right, pointerData.delta.y * rotationSensitivity, Space.World);
-            }
-        });
-        trigger.triggers.Add(dragEntry);
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Option Buttons Wiring
