@@ -27,6 +27,8 @@ MonoBehaviour:
     to remove the wax, revealing detailed floral, geometric, or  abstract designs.
     This finished material is commonly used to create clothing for both men and women.
   modelPrefab: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: 1a2307a76cc9fb14cb942f9801f8b524, type: 3}
+  instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: 5b68708f6fd823a4b9ef12c704235047, type: 3}
     title: Batik Canting/Tulis

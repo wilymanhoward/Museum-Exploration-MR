@@ -73,6 +73,10 @@ public class Artifact : MonoBehaviour
     private Room previousRoomPanel;
     private AudioSource audioSource;
 
+    // Only ONE artifact narration may play at a time. Tracks whichever panel is currently
+    // narrating so a newly-opened/played panel can silence the previous one.
+    private static Artifact s_activeNarration;
+
     private void Awake()
     {
         // Ensure detail panel is hidden at startup until opened by scan or menu
@@ -108,7 +112,10 @@ public class Artifact : MonoBehaviour
 
         ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
         if (dragger == null) dragger = gameObject.AddComponent<ArtifactPanelDragger>();
-        dragger.enabled = true;
+        if (twoDViewPanel != null && threeDViewPanel != null)
+        {
+            dragger.enabled = twoDViewPanel.activeSelf;
+        }
     }
 
     private void Start()
@@ -288,14 +295,8 @@ public class Artifact : MonoBehaviour
         // Configure 3D View button visibility
         Refresh3DViewButtonState();
 
-        // Preload the narration clip but do NOT auto-play. Auto-playing on reveal meant the panel
-        // was already playing, so the first Play-button press hit the "pause" branch and it looked
-        // like the button did nothing. Now the Play button is the trigger and plays it on click.
-        if (audioSource != null)
-        {
-            audioSource.Stop();
-            audioSource.clip = (data != null) ? GetOrCreateNarrationClip(data) : null;
-        }
+        // Auto-play the narration when the artifact is shown.
+        PlayNarrationOnShow();
 
         // Show instrument button if this is an instrument artifact
         if (playInstrumentButton != null)
@@ -356,7 +357,8 @@ public class Artifact : MonoBehaviour
             }
         }
 
-        bool hasModel = artifactData != null && artifactData.modelPrefab != null;
+        GameObject modelObj = GetModelPrefab(artifactData);
+        bool hasModel = modelObj != null;
 
         if (threeDViewButton != null)
         {
@@ -371,6 +373,50 @@ public class Artifact : MonoBehaviour
         }
     }
 
+    public GameObject GetModelPrefab(ArtifactData data)
+    {
+        if (data == null) return null;
+        if (data.modelPrefab != null) return data.modelPrefab;
+
+        string id = data.artifactId != null ? data.artifactId.ToLower() : "";
+        string name = data.artifactName != null ? data.artifactName.ToLower() : "";
+
+        // 1. Direct ID / Name lookup in Resources/Models
+        GameObject model = Resources.Load<GameObject>($"Models/{data.artifactId}") ??
+                           Resources.Load<GameObject>($"Models/model_{data.artifactId}") ??
+                           Resources.Load<GameObject>($"Models/model_artifact_{data.artifactId}");
+        if (model != null) return model;
+
+        // 2. Keyword fallback matching for Batu, Songket, Keris, Gamelan, Wayang
+        if (id.Contains("batu") || name.Contains("batu"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_batu");
+            if (model != null) return model;
+        }
+        if (id.Contains("songket") || name.Contains("songket"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_songket");
+            if (model != null) return model;
+        }
+        if (id.Contains("keris") || name.Contains("keris"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_keris");
+            if (model != null) return model;
+        }
+        if (id.Contains("gamelan") || name.Contains("gamelan"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_gamelan");
+            if (model != null) return model;
+        }
+        if (id.Contains("wayang") || name.Contains("wayang"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_wayang");
+            if (model != null) return model;
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Invoked when player clicks/taps/pinches the 3D View button.
     /// Freshly spawns or re-centers the 3D model right in front of the panel.
@@ -380,33 +426,6 @@ public class Artifact : MonoBehaviour
         Debug.Log("[ArtifactPanel] 3D View Button Clicked / Pinched!");
         ClearSpawnedModel();
         OnSpawnModelClicked();
-    }
-
-    /// <summary>
-    /// Keeps the panel at the player's eye level and billboarded to face them while it's open,
-    /// unless the player is actively moving or has custom-positioned the panel.
-    /// </summary>
-    private void LateUpdate()
-    {
-        if (trackedPlayer == null) return;
-
-        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
-        if (dragger != null && (dragger.IsMoving || dragger.IsUserMoved))
-        {
-            return;
-        }
-
-        Vector3 pos = transform.position;
-        pos.y = trackedPlayer.position.y;
-        transform.position = pos;
-
-        Vector3 directionToPlayer = trackedPlayer.position - transform.position;
-        directionToPlayer.y = 0; // yaw only, keep the panel upright
-        if (directionToPlayer != Vector3.zero)
-        {
-            Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
-            transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
-        }
     }
 
     /// <summary>
@@ -426,23 +445,51 @@ public class Artifact : MonoBehaviour
         // Clean up previous model if present
         ClearSpawnedModelSilently();
 
-        // Ensure objectSpawner exists
+        // Find objectSpawner in panel layout (check threeDViewPanel first)
         if (objectSpawner == null)
         {
-            Transform spawnerT = transform.Find("ObjectSpawner");
-            if (spawnerT != null) objectSpawner = spawnerT;
-            else
+            if (threeDViewPanel != null)
+            {
+                foreach (Transform t in threeDViewPanel.GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name == "ObjectSpawner" || t.name.Contains("Spawner"))
+                    {
+                        objectSpawner = t;
+                        break;
+                    }
+                }
+            }
+
+            if (objectSpawner == null)
+            {
+                foreach (Transform t in GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name == "ObjectSpawner" || t.name.Contains("Spawner"))
+                    {
+                        objectSpawner = t;
+                        break;
+                    }
+                }
+            }
+
+            if (objectSpawner == null)
             {
                 GameObject newSpawner = new GameObject("ObjectSpawner");
-                newSpawner.transform.SetParent(transform, false);
+                Transform parentT = displayImage != null ? displayImage.transform.parent : (threeDViewPanel != null ? threeDViewPanel.transform : transform);
+                newSpawner.transform.SetParent(parentT, false);
+                if (displayImage != null)
+                {
+                    newSpawner.transform.localPosition = displayImage.transform.localPosition;
+                }
                 objectSpawner = newSpawner.transform;
             }
         }
+        else if (displayImage != null && (objectSpawner.localPosition == Vector3.zero || objectSpawner.parent == transform))
+        {
+            // Align spawner to match displayImage frame area if unpositioned
+            objectSpawner.transform.localPosition = displayImage.transform.localPosition;
+        }
 
-        // The ObjectSpawner carries a Rigidbody. Parented under a moving, tiny-scaled world-space
-        // UI canvas, a non-kinematic Rigidbody (with gravity) tumbles because physics fights the
-        // parent transform - which is why every displayed model was "always spinning". Force it
-        // kinematic and still so the model sits put (hand-grab still rotates it via the transform).
         Rigidbody spawnerRb = objectSpawner.GetComponent<Rigidbody>();
         if (spawnerRb != null)
         {
@@ -456,27 +503,18 @@ public class Artifact : MonoBehaviour
         }
 
         RotateArtifact rotator = objectSpawner.GetComponent<RotateArtifact>();
-        GameObject prefabToSpawn = artifactData.modelPrefab;
-
-        // Fallback: Load model from Resources if modelPrefab unassigned
-        if (prefabToSpawn == null)
+        if (rotator == null)
         {
-            prefabToSpawn = Resources.Load<GameObject>($"Models/{artifactData.artifactId}") ??
-                            Resources.Load<GameObject>($"Models/model_{artifactData.artifactId}") ??
-                            Resources.Load<GameObject>($"Prefabs/model_{artifactData.artifactId}");
+            rotator = objectSpawner.gameObject.AddComponent<RotateArtifact>();
+            Debug.Log($"[ArtifactPanel] Added missing RotateArtifact component to objectSpawner for '{artifactData.artifactName}'.");
         }
+
+        GameObject prefabToSpawn = GetModelPrefab(artifactData);
 
         if (prefabToSpawn != null)
         {
-            if (rotator != null)
-            {
-                spawnedModel = rotator.SpawnModel(prefabToSpawn, artifactData.artifactId);
-            }
-            else
-            {
-                spawnedModel = Instantiate(prefabToSpawn, objectSpawner.position, objectSpawner.rotation, objectSpawner);
-                spawnedModel.transform.localPosition = new Vector3(0, 0, -0.05f);
-            }
+            // Spawn 3D model prefab - preserves its own original materials and textures from Assets/Artifact/
+            spawnedModel = rotator.SpawnModel(prefabToSpawn, artifactData.artifactId);
         }
         else
         {
@@ -484,10 +522,10 @@ public class Artifact : MonoBehaviour
             GameObject fallbackObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
             fallbackObj.name = $"3DDisplay_{artifactData.artifactId}";
             fallbackObj.transform.SetParent(objectSpawner, false);
-            fallbackObj.transform.localPosition = new Vector3(0, 0, -0.05f);
+            fallbackObj.transform.localPosition = new Vector3(0, 0, -0.15f);
             fallbackObj.transform.localScale = Vector3.one * 0.25f;
 
-            // Only the placeholder cube gets the photo mapped onto it (there's no real model).
+            // Only the placeholder fallback cube gets the photo texture mapped onto it
             ApplyTextureToModel(fallbackObj, artifactData);
 
             spawnedModel = fallbackObj;
@@ -496,13 +534,55 @@ public class Artifact : MonoBehaviour
         if (spawnedModel != null)
         {
             spawnedModel.SetActive(true);
-            // Keep the prefab's own materials/textures (do NOT paint the 2D photo over the model),
-            // and stop any auto-rotation the model prefab may drive (Animator or spin script).
             StopAutoRotation(spawnedModel);
-            FitModelToWorldSize(spawnedModel, 0.35f);
         }
 
         Debug.Log($"3D Model successfully displayed with texture for {artifactData.artifactName}.");
+    }
+
+    /// <summary>
+    /// Makes the spawned 3D model grabbable so the player can pinch it with one or both hands to
+    /// rotate it (two hands also scale). Configures the ObjectSpawner's XRGrabInteractable for
+    /// multi-hand select, adds the ArtifactRotationDriver, and sizes the grab collider to the model.
+    /// </summary>
+    private void SetupTwoHandRotation(GameObject model)
+    {
+        if (objectSpawner == null || model == null) return;
+
+        // Grab interactable that allows BOTH hands to select at once. The rotation driver moves the
+        // object manually, so the grab itself must not also track hand position/rotation.
+        XRGrabInteractable grab = objectSpawner.GetComponent<XRGrabInteractable>();
+        if (grab == null) grab = objectSpawner.gameObject.AddComponent<XRGrabInteractable>();
+        grab.selectMode = InteractableSelectMode.Multiple;
+        grab.trackPosition = false;
+        grab.trackRotation = false;
+        grab.throwOnDetach = false;
+
+        // Driver that turns one/two-hand grabs into rotation (+ two-hand scale).
+        if (objectSpawner.GetComponent<ArtifactRotationDriver>() == null)
+        {
+            objectSpawner.gameObject.AddComponent<ArtifactRotationDriver>();
+        }
+
+        // Physics off so it doesn't tumble; the grab/rotation moves it via the transform.
+        Rigidbody rb = objectSpawner.GetComponent<Rigidbody>();
+        if (rb != null) { rb.isKinematic = true; rb.useGravity = false; }
+
+        // Size the grab collider to the model's world bounds so the hands can actually grab it.
+        SphereCollider col = objectSpawner.GetComponent<SphereCollider>();
+        if (col == null) col = objectSpawner.gameObject.AddComponent<SphereCollider>();
+        col.isTrigger = true;
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>();
+        if (renderers.Length > 0)
+        {
+            Bounds b = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) b.Encapsulate(renderers[i].bounds);
+            float worldRadius = b.extents.magnitude + 0.05f;
+            float uniformScale = Mathf.Max(objectSpawner.lossyScale.x, 0.0001f);
+            col.radius = worldRadius / uniformScale;
+            col.center = objectSpawner.InverseTransformPoint(b.center);
+        }
     }
 
     /// <summary>
@@ -513,10 +593,22 @@ public class Artifact : MonoBehaviour
         if (model == null || data == null) return;
 
         Texture2D textureToApply = null;
-        if (data.images != null && data.images.Length > 0 && data.images[0].sprite != null)
+
+        // 1. Check for dedicated 3D model texture in Resources
+        if (!string.IsNullOrEmpty(data.artifactId))
+        {
+            textureToApply = Resources.Load<Texture2D>($"Textures/{data.artifactId}") ??
+                             Resources.Load<Texture2D>($"Models/{data.artifactId}_tex") ??
+                             Resources.Load<Texture2D>($"Textures/tex_{data.artifactId}");
+        }
+
+        // 2. Fallback to artifact photo image sprite texture
+        if (textureToApply == null && data.images != null && data.images.Length > 0 && data.images[0].sprite != null)
         {
             textureToApply = data.images[0].sprite.texture;
         }
+
+        if (textureToApply == null) return;
 
         Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
         foreach (Renderer r in renderers)
@@ -530,19 +622,16 @@ public class Artifact : MonoBehaviour
                 r.material = mat;
             }
 
-            if (textureToApply != null)
+            mat.mainTexture = textureToApply;
+            if (mat.HasProperty("_BaseMap"))
             {
-                mat.mainTexture = textureToApply;
-                if (mat.HasProperty("_BaseMap"))
-                {
-                    mat.SetTexture("_BaseMap", textureToApply);
-                }
-                if (mat.HasProperty("_MainTex"))
-                {
-                    mat.SetTexture("_MainTex", textureToApply);
-                }
-                mat.color = Color.white;
+                mat.SetTexture("_BaseMap", textureToApply);
             }
+            if (mat.HasProperty("_MainTex"))
+            {
+                mat.SetTexture("_MainTex", textureToApply);
+            }
+            mat.color = Color.white;
         }
     }
 
@@ -746,6 +835,8 @@ public class Artifact : MonoBehaviour
     public void RefreshView()
     {
         SetViewMode(true);
+        // A reused panel is re-shown without running Setup, so replay the narration here too.
+        PlayNarrationOnShow();
     }
     #endregion
 
@@ -797,12 +888,8 @@ public class Artifact : MonoBehaviour
             OnSpawnModelClicked();
         }
 
-        // Preload the narration clip but do NOT auto-play (Play button is the trigger).
-        if (audioSource != null)
-        {
-            audioSource.Stop();
-            audioSource.clip = (data != null) ? GetOrCreateNarrationClip(data) : null;
-        }
+        // Auto-play the narration when the artifact is shown.
+        PlayNarrationOnShow();
 
         if (playInstrumentButton != null)
         {
@@ -842,11 +929,18 @@ public class Artifact : MonoBehaviour
             threeDViewPanel.SetActive(!show2D);
         }
 
+        // Disable panel repositioning (dragger) when in 3D View Mode,
+        // and enable panel repositioning when in 2D Image Mode.
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger != null)
+        {
+            dragger.ResetUserMoved();
+            dragger.enabled = show2D;
+        }
+
         if (show2D)
         {
-            // Let the data decide: show the photo OR the "no images" text, never both. (Previously
-            // this force-activated displayImage AND toggled the text, so an artifact with no images
-            // showed the placeholder image AND "No Images Available" at the same time.)
+            // Let the data decide: show the photo OR the "no images" text, never both.
             UpdateImageUI();
         }
         else
@@ -940,6 +1034,73 @@ public class Artifact : MonoBehaviour
         return clip;
     }
 
+    /// <summary>
+    /// Makes this panel the sole active narrator: stops whichever other panel was narrating so
+    /// only one narration is ever audible at a time (the most recently played one).
+    /// </summary>
+    private void BecomeActiveNarrator()
+    {
+        if (s_activeNarration != null && s_activeNarration != this)
+        {
+            s_activeNarration.StopNarration();
+        }
+        s_activeNarration = this;
+    }
+
+    /// <summary>Stops this panel's narration (used when another panel takes over, or on close).</summary>
+    public void StopNarration()
+    {
+        if (audioSource != null) audioSource.Stop();
+        if (s_activeNarration == this) s_activeNarration = null;
+        UpdateAudioUI();
+    }
+
+    /// <summary>
+    /// Called whenever the panel is (re)shown. Auto-plays the real narration clip if one is
+    /// assigned; otherwise preloads the fallback so the Play button still does something without
+    /// ringing a chime on reveal. Plays on the NEXT frame because the cloned panel is
+    /// deactivated/reactivated during spawn, and Play() on the same frame can be dropped.
+    /// </summary>
+    public void PlayNarrationOnShow()
+    {
+        if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+        if (audioSource == null) return;
+
+        audioSource.mute = false;
+        audioSource.volume = 1f;
+        audioSource.spatialBlend = 0f;
+        audioSource.Stop();
+
+        if (artifactData != null && artifactData.narrationClip != null)
+        {
+            audioSource.clip = artifactData.narrationClip;
+            if (isActiveAndEnabled)
+            {
+                BecomeActiveNarrator(); // silence any other narrating panel immediately
+                StopCoroutine(nameof(PlayClipNextFrame));
+                StartCoroutine(nameof(PlayClipNextFrame));
+            }
+            Debug.Log($"ArtifactPanel: Auto-playing narration '{artifactData.narrationClip.name}' for {artifactData.artifactName}.");
+        }
+        else if (artifactData != null)
+        {
+            // No real narration assigned: just preload the fallback for the Play button.
+            audioSource.clip = GetOrCreateNarrationClip(artifactData);
+            Debug.LogWarning($"ArtifactPanel: No narrationClip assigned on '{artifactData.artifactName}' - Play button will use the fallback tone.");
+        }
+    }
+
+    private System.Collections.IEnumerator PlayClipNextFrame()
+    {
+        yield return null; // let the panel finish (re)activating this frame
+        if (audioSource != null && audioSource.clip != null && !audioSource.isPlaying)
+        {
+            BecomeActiveNarrator();
+            audioSource.Play();
+        }
+        UpdateAudioUI();
+    }
+
     public void PlayNarration()
     {
         if (audioSource == null) audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
@@ -951,6 +1112,7 @@ public class Artifact : MonoBehaviour
             }
             if (audioSource.clip != null)
             {
+                BecomeActiveNarrator();
                 audioSource.Play();
                 Debug.Log($"ArtifactPanel: Narration playing for {artifactData?.artifactName}.");
             }
@@ -979,12 +1141,21 @@ public class Artifact : MonoBehaviour
             }
             if (audioSource.clip != null)
             {
+                BecomeActiveNarrator();
                 audioSource.Stop();
                 audioSource.Play();
                 Debug.Log("ArtifactPanel: Narration restarted.");
             }
         }
         UpdateAudioUI();
+    }
+
+    private void OnDisable()
+    {
+        // Releasing the narrator slot when this panel is hidden/closed/destroyed keeps the
+        // "only one at a time" tracker from pointing at a gone panel. (An inactive GameObject's
+        // AudioSource stops on its own.)
+        if (s_activeNarration == this) s_activeNarration = null;
     }
 
     private void PlayInstrumentAudio()

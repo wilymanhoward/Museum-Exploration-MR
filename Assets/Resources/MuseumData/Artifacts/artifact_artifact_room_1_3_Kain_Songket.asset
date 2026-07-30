@@ -28,6 +28,8 @@ MonoBehaviour:
     stages
   modelPrefab: {fileID: 919132149155446097, guid: 17f61d7342e911c48a3302df263e373e,
     type: 3}
+  narrationClip: {fileID: 8300000, guid: a9c9310401eda1347a3e033051a2e030, type: 3}
+  instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: 3ef6f9c83223321438bb7e21c521c7d8, type: 3}
     title: Kain Songket

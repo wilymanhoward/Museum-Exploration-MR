@@ -24,6 +24,8 @@ MonoBehaviour:
   material: Sutera & Kapas
   description: 
   modelPrefab: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: 6d0f11b092b71594aac59d05345eebf2, type: 3}
+  instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: 46bc91810fc21bd499e2cfbef13defdf, type: 3}
     title: Kain Pelangi

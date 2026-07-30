@@ -3,7 +3,17 @@ guid: a5d60641a026246418aaaf308e7b5aab
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Wayang Texture
+    second: {fileID: 2100000, guid: cd83e4e15c400d74594c2b0121ba4395, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Wood
+    second: {fileID: 2100000, guid: a882dbf3202ac3f4589aeef0a14655d1, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0

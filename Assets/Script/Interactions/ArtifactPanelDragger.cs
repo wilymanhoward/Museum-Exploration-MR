@@ -74,7 +74,7 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     {
         base.OnSelectEntered(args);
         Transform interactorT = args.interactorObject != null ? args.interactorObject.transform : null;
-        StartPinchHold(interactorT);
+        StartPinchHold(interactorT, null);
     }
 
     protected override void OnSelectExited(SelectExitEventArgs args)
@@ -87,7 +87,7 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     public void OnPointerDown(PointerEventData eventData)
     {
         Transform interactorT = ExtractInteractorTransform(eventData);
-        StartPinchHold(interactorT);
+        StartPinchHold(interactorT, eventData);
     }
 
     public void OnPointerUp(PointerEventData eventData)
@@ -109,6 +109,30 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
         // Interface required so Unity EventSystem routes hold drag events to this panel
     }
     #endregion
+
+    private bool IsTargeting3DArtifactModel(PointerEventData eventData)
+    {
+        if (eventData != null && eventData.pointerCurrentRaycast.gameObject != null)
+        {
+            GameObject hitObj = eventData.pointerCurrentRaycast.gameObject;
+            if (hitObj.GetComponent<RotateArtifact>() != null || hitObj.name.Contains("ObjectSpawner") || hitObj.name.Contains("3DDisplay") || hitObj.name.Contains("Model"))
+            {
+                return true;
+            }
+            if (hitObj.transform.parent != null && (hitObj.transform.parent.name.Contains("ObjectSpawner") || hitObj.transform.parent.GetComponent<RotateArtifact>() != null))
+            {
+                return true;
+            }
+        }
+
+        RotateArtifact rotator = GetComponentInChildren<RotateArtifact>();
+        if (rotator != null && rotator.IsBeingRotated)
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     private Transform ExtractInteractorTransform(PointerEventData eventData)
     {
@@ -148,8 +172,14 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
         return null;
     }
 
-    private void StartPinchHold(Transform interactorTransform)
+    private void StartPinchHold(Transform interactorTransform, PointerEventData eventData = null)
     {
+        if (IsTargeting3DArtifactModel(eventData))
+        {
+            Debug.Log("[ArtifactPanelDragger] Pinch target is the 3D artifact model or model rotator! Suppressing panel drag.");
+            return;
+        }
+
         isPinching = true;
         if (holdCoroutine != null) StopCoroutine(holdCoroutine);
         holdCoroutine = StartCoroutine(ProcessPinchHold(interactorTransform));
@@ -173,6 +203,13 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
         // Phase 1: Wait for pinch-and-hold duration (allows instant UI button taps to complete unaffected)
         while (isPinching && elapsed < holdToMoveDuration)
         {
+            RotateArtifact rotator = GetComponentInChildren<RotateArtifact>();
+            if (rotator != null && rotator.IsBeingRotated)
+            {
+                Debug.Log("[ArtifactPanelDragger] 3D artifact model rotation active during hold! Aborting panel drag.");
+                isPinching = false;
+                yield break;
+            }
             elapsed += Time.deltaTime;
             yield return null;
         }
