@@ -12,6 +12,7 @@ public class MiniGames : MonoBehaviour
     [Header("Panels (auto-found by name if left empty)")]
     public GameObject minigameMenuPanel;
     public GameObject gameListPanel;
+    public GameObject leaderboardPanel;
 
     [Header("External")]
     [Tooltip("Optional – leave empty to use WristWatch.Instance automatically.")]
@@ -48,28 +49,56 @@ public class MiniGames : MonoBehaviour
             minigameMenuPanel = FindObjectInScene("MiniGameMenuPanel");
         if (gameListPanel == null)
             gameListPanel = FindObjectInScene("GameListPanel");
+        if (leaderboardPanel == null)
+            leaderboardPanel = FindObjectInScene("LeaderboardPanel");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Public routing API
     // ─────────────────────────────────────────────────────────────────────────
 
-    /// <summary>Show MiniGameMenuPanel; hide GameListPanel and all game panels.</summary>
+    /// <summary>Show MiniGameMenuPanel; hide GameListPanel, LeaderboardPanel, and all game panels.</summary>
     public void ShowMenuPanel()
     {
         EnsureCanvasActive();
         if (minigameMenuPanel != null) minigameMenuPanel.SetActive(true);
         if (gameListPanel != null) gameListPanel.SetActive(false);
+        if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
         HideAllGamePanels();
     }
 
-    /// <summary>Show GameListPanel; hide MiniGameMenuPanel and all game panels.</summary>
+    /// <summary>Show GameListPanel; hide MiniGameMenuPanel, LeaderboardPanel, and all game panels.</summary>
     public void ShowGameListPanel()
     {
         EnsureCanvasActive();
         if (minigameMenuPanel != null) minigameMenuPanel.SetActive(false);
         if (gameListPanel != null) gameListPanel.SetActive(true);
+        if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
         HideAllGamePanels();
+    }
+
+    /// <summary>Show LeaderboardPanel for selected game; hide MiniGameMenuPanel, GameListPanel, and all game panels.</summary>
+    public void ShowLeaderboardPanel(string gameId, string gameName)
+    {
+        EnsureCanvasActive();
+        if (minigameMenuPanel != null) minigameMenuPanel.SetActive(false);
+        if (gameListPanel != null) gameListPanel.SetActive(false);
+        HideAllGamePanels();
+
+        if (leaderboardPanel == null)
+            leaderboardPanel = FindObjectInScene("LeaderboardPanel");
+
+        if (leaderboardPanel != null)
+        {
+            leaderboardPanel.SetActive(true);
+            LeaderboardPanel lbScript = leaderboardPanel.GetComponent<LeaderboardPanel>();
+            if (lbScript == null) lbScript = leaderboardPanel.AddComponent<LeaderboardPanel>();
+            lbScript.LoadLeaderboard(gameId, gameName);
+        }
+        else
+        {
+            Debug.LogWarning("MiniGames: LeaderboardPanel not found in scene!");
+        }
     }
 
     /// <summary>Activate a specific game panel; hide everything else.</summary>
@@ -84,6 +113,7 @@ public class MiniGames : MonoBehaviour
         EnsureCanvasActive();
         if (minigameMenuPanel != null) minigameMenuPanel.SetActive(false);
         if (gameListPanel != null) gameListPanel.SetActive(false);
+        if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
         HideAllGamePanels();
         gamePanel.SetActive(true);
     }
@@ -139,6 +169,7 @@ public class MiniGames : MonoBehaviour
 
     private void HideAllGamePanels()
     {
+        if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
         if (MiniGameMenuPanel.Instance == null) return;
         foreach (var entry in MiniGameMenuPanel.Instance.games)
             if (entry.gamePanel != null) entry.gamePanel.SetActive(false);
