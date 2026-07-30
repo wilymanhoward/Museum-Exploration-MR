@@ -25,6 +25,7 @@ public class QRCodeScanner : MonoBehaviour
 
     private string lastSimulatedPayload = "";
     private string lastHardwarePayload = "";
+    private string currentActiveScannedPayload = ""; // Tracks currently active QR code to filter duplicate scans
     private float hardwareScanCooldown = 0f;
     private List<MRUKTrackable> activeTrackables = new List<MRUKTrackable>();
 
@@ -86,7 +87,6 @@ public class QRCodeScanner : MonoBehaviour
             Vector3 camForward = camTransform.forward;
 
             MRUK.Instance.GetTrackables(activeTrackables);
-            bool facingAnyTargetQR = false;
 
             for (int i = 0; i < activeTrackables.Count; i++)
             {
@@ -106,27 +106,50 @@ public class QRCodeScanner : MonoBehaviour
 
                     if (isFacing)
                     {
-                        facingAnyTargetQR = true;
-
-                        // Trigger instantly if different payload or if cooldown expired
-                        if (payload != lastHardwarePayload || hardwareScanCooldown <= 0f)
-                        {
-                            lastHardwarePayload = payload;
-                            hardwareScanCooldown = ScanCooldown;
-
-                            Pose pose = new Pose(qrPos, trackable.transform.rotation);
-                            Debug.Log($"[QR Scanner] Fast Scan Triggered for '{payload}' (dist: {dist:F2}m, angle: {angle:F1}°)");
-                            OnQRCodeScanned?.Invoke(payload, pose);
-                        }
+                        Pose pose = new Pose(qrPos, trackable.transform.rotation);
+                        ProcessScan(payload, pose);
                     }
                 }
             }
+        }
+    }
 
-            // Reset active payload if the user turns away from the QR code, allowing immediate re-scan when facing back
-            if (!facingAnyTargetQR && !string.IsNullOrEmpty(lastHardwarePayload) && hardwareScanCooldown <= ScanCooldown * 0.5f)
-            {
-                lastHardwarePayload = "";
-            }
+    /// <summary>
+    /// Processes a scanned QR code payload, ignoring duplicate scans if the exact same QR code is already active.
+    /// </summary>
+    public bool ProcessScan(string payload, Pose pose)
+    {
+        if (string.IsNullOrEmpty(payload)) return false;
+
+        string cleanPayload = payload.Trim().ToLower();
+
+        // DUPLICATE FILTER: Ignore scan if it's the exact same QR code currently open/active
+        if (cleanPayload == currentActiveScannedPayload)
+        {
+            Debug.Log($"[QR Scanner] Ignored duplicate scan for already active QR code: '{payload}'");
+            return false;
+        }
+
+        currentActiveScannedPayload = cleanPayload;
+        lastHardwarePayload = payload;
+        hardwareScanCooldown = ScanCooldown;
+
+        Debug.Log($"[QR Scanner] New QR Code Scanned: '{payload}' at Pose: {pose.position}");
+        OnQRCodeScanned?.Invoke(payload, pose);
+        return true;
+    }
+
+    /// <summary>
+    /// Clears the active scanned payload tracking so the QR code can be re-scanned in the future.
+    /// </summary>
+    public void ClearActivePayload(string payload = null)
+    {
+        if (string.IsNullOrEmpty(payload) || payload.Trim().ToLower() == currentActiveScannedPayload)
+        {
+            Debug.Log($"[QR Scanner] Cleared active payload '{currentActiveScannedPayload}'. Ready for re-scan.");
+            currentActiveScannedPayload = "";
+            lastHardwarePayload = "";
+            lastSimulatedPayload = "";
         }
     }
 
@@ -135,6 +158,7 @@ public class QRCodeScanner : MonoBehaviour
     /// </summary>
     public void ResetScanState()
     {
+        currentActiveScannedPayload = "";
         lastHardwarePayload = "";
         lastSimulatedPayload = "";
         hardwareScanCooldown = 1.0f;
@@ -149,6 +173,7 @@ public class QRCodeScanner : MonoBehaviour
         {
             Debug.Log($"[Simulated] QR Code Lost: {lastSimulatedPayload}");
             OnQRCodeLost?.Invoke(lastSimulatedPayload);
+            ClearActivePayload(lastSimulatedPayload);
             lastSimulatedPayload = "";
         }
     }
@@ -158,20 +183,22 @@ public class QRCodeScanner : MonoBehaviour
     /// </summary>
     public void SimulateScan(string payload)
     {
-        if (lastSimulatedPayload.StartsWith("artifact_") && lastSimulatedPayload != payload)
+        if (string.IsNullOrEmpty(payload)) return;
+
+        if (!string.IsNullOrEmpty(lastSimulatedPayload) && lastSimulatedPayload != payload)
         {
             OnQRCodeLost?.Invoke(lastSimulatedPayload);
         }
 
         Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
-        
         Vector3 pos = camTransform.position + camTransform.forward * simulatedSpawnDistance;
         Quaternion rot = Quaternion.LookRotation(camTransform.forward, Vector3.up);
         Pose simulatedPose = new Pose(pos, rot);
 
         lastSimulatedPayload = payload;
-        Debug.Log($"[Simulated] Scanned QR Code: {payload} at Pose: {pos}");
-        OnQRCodeScanned?.Invoke(payload, simulatedPose);
+
+        // Process scan through duplicate payload filter
+        ProcessScan(payload, simulatedPose);
     }
 
     private void OnMRUKTrackableAdded(MRUKTrackable trackable)
@@ -188,12 +215,8 @@ public class QRCodeScanner : MonoBehaviour
 
                 if (dist <= MaxScanDistance && angle <= MaxScanAngle)
                 {
-                    lastHardwarePayload = payload;
-                    hardwareScanCooldown = ScanCooldown;
-
                     Pose pose = new Pose(trackable.transform.position, trackable.transform.rotation);
-                    Debug.Log($"[MRUK Event] Fast QR Code Tracked: '{payload}' at Pose: {pose.position}");
-                    OnQRCodeScanned?.Invoke(payload, pose);
+                    ProcessScan(payload, pose);
                 }
             }
         }
@@ -205,6 +228,7 @@ public class QRCodeScanner : MonoBehaviour
         {
             string payload = trackable.MarkerPayloadString;
             Debug.Log($"[MRUK Event] QR Code Lost: {payload}");
+            ClearActivePayload(payload);
             OnQRCodeLost?.Invoke(payload);
         }
     }

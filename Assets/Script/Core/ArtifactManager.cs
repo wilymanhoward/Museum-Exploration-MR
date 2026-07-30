@@ -444,6 +444,12 @@ public class ArtifactManager : MonoBehaviour
         }
         selectedArtifact = null;
         lastSelectedArtifact = null;
+
+        // Reset QR scanner state so the QR code can be scanned again in the future
+        if (QRCodeScanner.Instance != null)
+        {
+            QRCodeScanner.Instance.ClearActivePayload();
+        }
     }
 
     /// <summary>
@@ -464,6 +470,12 @@ public class ArtifactManager : MonoBehaviour
         activePanelInstances.Clear();
         selectedArtifact = null;
         lastSelectedArtifact = null;
+
+        // Reset QR scanner state so QR codes can be scanned again in the future
+        if (QRCodeScanner.Instance != null)
+        {
+            QRCodeScanner.Instance.ClearActivePayload();
+        }
     }
 
     /// <summary>

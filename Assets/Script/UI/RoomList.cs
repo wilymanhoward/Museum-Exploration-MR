@@ -124,11 +124,34 @@ public class RoomList : MonoBehaviour
 
             if (nameTextComp != null)
             {
-                nameTextComp.text = room.roomName;
+                nameTextComp.enableWordWrapping = true;
+                nameTextComp.maxVisibleLines = 2;
+                nameTextComp.overflowMode = TextOverflowModes.Ellipsis;
+
+                string displayName = room.roomName;
+                if (!string.IsNullOrEmpty(displayName))
+                {
+                    if (displayName.Equals("Serambi Mandalika", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        displayName = "Serambi\nMandalika";
+                    }
+                    else if (displayName.Contains("Serambi") && displayName.Contains("Mandalika"))
+                    {
+                        displayName = displayName.Replace("Serambi Mandalika", "Serambi\nMandalika");
+                    }
+                }
+                nameTextComp.text = displayName;
             }
             else if (tmps.Length > 0 && numTextComp != tmps[0])
             {
-                tmps[0].text = room.roomName;
+                tmps[0].enableWordWrapping = true;
+                tmps[0].maxVisibleLines = 2;
+                string displayName = room.roomName;
+                if (!string.IsNullOrEmpty(displayName) && displayName.Contains("Serambi Mandalika"))
+                {
+                    displayName = displayName.Replace("Serambi Mandalika", "Serambi\nMandalika");
+                }
+                tmps[0].text = displayName;
             }
 
             // Hook click event

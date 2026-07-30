@@ -154,6 +154,11 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             // Kain Songket: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
+        if (key.Contains("gamelan") || key.Contains("gamelen"))
+        {
+            // Gamelan Terengganu: Rotate 180 degrees around Y so instrument faces forward toward player
+            return Quaternion.Euler(0f, 180f, 0f);
+        }
 
         return Quaternion.identity;
     }
