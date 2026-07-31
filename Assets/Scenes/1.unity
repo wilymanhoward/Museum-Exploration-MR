@@ -6380,6 +6380,113 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 935403177}
   m_CullTransparentMesh: 1
+--- !u!1 &947676599
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 947676603}
+  - component: {fileID: 947676602}
+  - component: {fileID: 947676601}
+  - component: {fileID: 947676600}
+  m_Layer: 0
+  m_Name: TutorialSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &947676600
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947676599}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19a10f49a87e8a489522a60e79bba38, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stepTitle: 'Langkah 2: Cubit & Tahan untuk Putar'
+  instructionText: 'CUBIT dan TAHAN permata, kemudian gerakkan tangan anda untuk
+    memutarnya. Terus putar sehingga bar penuh!
+
+    <size=80%><i>PINCH and HOLD
+    the gem, then move your hand to rotate it. Keep spinning until the bar is full!</i></size>'
+  requiredRotationDegrees: 120
+  minHoldSeconds: 0.6
+  audioTickEveryDegrees: 30
+--- !u!114 &947676601
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947676599}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29b6bfa1665341744aeae8cf3d91e7eb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  stepTitle: 'Langkah 1: Cubit untuk Klik'
+  instructionText: 'Halakan sinar tangan anda ke sfera biru, kemudian CUBIT ibu jari
+    dan jari telunjuk untuk memilihnya.
+
+    <size=80%><i>Point your hand ray at
+    the blue sphere, then PINCH your thumb and index finger together to click it.</i></size>'
+  requiredClicks: 2
+  repositionRadius: 0.18
+--- !u!114 &947676602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947676599}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 16202c0c8847bc94a9436bb8f38892be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autoStartAfterMainMenu: 1
+  showOnlyOnce: 0
+  startDelaySeconds: 1
+  panelDistance: 1.1
+  panelHeightOffset: 0.12
+  practiceDistance: 0.85
+  practiceHeightOffset: -0.22
+  customHandGizmoPrefab: {fileID: 0}
+  panelHeader: Tutorial
+  praiseText: Bagus! / Well done!
+  completionText: 'Tutorial selesai! Selamat meneroka muzium.
+
+    Tutorial complete
+    - enjoy exploring the museum!'
+  onTutorialStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  onTutorialCompleted:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!4 &947676603
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 947676599}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.7933065, y: 1.4695916, z: -0.8873877}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &959626343
 GameObject:
   m_ObjectHideFlags: 0
@@ -16124,3 +16231,4 @@ SceneRoots:
   - {fileID: 922713083}
   - {fileID: 1893142002}
   - {fileID: 1108799964}
+  - {fileID: 947676603}
