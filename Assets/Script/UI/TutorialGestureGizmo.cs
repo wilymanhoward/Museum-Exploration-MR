@@ -1,19 +1,25 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Animated gesture demonstration shown next to the tutorial practice objects.
 ///
-/// Default: a procedural "ghost hand" built from translucent spheres (palm,
-/// index finger, thumb) that loops the current gesture:
-///   - PinchClick: fingers close, a ring pulses at the pinch point, fingers open.
-///   - PinchHoldDrag: fingers close and STAY closed while the whole hand sweeps
-///     side to side, then release.
+/// Visual source, in order of preference:
+///  1. An artist-made animated prefab assigned on TutorialManager.customHandGizmoPrefab
+///     (if it has an Animator, the clickTriggerName / holdDragTriggerName triggers are
+///     fired when the mode changes).
+///  2. The REAL XR hand: the scene's "Right/Left Hand Interaction Visual" (the same
+///     skinned hand mesh the player sees on their own hands) is cloned, its tracking
+///     drivers disabled, and its skeleton animated between an open pose and a pinch
+///     pose computed with a small CCD IK solve that brings the thumb and index tips
+///     together. This makes the demo hand look exactly like the player's hand.
+///  3. Fallback: a procedural translucent sphere-hand (editor testing / no rig found).
 ///
-/// Optional: assign an artist-made animated hand prefab on
-/// TutorialManager.customHandGizmoPrefab instead. It is instantiated in place of
-/// the ghost hand; if it has an Animator, the triggers named by
-/// clickTriggerName / holdDragTriggerName are fired when the mode changes.
+/// Gestures looped:
+///  - PinchClick: fingers close, a ring pulses at the pinch point, fingers open.
+///  - PinchHoldDrag: fingers close and STAY closed while the whole hand sweeps side
+///    to side (a small steady ring shows the hold), then release.
 /// </summary>
 public class TutorialGestureGizmo : MonoBehaviour
 {
@@ -25,6 +31,7 @@ public class TutorialGestureGizmo : MonoBehaviour
 
     private static readonly Color GhostColor = new Color(0.75f, 0.93f, 1f, 0.55f);
     private static readonly Color RingColor = new Color(0.55f, 0.95f, 1f, 0.9f);
+    private static readonly Vector3 SpherePinchPoint = new Vector3(0.045f, 0.075f, 0f);
 
     private GestureMode mode = GestureMode.PinchClick;
     private Coroutine animationLoop;
@@ -34,14 +41,21 @@ public class TutorialGestureGizmo : MonoBehaviour
     private GameObject customInstance;
     private Animator customAnimator;
 
-    // Procedural ghost hand
+    // Shared: parent of whatever hand visual is in use; translated during the drag sweep.
     private Transform handRoot;
+
+    // Real cloned XR hand skeleton
+    private bool usingRealHand;
+    private readonly List<Transform> animatedJoints = new List<Transform>();
+    private Quaternion[] openPose;
+    private Quaternion[] closedPose;
+
+    // Procedural sphere-hand fallback
     private Transform palm, indexMid, indexTip, thumbMid, thumbTip;
-    private LineRenderer pulseRing;
     private Material ghostMat;
     private Material ringMat;
 
-    private static readonly Vector3 PinchPoint = new Vector3(0.045f, 0.075f, 0f);
+    private LineRenderer pulseRing;
 
     /// <summary>Creates the gizmo (initially inactive; TutorialManager positions and enables it per step).</summary>
     public static TutorialGestureGizmo Create(GameObject customPrefab)
@@ -54,7 +68,7 @@ public class TutorialGestureGizmo : MonoBehaviour
             gizmo.customInstance = Instantiate(customPrefab, root.transform, false);
             gizmo.customAnimator = gizmo.customInstance.GetComponentInChildren<Animator>();
         }
-        else
+        else if (!gizmo.TryCloneSceneHand())
         {
             gizmo.BuildProceduralHand();
         }
@@ -115,7 +129,217 @@ public class TutorialGestureGizmo : MonoBehaviour
         if (ringMat != null) Destroy(ringMat);
     }
 
-    #region Procedural hand construction
+    #region Real XR hand cloning
+
+    /// <summary>
+    /// Clones the scene's hand interaction visual (the player's actual hand mesh),
+    /// freezes its tracking, poses it upright facing the player, and precomputes an
+    /// open pose and a CCD-IK pinch pose for the skeleton. Returns false if the rig
+    /// can't be found so the caller can fall back to the procedural hand.
+    /// </summary>
+    private bool TryCloneSceneHand()
+    {
+        bool isLeft = false;
+        GameObject source = FindSceneObjectByName("Right Hand Interaction Visual");
+        if (source == null)
+        {
+            source = FindSceneObjectByName("Left Hand Interaction Visual");
+            isLeft = source != null;
+        }
+        if (source == null) return false;
+
+        handRoot = new GameObject("HandRoot").transform;
+        handRoot.SetParent(transform, false);
+
+        GameObject clone = Instantiate(source, handRoot, false);
+        clone.name = "GhostHand";
+        clone.transform.localPosition = Vector3.zero;
+        clone.transform.localRotation = Quaternion.identity;
+        clone.SetActive(true);
+
+        // Freeze the clone: no tracking driver may keep puppeting this skeleton.
+        foreach (Behaviour b in clone.GetComponentsInChildren<Behaviour>(true))
+        {
+            if (b != null) b.enabled = false;
+        }
+        foreach (Collider c in clone.GetComponentsInChildren<Collider>(true))
+        {
+            Destroy(c);
+        }
+        foreach (LineRenderer lr in clone.GetComponentsInChildren<LineRenderer>(true))
+        {
+            lr.enabled = false; // stray ray visuals under the hand hierarchy
+        }
+        foreach (SkinnedMeshRenderer smr in clone.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+        {
+            // The mesh controller may have hidden the mesh on tracking loss; force it visible.
+            smr.enabled = true;
+            smr.updateWhenOffscreen = true;
+            smr.gameObject.SetActive(true);
+        }
+
+        // Locate the joints (Hands Interaction Demo naming: L_/R_ + joint, e.g. R_IndexProximal).
+        Transform[] all = clone.GetComponentsInChildren<Transform>(true);
+        Transform wrist = FindJoint(all, "_Wrist");
+        Transform realIndexTip = FindJoint(all, "IndexTip");
+        Transform realThumbTip = FindJoint(all, "ThumbTip");
+        Transform indexProx = FindJoint(all, "IndexProximal");
+        Transform indexInter = FindJoint(all, "IndexIntermediate");
+        Transform indexDist = FindJoint(all, "IndexDistal");
+        Transform thumbMeta = FindJoint(all, "ThumbMetacarpal");
+        Transform thumbProx = FindJoint(all, "ThumbProximal");
+        Transform thumbDist = FindJoint(all, "ThumbDistal");
+        Transform middleProx = FindJoint(all, "MiddleProximal");
+        Transform littleProx = FindJoint(all, "LittleProximal");
+
+        if (wrist == null || realIndexTip == null || realThumbTip == null || indexProx == null ||
+            indexDist == null || thumbProx == null || thumbDist == null || middleProx == null || littleProx == null)
+        {
+            Debug.LogWarning("[Tutorial] Hand visual found but joints missing - using procedural gizmo hand.");
+            Destroy(handRoot.gameObject);
+            handRoot = null;
+            return false;
+        }
+
+        // Orient the hand: fingers up, palm facing away from the viewer (like seeing the
+        // back of your own raised hand), slightly angled for readability. Convention-free:
+        // the basis is computed from the joint positions themselves.
+        Vector3 fingerDir = (middleProx.position - wrist.position).normalized;
+        Vector3 across = (littleProx.position - indexProx.position).normalized;
+        Vector3 palmNormal = isLeft ? Vector3.Cross(fingerDir, across) : Vector3.Cross(across, fingerDir);
+        if (fingerDir.sqrMagnitude < 0.5f || palmNormal.sqrMagnitude < 0.001f)
+        {
+            Debug.LogWarning("[Tutorial] Hand joints degenerate - using procedural gizmo hand.");
+            Destroy(handRoot.gameObject);
+            handRoot = null;
+            return false;
+        }
+        palmNormal.Normalize();
+
+        Quaternion currentBasis = Quaternion.LookRotation(palmNormal, fingerDir);
+        Quaternion desiredBasis = handRoot.rotation * Quaternion.Euler(-12f, isLeft ? 18f : -18f, 0f);
+        clone.transform.rotation = desiredBasis * Quaternion.Inverse(currentBasis) * clone.transform.rotation;
+
+        // Center the open-pose pinch point at the gizmo origin.
+        Vector3 pinchMid = (realIndexTip.position + realThumbTip.position) * 0.5f;
+        clone.transform.position += handRoot.position - pinchMid;
+
+        // Joints that animate between open and pinched.
+        animatedJoints.Clear();
+        AddJoint(indexProx); AddJoint(indexInter); AddJoint(indexDist);
+        AddJoint(thumbMeta); AddJoint(thumbProx); AddJoint(thumbDist);
+        foreach (string finger in new[] { "Middle", "Ring", "Little" })
+        {
+            AddJoint(FindJoint(all, finger + "Proximal"));
+            AddJoint(FindJoint(all, finger + "Intermediate"));
+        }
+
+        openPose = CapturePose();
+
+        // Build the pinch pose: gently curl the helper fingers toward the palm, then
+        // CCD the index and thumb chains until the tips meet.
+        Vector3 palmarDir = handRoot.forward;
+        Vector3 palmCenter = Vector3.Lerp(wrist.position, middleProx.position, 0.55f) + palmarDir * 0.025f;
+        foreach (string finger in new[] { "Middle", "Ring", "Little" })
+        {
+            Transform prox = FindJoint(all, finger + "Proximal");
+            Transform inter = FindJoint(all, finger + "Intermediate");
+            Transform tip = FindJoint(all, finger + "Tip");
+            if (tip == null) continue;
+            RotateTowardTarget(prox, tip, palmCenter, 22f);
+            RotateTowardTarget(inter, tip, palmCenter, 16f);
+        }
+
+        for (int iter = 0; iter < 20; iter++)
+        {
+            if ((realIndexTip.position - realThumbTip.position).magnitude < 0.007f) break;
+            Vector3 mid = (realIndexTip.position + realThumbTip.position) * 0.5f;
+            RotateTowardTarget(indexProx, realIndexTip, mid, 4f);
+            RotateTowardTarget(indexInter, realIndexTip, mid, 5f);
+            RotateTowardTarget(indexDist, realIndexTip, mid, 5f);
+            RotateTowardTarget(thumbMeta, realThumbTip, mid, 3f);
+            RotateTowardTarget(thumbProx, realThumbTip, mid, 5f);
+            RotateTowardTarget(thumbDist, realThumbTip, mid, 5f);
+        }
+
+        closedPose = CapturePose();
+        Vector3 closedPinchLocal = handRoot.InverseTransformPoint(
+            (realIndexTip.position + realThumbTip.position) * 0.5f);
+
+        // Back to the open pose; animation slerps between the two.
+        ApplyPose(openPose);
+
+        usingRealHand = true;
+        BuildPulseRing(closedPinchLocal);
+        Debug.Log($"[Tutorial] Gesture gizmo is using the real XR hand mesh ({source.name}).");
+        return true;
+    }
+
+    private void AddJoint(Transform joint)
+    {
+        if (joint != null && !animatedJoints.Contains(joint)) animatedJoints.Add(joint);
+    }
+
+    private Quaternion[] CapturePose()
+    {
+        Quaternion[] pose = new Quaternion[animatedJoints.Count];
+        for (int i = 0; i < animatedJoints.Count; i++) pose[i] = animatedJoints[i].localRotation;
+        return pose;
+    }
+
+    private void ApplyPose(Quaternion[] pose)
+    {
+        for (int i = 0; i < animatedJoints.Count && i < pose.Length; i++)
+        {
+            animatedJoints[i].localRotation = pose[i];
+        }
+    }
+
+    private static Transform FindJoint(Transform[] all, string nameSuffix)
+    {
+        foreach (Transform t in all)
+        {
+            if (t != null && t.name.EndsWith(nameSuffix)) return t;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// One clamped CCD step: rotates 'joint' so 'endEffector' moves toward 'target'.
+    /// Works purely in world space, so it is independent of the rig's axis conventions.
+    /// </summary>
+    private static void RotateTowardTarget(Transform joint, Transform endEffector, Vector3 target, float maxDegrees)
+    {
+        if (joint == null || endEffector == null) return;
+
+        Vector3 from = endEffector.position - joint.position;
+        Vector3 to = target - joint.position;
+        if (from.sqrMagnitude < 1e-8f || to.sqrMagnitude < 1e-8f) return;
+
+        Quaternion delta = Quaternion.FromToRotation(from, to);
+        delta.ToAngleAxis(out float angle, out Vector3 axis);
+        if (angle > 180f) angle -= 360f;
+        if (Mathf.Abs(angle) < 0.01f || float.IsNaN(axis.x)) return;
+
+        angle = Mathf.Clamp(angle, -maxDegrees, maxDegrees);
+        joint.rotation = Quaternion.AngleAxis(angle, axis) * joint.rotation;
+    }
+
+    private static GameObject FindSceneObjectByName(string name)
+    {
+        GameObject fallback = null;
+        foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+        {
+            if (t == null || t.name != name || !t.gameObject.scene.IsValid()) continue;
+            if (t.gameObject.activeInHierarchy) return t.gameObject;
+            if (fallback == null) fallback = t.gameObject;
+        }
+        return fallback;
+    }
+
+    #endregion
+
+    #region Procedural hand construction (fallback)
 
     private void BuildProceduralHand()
     {
@@ -131,7 +355,7 @@ public class TutorialGestureGizmo : MonoBehaviour
         thumbTip = MakePart("ThumbTip", Vector3.one * 0.02f);
 
         SetPinchAmount(0f);
-        BuildPulseRing();
+        BuildPulseRing(SpherePinchPoint);
     }
 
     private Transform MakePart(string name, Vector3 scale)
@@ -145,11 +369,15 @@ public class TutorialGestureGizmo : MonoBehaviour
         return part.transform;
     }
 
-    private void BuildPulseRing()
+    #endregion
+
+    #region Pulse ring
+
+    private void BuildPulseRing(Vector3 localPosition)
     {
         GameObject ringGo = new GameObject("PulseRing");
         ringGo.transform.SetParent(handRoot, false);
-        ringGo.transform.localPosition = PinchPoint;
+        ringGo.transform.localPosition = localPosition;
 
         pulseRing = ringGo.AddComponent<LineRenderer>();
         pulseRing.useWorldSpace = false;
@@ -177,20 +405,29 @@ public class TutorialGestureGizmo : MonoBehaviour
         pulseRing.endColor = c;
     }
 
+    #endregion
+
     /// <summary>0 = hand open, 1 = thumb and index touching (pinched).</summary>
     private void SetPinchAmount(float t)
     {
         if (handRoot == null) return;
         t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t));
 
+        if (usingRealHand)
+        {
+            for (int i = 0; i < animatedJoints.Count; i++)
+            {
+                animatedJoints[i].localRotation = Quaternion.Slerp(openPose[i], closedPose[i], t);
+            }
+            return;
+        }
+
         palm.localPosition = Vector3.zero;
         indexMid.localPosition = Vector3.Lerp(new Vector3(0.012f, 0.055f, 0f), new Vector3(0.022f, 0.05f, 0f), t);
-        indexTip.localPosition = Vector3.Lerp(new Vector3(0.02f, 0.09f, 0f), PinchPoint + new Vector3(-0.004f, 0.005f, 0f), t);
+        indexTip.localPosition = Vector3.Lerp(new Vector3(0.02f, 0.09f, 0f), SpherePinchPoint + new Vector3(-0.004f, 0.005f, 0f), t);
         thumbMid.localPosition = Vector3.Lerp(new Vector3(0.045f, 0.008f, 0f), new Vector3(0.052f, 0.022f, 0f), t);
-        thumbTip.localPosition = Vector3.Lerp(new Vector3(0.075f, 0.035f, 0f), PinchPoint + new Vector3(0.004f, -0.005f, 0f), t);
+        thumbTip.localPosition = Vector3.Lerp(new Vector3(0.075f, 0.035f, 0f), SpherePinchPoint + new Vector3(0.004f, -0.005f, 0f), t);
     }
-
-    #endregion
 
     #region Animation loops
 

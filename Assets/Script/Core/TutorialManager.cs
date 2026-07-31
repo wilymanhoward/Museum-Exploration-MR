@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using UnityEngine.XR.Interaction.Toolkit.UI;
 
 /// <summary>
 /// Sequences the interactive gesture tutorial that plays right after the player
@@ -45,7 +46,7 @@ public class TutorialManager : MonoBehaviour
     public float practiceHeightOffset = -0.22f;
 
     [Header("Visual Gizmo")]
-    [Tooltip("Optional: an artist-made animated hand prefab (with an Animator) used instead of the built-in procedural ghost hand. See TutorialGestureGizmo for the expected Animator triggers.")]
+    [Tooltip("Optional override: an artist-made animated hand prefab (with an Animator). When empty, the gizmo clones the scene's real XR hand mesh (Right/Left Hand Interaction Visual) and animates its skeleton. See TutorialGestureGizmo.")]
     public GameObject customHandGizmoPrefab;
 
     [Header("Panel Copy")]
@@ -71,6 +72,8 @@ public class TutorialManager : MonoBehaviour
     private TextMeshProUGUI progressLabel;
     private TextMeshProUGUI stepCounterLabel;
     private Image progressFill;
+    private Image progressBarBg;
+    private Image accentStrip;
     private GameObject progressBarRoot;
     private TutorialGestureGizmo gizmo;
     private Camera cachedCamera;
@@ -320,6 +323,7 @@ public class TutorialManager : MonoBehaviour
         Canvas canvas = panelRoot.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
         canvas.sortingOrder = 60;
+        panelRoot.AddComponent<TrackedDeviceGraphicRaycaster>(); // hand-ray clicks on the Skip button
 
         RectTransform canvasRect = panelRoot.GetComponent<RectTransform>();
         canvasRect.sizeDelta = new Vector2(560f, 340f);
@@ -330,14 +334,14 @@ public class TutorialManager : MonoBehaviour
             new Color(0.07f, 0.09f, 0.13f, 0.88f));
         Stretch(bg.rectTransform, Vector2.zero, Vector2.zero);
 
-        // Accent strip along the top
-        Image accent = CreateChildImage(panelRoot.transform, "AccentStrip",
+        // Accent strip along the top (hidden if the project's panel style is adopted below)
+        accentStrip = CreateChildImage(panelRoot.transform, "AccentStrip",
             new Color(0.35f, 0.78f, 0.95f, 1f));
-        accent.rectTransform.anchorMin = new Vector2(0f, 1f);
-        accent.rectTransform.anchorMax = new Vector2(1f, 1f);
-        accent.rectTransform.pivot = new Vector2(0.5f, 1f);
-        accent.rectTransform.anchoredPosition = Vector2.zero;
-        accent.rectTransform.sizeDelta = new Vector2(0f, 8f);
+        accentStrip.rectTransform.anchorMin = new Vector2(0f, 1f);
+        accentStrip.rectTransform.anchorMax = new Vector2(1f, 1f);
+        accentStrip.rectTransform.pivot = new Vector2(0.5f, 1f);
+        accentStrip.rectTransform.anchoredPosition = Vector2.zero;
+        accentStrip.rectTransform.sizeDelta = new Vector2(0f, 8f);
 
         titleLabel = CreateChildLabel(panelRoot.transform, "Title", 34f, FontStyles.Bold,
             new Color(0.92f, 0.96f, 1f, 1f), TextAlignmentOptions.Center);
@@ -357,9 +361,9 @@ public class TutorialManager : MonoBehaviour
         RectTransform barRect = progressBarRoot.AddComponent<RectTransform>();
         Place(barRect, new Vector2(0.2f, 0.075f), new Vector2(0.8f, 0.115f));
 
-        Image barBg = progressBarRoot.AddComponent<Image>();
-        barBg.color = new Color(1f, 1f, 1f, 0.12f);
-        barBg.raycastTarget = false;
+        progressBarBg = progressBarRoot.AddComponent<Image>();
+        progressBarBg.color = new Color(1f, 1f, 1f, 0.12f);
+        progressBarBg.raycastTarget = false;
 
         progressFill = CreateChildImage(progressBarRoot.transform, "Fill",
             new Color(0.35f, 0.85f, 0.55f, 1f));
@@ -372,6 +376,192 @@ public class TutorialManager : MonoBehaviour
         stepCounterLabel = CreateChildLabel(panelRoot.transform, "StepCounter", 18f, FontStyles.Normal,
             new Color(0.7f, 0.75f, 0.82f, 1f), TextAlignmentOptions.Center);
         Place(stepCounterLabel.rectTransform, new Vector2(0.3f, 0.0f), new Vector2(0.7f, 0.07f));
+
+        // Adopt the project's UI design language (RoomListPanel card sprite + fonts) and
+        // give the panel a Skip button cloned from the same panel's CloseButton.
+        GameObject styleTemplate = FindSceneObjectByName("RoomListPanel");
+        if (styleTemplate != null && ApplyTemplateStyle(styleTemplate, bg))
+        {
+            accentStrip.gameObject.SetActive(false);
+        }
+        BuildSkipButton(styleTemplate);
+    }
+
+    /// <summary>
+    /// Copies the wrist panels' visual identity onto the tutorial panel: the rounded
+    /// card background sprite (with its tint and material) and the TMP fonts/colors
+    /// used by the room list's title and rows.
+    /// </summary>
+    private bool ApplyTemplateStyle(GameObject template, Image targetBackground)
+    {
+        // Background: panel-root image, else a child that looks like a background.
+        Image srcBg = template.GetComponent<Image>();
+        if (srcBg == null)
+        {
+            foreach (Image img in template.GetComponentsInChildren<Image>(true))
+            {
+                string n = img.name.ToLower();
+                if (n == "image" || n == "bg" || n.Contains("background") || n.Contains("panel"))
+                {
+                    srcBg = img;
+                    break;
+                }
+            }
+        }
+        if (srcBg == null) srcBg = template.GetComponentInChildren<Image>(true);
+
+        if (srcBg != null && srcBg.sprite != null)
+        {
+            targetBackground.sprite = srcBg.sprite;
+            targetBackground.type = srcBg.type;
+            targetBackground.color = srcBg.color;
+            targetBackground.material = srcBg.material;
+            targetBackground.pixelsPerUnitMultiplier = srcBg.pixelsPerUnitMultiplier;
+        }
+
+        // Typography: title styling from RoomTitleText, body styling from any other label.
+        TextMeshProUGUI srcTitle = null;
+        Transform titleT = FindDeepChild(template.transform, "RoomTitleText");
+        if (titleT != null) srcTitle = titleT.GetComponent<TextMeshProUGUI>();
+
+        TextMeshProUGUI[] allLabels = template.GetComponentsInChildren<TextMeshProUGUI>(true);
+        if (srcTitle == null && allLabels.Length > 0) srcTitle = allLabels[0];
+
+        TextMeshProUGUI srcBody = null;
+        foreach (TextMeshProUGUI tmp in allLabels)
+        {
+            if (tmp != srcTitle) { srcBody = tmp; break; }
+        }
+        if (srcBody == null) srcBody = srcTitle;
+
+        if (srcTitle != null)
+        {
+            titleLabel.font = srcTitle.font;
+            titleLabel.color = srcTitle.color;
+            progressLabel.font = srcTitle.font;
+            progressLabel.color = srcTitle.color;
+        }
+        if (srcBody != null)
+        {
+            bodyLabel.font = srcBody.font;
+            bodyLabel.color = srcBody.color;
+            stepCounterLabel.font = srcBody.font;
+            Color dim = srcBody.color;
+            dim.a *= 0.65f;
+            stepCounterLabel.color = dim;
+        }
+
+        return (srcBg != null && srcBg.sprite != null) || srcTitle != null;
+    }
+
+    /// <summary>
+    /// Adds a Skip button to the panel's top-right corner. It clones the RoomListPanel's
+    /// CloseButton so it looks and behaves exactly like every other close button in the
+    /// app; if no template exists, a simple button in the house style is built instead.
+    /// </summary>
+    private void BuildSkipButton(GameObject template)
+    {
+        Transform closeT = template != null ? FindDeepChild(template.transform, "CloseButton") : null;
+        GameObject btn;
+
+        if (closeT != null)
+        {
+            btn = Instantiate(closeT.gameObject, panelRoot.transform);
+            btn.name = "SkipButton";
+
+            // Replace serialized/persistent click events (which still point at the ORIGINAL
+            // room list panel) with a clean event that skips the tutorial. The click sound
+            // is safe: XRButtonSelection plays it directly in OnSelectEntered.
+            Button b = btn.GetComponentInChildren<Button>(true);
+            if (b != null)
+            {
+                b.onClick = new Button.ButtonClickedEvent();
+                b.onClick.AddListener(SkipTutorial);
+            }
+            XRButtonSelection xr = btn.GetComponentInChildren<XRButtonSelection>(true);
+            if (xr != null)
+            {
+                xr.onClick = new UnityEvent();
+                xr.onClick.AddListener(SkipTutorial);
+
+                // Hand-ray select needs a collider; add one if the clone lacks it and
+                // bounce enabled so the interactable re-registers with the new collider.
+                if (btn.GetComponentInChildren<Collider>(true) == null)
+                {
+                    xr.enabled = false;
+                    BoxCollider box = xr.gameObject.AddComponent<BoxCollider>();
+                    RectTransform xrRect = xr.GetComponent<RectTransform>();
+                    if (xrRect != null)
+                    {
+                        box.size = new Vector3(Mathf.Max(xrRect.rect.width, 40f), Mathf.Max(xrRect.rect.height, 40f), 10f);
+                    }
+                    xr.colliders.Add(box);
+                    xr.enabled = true;
+                }
+            }
+            btn.SetActive(true);
+        }
+        else
+        {
+            btn = new GameObject("SkipButton");
+            btn.transform.SetParent(panelRoot.transform, false);
+            RectTransform fr = btn.AddComponent<RectTransform>();
+            fr.sizeDelta = new Vector2(56f, 56f);
+
+            Image img = btn.AddComponent<Image>();
+            img.color = new Color(0.9f, 0.9f, 0.93f, 0.8f); // XRButtonSelection default normalColor
+
+            BoxCollider box = btn.AddComponent<BoxCollider>();
+            box.size = new Vector3(56f, 56f, 10f);
+
+            XRButtonSelection xr = btn.AddComponent<XRButtonSelection>();
+            xr.buttonImage = img;
+            xr.onClick.AddListener(SkipTutorial);
+
+            TextMeshProUGUI x = CreateChildLabel(btn.transform, "X", 30f, FontStyles.Bold,
+                new Color(0.15f, 0.17f, 0.22f, 1f), TextAlignmentOptions.Center);
+            Place(x.rectTransform, Vector2.zero, Vector2.one);
+            x.text = "X";
+        }
+
+        RectTransform rt = btn.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(1f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(-46f, -44f);
+        }
+    }
+
+    /// <summary>Skips the rest of the tutorial (wired to the panel's Skip/close button).</summary>
+    public void SkipTutorial()
+    {
+        if (!IsTutorialRunning) return;
+        Debug.Log("[Tutorial] Skipped by player.");
+        AbortTutorial();
+    }
+
+    private static Transform FindDeepChild(Transform root, string childName)
+    {
+        if (root == null) return null;
+        foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name == childName) return t;
+        }
+        return null;
+    }
+
+    private static GameObject FindSceneObjectByName(string name)
+    {
+        GameObject fallback = null;
+        foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+        {
+            if (t == null || t.name != name || !t.gameObject.scene.IsValid()) continue;
+            if (t.gameObject.activeInHierarchy) return t.gameObject;
+            if (fallback == null) fallback = t.gameObject;
+        }
+        return fallback;
     }
 
     private void UpdateProgressUI()
