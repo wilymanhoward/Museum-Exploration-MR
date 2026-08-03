@@ -49,6 +49,10 @@ public class TutorialManager : MonoBehaviour
     [Tooltip("Optional override: an artist-made animated hand prefab (with an Animator). When empty, the gizmo clones the scene's real XR hand mesh (Right/Left Hand Interaction Visual) and animates its skeleton. See TutorialGestureGizmo.")]
     public GameObject customHandGizmoPrefab;
 
+    [Header("Scene-Authored Panel")]
+    [Tooltip("Optional: a TutorialPanel living in the scene hierarchy (Tools > Museum MR > Build Tutorial Panel In Scene builds one). When set - or when a GameObject named 'TutorialPanel' exists in the scene - its layout and sizes are used as-is and only the texts are driven at runtime. Children are matched by name: Title, Body, ProgressLabel, ProgressBar (with child Fill), StepCounter, SkipButton.")]
+    public GameObject sceneAuthoredPanel;
+
     [Header("Panel Copy")]
     public string panelHeader = "Tutorial";
     [TextArea] public string praiseText = "Bagus! / Well done!";
@@ -67,6 +71,7 @@ public class TutorialManager : MonoBehaviour
 
     // Runtime-built UI
     private GameObject panelRoot;
+    private bool panelIsSceneAuthored;
     private TextMeshProUGUI titleLabel;
     private TextMeshProUGUI bodyLabel;
     private TextMeshProUGUI progressLabel;
@@ -84,6 +89,9 @@ public class TutorialManager : MonoBehaviour
 
         Audio = GetComponent<TutorialAudioFeedback>();
         if (Audio == null) Audio = gameObject.AddComponent<TutorialAudioFeedback>();
+
+        // The authored panel is a design-time preview; keep it hidden until the tutorial runs.
+        if (sceneAuthoredPanel != null) sceneAuthoredPanel.SetActive(false);
     }
 
     private void Update()
@@ -244,9 +252,15 @@ public class TutorialManager : MonoBehaviour
         StopAllCoroutines();
         IsTutorialRunning = false;
         currentStepIndex = -1;
-        if (panelRoot != null) Destroy(panelRoot);
+        if (panelRoot != null)
+        {
+            // An authored panel belongs to the scene - hide it so it can be reused/edited.
+            if (panelIsSceneAuthored) panelRoot.SetActive(false);
+            else Destroy(panelRoot);
+        }
         if (gizmo != null) Destroy(gizmo.gameObject);
         panelRoot = null;
+        panelIsSceneAuthored = false;
         gizmo = null;
     }
 
@@ -315,9 +329,80 @@ public class TutorialManager : MonoBehaviour
         gizmo = TutorialGestureGizmo.Create(customHandGizmoPrefab);
     }
 
+    /// <summary>
+    /// Binds to a panel authored in the scene hierarchy instead of building one from code,
+    /// so designers can edit the layout, sizes and buttons in the Editor. Children are
+    /// matched by name: Title, Body, ProgressLabel, ProgressBar (with child Fill),
+    /// StepCounter, SkipButton. Returns false (caller builds the panel from code) when no
+    /// authored panel exists or it lacks the essential labels.
+    /// </summary>
+    private bool TryBindAuthoredPanel()
+    {
+        GameObject authored = sceneAuthoredPanel != null ? sceneAuthoredPanel : FindSceneObjectByName("TutorialPanel");
+        if (authored == null) return false;
+
+        panelRoot = authored;
+        panelIsSceneAuthored = true;
+
+        if (panelRoot.GetComponent<TrackedDeviceGraphicRaycaster>() == null)
+        {
+            panelRoot.AddComponent<TrackedDeviceGraphicRaycaster>();
+        }
+
+        titleLabel = FindAuthoredLabel("Title");
+        bodyLabel = FindAuthoredLabel("Body");
+        progressLabel = FindAuthoredLabel("ProgressLabel");
+        stepCounterLabel = FindAuthoredLabel("StepCounter");
+
+        Transform bar = FindDeepChild(panelRoot.transform, "ProgressBar");
+        progressBarRoot = bar != null ? bar.gameObject : null;
+        progressBarBg = bar != null ? bar.GetComponent<Image>() : null;
+        Transform fill = bar != null ? FindDeepChild(bar, "Fill") : null;
+        progressFill = fill != null ? fill.GetComponent<Image>() : null;
+
+        if (titleLabel == null || bodyLabel == null)
+        {
+            Debug.LogWarning("[Tutorial] Scene-authored TutorialPanel is missing a 'Title' or 'Body' label - building the panel from code instead.");
+            panelRoot = null;
+            panelIsSceneAuthored = false;
+            return false;
+        }
+
+        // Wire the authored Skip button. Remove-then-add keeps this idempotent across
+        // tutorial restarts, and leaves any designer-added persistent events untouched.
+        Transform skip = FindDeepChild(panelRoot.transform, "SkipButton");
+        if (skip != null)
+        {
+            Button b = skip.GetComponentInChildren<Button>(true);
+            if (b != null)
+            {
+                b.onClick.RemoveListener(SkipTutorial);
+                b.onClick.AddListener(SkipTutorial);
+            }
+            XRButtonSelection xr = skip.GetComponentInChildren<XRButtonSelection>(true);
+            if (xr != null)
+            {
+                xr.onClick.RemoveListener(SkipTutorial);
+                xr.onClick.AddListener(SkipTutorial);
+            }
+        }
+
+        panelRoot.SetActive(true);
+        Debug.Log("[Tutorial] Using the scene-authored TutorialPanel.");
+        return true;
+    }
+
+    private TextMeshProUGUI FindAuthoredLabel(string childName)
+    {
+        Transform t = FindDeepChild(panelRoot.transform, childName);
+        return t != null ? t.GetComponent<TextMeshProUGUI>() : null;
+    }
+
     private void BuildPanel()
     {
         if (panelRoot != null) return;
+        if (TryBindAuthoredPanel()) return;
+        panelIsSceneAuthored = false;
 
         panelRoot = new GameObject("TutorialPanel");
         Canvas canvas = panelRoot.AddComponent<Canvas>();
