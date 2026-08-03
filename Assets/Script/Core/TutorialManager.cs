@@ -315,18 +315,6 @@ public class TutorialManager : MonoBehaviour
         gizmo = TutorialGestureGizmo.Create(customHandGizmoPrefab);
     }
 
-    /// <summary>Lets a multi-phase step update the panel's instruction copy mid-step (e.g. after a button press reveals the next part of the gesture).</summary>
-    public void SetInstructionText(string text)
-    {
-        if (bodyLabel != null) bodyLabel.text = text;
-    }
-
-    /// <summary>Lets a multi-phase step switch the ghost-hand gizmo's animation mid-step.</summary>
-    public void SetGizmoMode(TutorialGestureGizmo.GestureMode mode)
-    {
-        if (gizmo != null) gizmo.SetMode(mode);
-    }
-
     private void BuildPanel()
     {
         if (panelRoot != null) return;

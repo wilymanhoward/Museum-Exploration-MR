@@ -2,21 +2,21 @@ using UnityEngine;
 
 /// <summary>
 /// Tutorial step 1: "Pinch to Click".
-/// Spawns a floating practice sphere in front of the player. The step completes
-/// after the player pinch-selects it the required number of times; between
-/// clicks the sphere hops to a nearby position so the player also practices
-/// re-aiming the hand ray.
+/// Spawns a floating practice button (app-styled, see PinchButtonPracticeTarget) in front
+/// of the player. The step completes after the player pinch-presses it the required number
+/// of times; between presses the button hops to a nearby position so the player also
+/// practices re-aiming the hand ray.
 /// </summary>
 public class PinchClickStep : TutorialStep
 {
     [Header("Success Condition")]
-    [Tooltip("How many successful pinch-clicks are needed before the step completes.")]
+    [Tooltip("How many successful pinch-presses are needed before the step completes.")]
     public int requiredClicks = 2;
 
-    [Tooltip("How far the sphere hops sideways/vertically after each successful click, in meters.")]
+    [Tooltip("How far the button hops sideways/vertically after each successful press, in meters.")]
     public float repositionRadius = 0.18f;
 
-    private PinchClickPracticeTarget target;
+    private PinchButtonPracticeTarget target;
     private int clickCount;
 
     public override TutorialGestureGizmo.GestureMode GizmoMode
@@ -28,8 +28,8 @@ public class PinchClickStep : TutorialStep
     {
         stepTitle = "Langkah 1: Cubit untuk Klik";
         instructionText =
-            "Halakan sinar tangan anda ke sfera biru, kemudian CUBIT ibu jari dan jari telunjuk untuk memilihnya.\n" +
-            "<size=80%><i>Point your hand ray at the blue sphere, then PINCH your thumb and index finger together to click it.</i></size>";
+            "Halakan sinar tangan anda ke butang, kemudian CUBIT ibu jari dan jari telunjuk untuk menekannya. Tekan sebanyak 2 kali!\n" +
+            "<size=80%><i>Point your hand ray at the button, then PINCH your thumb and index finger together to press it. Press it 2 times!</i></size>";
     }
 
     protected override void OnStepBegin()
@@ -56,8 +56,8 @@ public class PinchClickStep : TutorialStep
         Manager.GetPlacementPose(Manager.practiceDistance, Manager.practiceHeightOffset, out pos, out rot);
         pos += rot * localOffset;
 
-        target = PinchClickPracticeTarget.Create(pos);
-        target.Clicked += OnTargetClicked;
+        target = PinchButtonPracticeTarget.Create(pos, "TEKAN / PRESS");
+        target.Pressed += OnTargetClicked;
     }
 
     private void OnTargetClicked()
@@ -91,7 +91,7 @@ public class PinchClickStep : TutorialStep
     {
         if (target != null)
         {
-            target.Clicked -= OnTargetClicked;
+            target.Pressed -= OnTargetClicked;
             Destroy(target.gameObject);
             target = null;
         }

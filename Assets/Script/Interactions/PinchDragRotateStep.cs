@@ -1,12 +1,12 @@
 using UnityEngine;
 
 /// <summary>
-/// Tutorial step 2: "Press &amp; Rotate".
-/// Two phases, mirroring exactly how the real artifact panel works (Artifact.On3DViewButtonClicked
-/// then ArtifactRotationDriver): (1) the player presses a "View Artifact" button to reveal the
-/// piece, then (2) pinch-HOLDs the revealed artifact and drags to spin it. Completes once the
-/// player has (a) held a pinch continuously for at least minHoldSeconds and (b) rotated the
-/// artifact by requiredRotationDegrees in total. Milestone audio ticks rise in pitch as the
+/// Tutorial step 2: "Pinch &amp; Hold to Rotate".
+/// Spawns a real museum artifact (from Resources/Models, same prefabs the exhibit's
+/// 3D View uses) the player must pinch-HOLD and drag to spin. Completes once the player
+/// has (a) held a pinch continuously for at least minHoldSeconds and (b) rotated the
+/// artifact by requiredRotationDegrees in total - a generous target so they get a real
+/// feel for the gesture, not just a nudge. Milestone audio ticks rise in pitch as the
 /// rotation goal approaches.
 /// </summary>
 public class PinchDragRotateStep : TutorialStep
@@ -16,71 +16,34 @@ public class PinchDragRotateStep : TutorialStep
     public string artifactResourcePath = "Models/model_artifact_keris";
 
     [Header("Success Condition")]
-    [Tooltip("Total unsigned rotation (degrees) the player must apply to the artifact.")]
-    public float requiredRotationDegrees = 120f;
+    [Tooltip("Total unsigned rotation (degrees) the player must apply to the artifact. 540 = one and a half full turns of accumulated spinning.")]
+    public float requiredRotationDegrees = 540f;
 
     [Tooltip("Minimum single continuous pinch-hold duration, in seconds, so a quick pinch-click cannot pass the step.")]
     public float minHoldSeconds = 0.6f;
 
     [Tooltip("An audio tick plays every time this many degrees of progress are added.")]
-    public float audioTickEveryDegrees = 30f;
+    public float audioTickEveryDegrees = 90f;
 
-    private PinchButtonPracticeTarget button;
     private PinchDragRotatePracticeTarget target;
     private float nextTickAtDegrees;
 
     public override TutorialGestureGizmo.GestureMode GizmoMode
     {
-        get { return TutorialGestureGizmo.GestureMode.PinchClick; }
+        get { return TutorialGestureGizmo.GestureMode.PinchHoldDrag; }
     }
 
     private void Reset()
     {
-        stepTitle = "Langkah 2: Tekan & Putar";
-        instructionText = ButtonPhaseText();
-    }
-
-    private static string ButtonPhaseText()
-    {
-        return "Halakan sinar tangan anda ke butang, kemudian CUBIT untuk menekannya dan mendedahkan artifak.\n" +
-            "<size=80%><i>Point your hand ray at the button, then PINCH to press it and reveal the artifact.</i></size>";
-    }
-
-    private static string DragPhaseText()
-    {
-        return "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!\n" +
+        stepTitle = "Langkah 2: Cubit & Tahan untuk Putar";
+        instructionText =
+            "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!\n" +
             "<size=80%><i>PINCH and HOLD the artifact, then move your hand to rotate it. Keep spinning until the bar is full!</i></size>";
     }
 
     protected override void OnStepBegin()
     {
         if (string.IsNullOrEmpty(instructionText)) Reset();
-        SpawnButton();
-    }
-
-    protected override void OnStepEnd()
-    {
-        DestroyButton();
-        DestroyTarget();
-    }
-
-    private void SpawnButton()
-    {
-        Vector3 pos;
-        Quaternion rot;
-        Manager.GetPlacementPose(Manager.practiceDistance, Manager.practiceHeightOffset, out pos, out rot);
-
-        button = PinchButtonPracticeTarget.Create(pos, "TENGOK\nARTEFAK");
-        button.Pressed += OnButtonPressed;
-    }
-
-    private void OnButtonPressed()
-    {
-        if (Manager != null && Manager.Audio != null && button != null)
-        {
-            Manager.Audio.PlayGesturePerformed(button.transform.position);
-        }
-        DestroyButton();
 
         Vector3 pos;
         Quaternion rot;
@@ -94,11 +57,16 @@ public class PinchDragRotateStep : TutorialStep
         target.GrabStarted += OnGrabStarted;
         target.Rotated += OnRotated;
         nextTickAtDegrees = audioTickEveryDegrees;
+    }
 
-        if (Manager != null)
+    protected override void OnStepEnd()
+    {
+        if (target != null)
         {
-            Manager.SetInstructionText(DragPhaseText());
-            Manager.SetGizmoMode(TutorialGestureGizmo.GestureMode.PinchHoldDrag);
+            target.GrabStarted -= OnGrabStarted;
+            target.Rotated -= OnRotated;
+            Destroy(target.gameObject);
+            target = null;
         }
     }
 
@@ -144,37 +112,16 @@ public class PinchDragRotateStep : TutorialStep
         }
     }
 
-    private void DestroyButton()
-    {
-        if (button != null)
-        {
-            button.Pressed -= OnButtonPressed;
-            Destroy(button.gameObject);
-            button = null;
-        }
-    }
-
-    private void DestroyTarget()
-    {
-        if (target != null)
-        {
-            target.GrabStarted -= OnGrabStarted;
-            target.Rotated -= OnRotated;
-            Destroy(target.gameObject);
-            target = null;
-        }
-    }
-
     public override string GetProgressLabel()
     {
-        if (target == null) return null; // button phase: nothing to show yet
+        if (target == null) return null;
         float shown = Mathf.Min(target.TotalRotationDegrees, requiredRotationDegrees);
         return $"{Mathf.RoundToInt(shown)}° / {Mathf.RoundToInt(requiredRotationDegrees)}°";
     }
 
     public override float GetProgressNormalized()
     {
-        if (target == null) return -1f; // button phase: hide the bar until the artifact is revealed
+        if (target == null) return 0f;
         return Mathf.Clamp01(target.TotalRotationDegrees / requiredRotationDegrees);
     }
 }
