@@ -39,25 +39,18 @@ public class PinchClickStep : TutorialStep
         if (string.IsNullOrEmpty(instructionText)) Reset();
 
         clickCount = 0;
-        SpawnTarget(Vector3.zero);
+
+        Vector3 pos;
+        Quaternion rot;
+        Manager.GetPlacementPose(Manager.practiceDistance, Manager.practiceHeightOffset, out pos, out rot);
+
+        target = PinchButtonPracticeTarget.Create(pos, "TEKAN / PRESS");
+        target.Pressed += OnTargetClicked;
     }
 
     protected override void OnStepEnd()
     {
         DestroyTarget();
-    }
-
-    private void SpawnTarget(Vector3 localOffset)
-    {
-        DestroyTarget();
-
-        Vector3 pos;
-        Quaternion rot;
-        Manager.GetPlacementPose(Manager.practiceDistance, Manager.practiceHeightOffset, out pos, out rot);
-        pos += rot * localOffset;
-
-        target = PinchButtonPracticeTarget.Create(pos, "TEKAN / PRESS");
-        target.Pressed += OnTargetClicked;
     }
 
     private void OnTargetClicked()
@@ -75,7 +68,10 @@ public class PinchClickStep : TutorialStep
             return;
         }
 
-        // Hop to a nearby spot (biased sideways so it stays comfortably reachable).
+        // Hop the SAME button to a nearby spot (biased sideways so it stays comfortably
+        // reachable). It must be moved, not destroyed and recreated: destroying an
+        // interactable inside its own select event leaves the ray interactor holding a
+        // dead reference, which made the replacement button unclickable.
         Vector3 offset = new Vector3(
             Random.Range(-repositionRadius, repositionRadius),
             Random.Range(-repositionRadius * 0.4f, repositionRadius * 0.4f),
@@ -84,7 +80,11 @@ public class PinchClickStep : TutorialStep
         {
             offset.x = Mathf.Sign(offset.x == 0f ? 1f : offset.x) * repositionRadius * 0.6f;
         }
-        SpawnTarget(offset);
+
+        Vector3 pos;
+        Quaternion rot;
+        Manager.GetPlacementPose(Manager.practiceDistance, Manager.practiceHeightOffset, out pos, out rot);
+        target.transform.position = pos + rot * offset;
     }
 
     private void DestroyTarget()

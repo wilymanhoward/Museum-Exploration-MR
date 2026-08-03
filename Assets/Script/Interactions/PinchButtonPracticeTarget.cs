@@ -84,12 +84,39 @@ public class PinchButtonPracticeTarget : MonoBehaviour
     }
 
     /// <summary>
-    /// Borrows the app's visual identity from the RoomListPanel: a real button's rounded
-    /// sprite for the background and the panel's TMP font for the label. Skipped silently
-    /// when no template exists (editor test scenes) - the flat tinted quad still works.
+    /// Borrows the app's visual identity for the practice button. First choice: the main
+    /// menu's MULAI button (scene object "StartButton") - the app's signature olive rounded
+    /// button with white serif text. Fallback: a button sprite + font from the RoomListPanel.
+    /// Skipped silently when neither exists (editor test scenes) - the flat tinted quad
+    /// still works.
     /// </summary>
     private static void ApplyAppStyle(Image bg, TextMeshProUGUI label)
     {
+        GameObject mulai = FindSceneObjectByName("StartButton");
+        if (mulai == null) mulai = FindSceneObjectByName("MulaiButton");
+        if (mulai != null)
+        {
+            Image mulaiImg = mulai.GetComponent<Image>();
+            if (mulaiImg == null) mulaiImg = mulai.GetComponentInChildren<Image>(true);
+            if (mulaiImg != null && mulaiImg.sprite != null)
+            {
+                bg.sprite = mulaiImg.sprite;
+                bg.type = mulaiImg.type;
+                bg.color = mulaiImg.color;
+                bg.material = mulaiImg.material;
+                bg.pixelsPerUnitMultiplier = mulaiImg.pixelsPerUnitMultiplier;
+
+                TextMeshProUGUI mulaiLabel = mulai.GetComponentInChildren<TextMeshProUGUI>(true);
+                if (mulaiLabel != null)
+                {
+                    label.font = mulaiLabel.font;
+                    label.fontStyle = mulaiLabel.fontStyle;
+                    label.color = mulaiLabel.color;
+                }
+                return;
+            }
+        }
+
         GameObject template = FindSceneObjectByName("RoomListPanel");
         if (template == null) return;
 

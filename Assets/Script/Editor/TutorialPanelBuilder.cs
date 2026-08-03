@@ -60,19 +60,22 @@ public static class TutorialPanelBuilder
 
         const float marginL = 0.08f, marginR = 0.92f;
 
+        // Preview copy uses the LONGEST real step texts so the authored layout is edited
+        // against realistic content (runtime replaces these per step).
         TextMeshProUGUI title = CreateLabel(panel.transform, "Title", 28f, 20f, FontStyles.Bold,
             new Color(0.92f, 0.96f, 1f, 1f), TextAlignmentOptions.Center);
-        title.text = "Tutorial";
+        title.text = "Langkah 2: Cubit & Tahan untuk Putar";
         Place(title.rectTransform, new Vector2(marginL, 0.76f), new Vector2(marginR, 0.96f));
 
         TextMeshProUGUI body = CreateLabel(panel.transform, "Body", 19f, 14f, FontStyles.Normal,
             new Color(0.88f, 0.9f, 0.94f, 1f), TextAlignmentOptions.Top);
-        body.text = "Instruction text is filled in at runtime. This preview copy only helps while editing the layout.";
+        body.text = "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!\n" +
+            "<size=80%><i>PINCH and HOLD the artifact, then move your hand to rotate it. Keep spinning until the bar is full!</i></size>";
         Place(body.rectTransform, new Vector2(marginL, 0.24f), new Vector2(marginR, 0.74f));
 
         TextMeshProUGUI progress = CreateLabel(panel.transform, "ProgressLabel", 19f, 15f, FontStyles.Bold,
             new Color(0.55f, 0.9f, 1f, 1f), TextAlignmentOptions.Center);
-        progress.text = "1 / 2";
+        progress.text = "540° / 540°";
         Place(progress.rectTransform, new Vector2(marginL, 0.13f), new Vector2(marginR, 0.24f));
 
         GameObject barGo = new GameObject("ProgressBar");

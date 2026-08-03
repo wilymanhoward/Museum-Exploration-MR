@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.UI;
 
 /// <summary>
@@ -92,6 +93,32 @@ public class TutorialManager : MonoBehaviour
 
         // The authored panel is a design-time preview; keep it hidden until the tutorial runs.
         if (sceneAuthoredPanel != null) sceneAuthoredPanel.SetActive(false);
+
+        EnsureFullLengthHandRays();
+    }
+
+    /// <summary>
+    /// Comfortable visible length for the hand rays, in meters. Long enough to reach every
+    /// tutorial object and panel (~1.1m) with margin, short enough not to paint lines across
+    /// the whole room. The line still stops at whatever it hits.
+    /// </summary>
+    private const float HandRayVisibleLength = 2.5f;
+
+    /// <summary>
+    /// The XRI sample's ray visual shrinks to 0.5m while not hovering anything
+    /// (autoAdjustLineLength on the Ray Interactor prefab), so players can't see where
+    /// they're aiming and read it as "my ray can't reach". Force a constant, reasonable
+    /// line length instead. Also fixed on the prefab itself; this guards against a sample
+    /// re-import reverting it.
+    /// </summary>
+    private static void EnsureFullLengthHandRays()
+    {
+        foreach (XRInteractorLineVisual line in FindObjectsOfType<XRInteractorLineVisual>(true))
+        {
+            line.autoAdjustLineLength = false;
+            line.overrideInteractorLineLength = true;
+            line.lineLength = HandRayVisibleLength;
+        }
     }
 
     private void Update()
@@ -140,6 +167,7 @@ public class TutorialManager : MonoBehaviour
         BuildPanel();
         PositionPanelInFrontOfPlayer();
         EnsureGizmo();
+        EnsureFullLengthHandRays(); // again here: hand rigs can activate after Awake
 
         onTutorialStarted.Invoke();
         currentStepIndex = -1;
@@ -191,6 +219,14 @@ public class TutorialManager : MonoBehaviour
         TutorialStep step = steps[currentStepIndex];
         PositionPanelInFrontOfPlayer();
 
+        // A half-armed skip from the previous step must not carry into this one.
+        skipArmed = false;
+        if (skipDisarmCoroutine != null)
+        {
+            StopCoroutine(skipDisarmCoroutine);
+            skipDisarmCoroutine = null;
+        }
+
         if (titleLabel != null) titleLabel.text = step.stepTitle;
         if (bodyLabel != null) bodyLabel.text = step.instructionText;
         if (stepCounterLabel != null) stepCounterLabel.text = $"Langkah {currentStepIndex + 1} / {steps.Count}";
@@ -207,7 +243,18 @@ public class TutorialManager : MonoBehaviour
             gizmo.SetMode(step.GizmoMode);
         }
 
-        step.Begin(this);
+        // A step that fails to start must not strand the tutorial on a dead panel
+        // (no practice object would ever report completion) - move on instead.
+        try
+        {
+            step.Begin(this);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[Tutorial] Step '{step.stepTitle}' failed to start - skipping it. {e}");
+            AdvanceToNextStep();
+            return;
+        }
         Debug.Log($"[Tutorial] Step {currentStepIndex + 1}/{steps.Count} started: {step.stepTitle}");
     }
 
@@ -219,6 +266,10 @@ public class TutorialManager : MonoBehaviour
 
     private IEnumerator CelebrateThenAdvance(TutorialStep step)
     {
+        // Wait a frame so the select event that completed the step fully finishes before
+        // its practice object is destroyed (tearing down an interactable mid-event can
+        // leave the ray interactor in a broken state).
+        yield return null;
         step.End();
         if (gizmo != null) gizmo.gameObject.SetActive(false);
 
@@ -261,6 +312,8 @@ public class TutorialManager : MonoBehaviour
         if (gizmo != null) Destroy(gizmo.gameObject);
         panelRoot = null;
         panelIsSceneAuthored = false;
+        skipArmed = false;
+        skipDisarmCoroutine = null;
         gizmo = null;
     }
 
@@ -354,6 +407,15 @@ public class TutorialManager : MonoBehaviour
         progressLabel = FindAuthoredLabel("ProgressLabel");
         stepCounterLabel = FindAuthoredLabel("StepCounter");
 
+        // The authored preview text ("Tutorial") is much shorter than the real step titles
+        // and instructions, so a label that looks fine in the Editor can overflow at runtime.
+        // Treat the authored font size as the MAXIMUM and let long copy shrink to fit the
+        // authored rect instead of spilling out of it.
+        EnsureLabelFits(titleLabel);
+        EnsureLabelFits(bodyLabel);
+        EnsureLabelFits(progressLabel);
+        EnsureLabelFits(stepCounterLabel);
+
         Transform bar = FindDeepChild(panelRoot.transform, "ProgressBar");
         progressBarRoot = bar != null ? bar.gameObject : null;
         progressBarBg = bar != null ? bar.GetComponent<Image>() : null;
@@ -396,6 +458,23 @@ public class TutorialManager : MonoBehaviour
     {
         Transform t = FindDeepChild(panelRoot.transform, childName);
         return t != null ? t.GetComponent<TextMeshProUGUI>() : null;
+    }
+
+    /// <summary>
+    /// Keeps runtime text inside the authored rect: the size set in the Editor becomes the
+    /// font ceiling, auto-sizing shrinks long copy down (to 45% at worst), wrapping is on,
+    /// and anything still too long is ellipsed rather than overflowing the panel.
+    /// </summary>
+    private static void EnsureLabelFits(TextMeshProUGUI label)
+    {
+        if (label == null) return;
+        float authoredSize = label.enableAutoSizing ? label.fontSizeMax : label.fontSize;
+        if (authoredSize <= 0f) authoredSize = 19f;
+        label.enableAutoSizing = true;
+        label.fontSizeMax = authoredSize;
+        label.fontSizeMin = authoredSize * 0.45f;
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Ellipsis;
     }
 
     private void BuildPanel()
@@ -635,12 +714,51 @@ public class TutorialManager : MonoBehaviour
         }
     }
 
-    /// <summary>Skips the rest of the tutorial (wired to the panel's Skip/close button).</summary>
+    private float lastSkipPressTime = -10f;
+    private bool skipArmed;
+    private Coroutine skipDisarmCoroutine;
+
+    /// <summary>
+    /// Skips the rest of the tutorial (wired to the panel's Skip/close button).
+    /// Requires TWO deliberate presses: a stray pinch near the panel during gesture
+    /// practice was silently closing the whole tutorial, which players experienced as
+    /// "the next step never showed up". The first press shows a confirmation hint; a
+    /// second press within a few seconds actually skips.
+    /// </summary>
     public void SkipTutorial()
     {
         if (!IsTutorialRunning) return;
+
+        // A single pinch can fire this twice (UI pointer-down + XR select); collapse
+        // rapid repeats into one press so the confirmation can't self-confirm.
+        if (Time.unscaledTime - lastSkipPressTime < 0.4f) return;
+        lastSkipPressTime = Time.unscaledTime;
+
+        if (!skipArmed)
+        {
+            skipArmed = true;
+            if (stepCounterLabel != null)
+            {
+                stepCounterLabel.text = "Tekan sekali lagi untuk langkau / Press again to skip";
+            }
+            if (skipDisarmCoroutine != null) StopCoroutine(skipDisarmCoroutine);
+            skipDisarmCoroutine = StartCoroutine(DisarmSkipAfterDelay(3f));
+            return;
+        }
+
         Debug.Log("[Tutorial] Skipped by player.");
         AbortTutorial();
+    }
+
+    private IEnumerator DisarmSkipAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        skipArmed = false;
+        skipDisarmCoroutine = null;
+        if (stepCounterLabel != null && currentStepIndex >= 0 && currentStepIndex < steps.Count)
+        {
+            stepCounterLabel.text = $"Langkah {currentStepIndex + 1} / {steps.Count}";
+        }
     }
 
     private static Transform FindDeepChild(Transform root, string childName)
