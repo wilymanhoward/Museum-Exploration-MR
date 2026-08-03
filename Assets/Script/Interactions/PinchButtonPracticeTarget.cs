@@ -42,8 +42,12 @@ public class PinchButtonPracticeTarget : MonoBehaviour
         TextMeshPro tmp = labelGo.AddComponent<TextMeshPro>();
         tmp.text = label;
         tmp.fontSize = 6f;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 3f;
+        tmp.fontSizeMax = 6f;
         tmp.color = Color.white;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableWordWrapping = true;
         tmp.rectTransform.sizeDelta = new Vector2(0.2f, 0.08f);
 
         BoxCollider collider = gameObject.AddComponent<BoxCollider>();

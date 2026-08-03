@@ -6411,15 +6411,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e19a10f49a87e8a489522a60e79bba38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  stepTitle: 'Langkah 2: Cubit & Tahan untuk Putar'
-  instructionText: 'CUBIT dan TAHAN permata, kemudian gerakkan tangan anda untuk
-    memutarnya. Terus putar sehingga bar penuh!
-
-    <size=80%><i>PINCH and HOLD
-    the gem, then move your hand to rotate it. Keep spinning until the bar is full!</i></size>'
+  stepTitle: 'Langkah 2: Tekan & Putar'
+  instructionText: "Halakan sinar tangan anda ke butang, kemudian CUBIT untuk menekannya\
+    \ dan mendedahkan artifak.\n<size=80%><i>Point your hand ray at the button, then\
+    \ PINCH to press it and reveal the artifact.</i></size>"
   requiredRotationDegrees: 120
   minHoldSeconds: 0.6
   audioTickEveryDegrees: 30
+  artifactResourcePath: Models/model_artifact_keris
 --- !u!114 &947676601
 MonoBehaviour:
   m_ObjectHideFlags: 0
