@@ -315,6 +315,18 @@ public class TutorialManager : MonoBehaviour
         gizmo = TutorialGestureGizmo.Create(customHandGizmoPrefab);
     }
 
+    /// <summary>Lets a multi-phase step update the panel's instruction copy mid-step (e.g. after a button press reveals the next part of the gesture).</summary>
+    public void SetInstructionText(string text)
+    {
+        if (bodyLabel != null) bodyLabel.text = text;
+    }
+
+    /// <summary>Lets a multi-phase step switch the ghost-hand gizmo's animation mid-step.</summary>
+    public void SetGizmoMode(TutorialGestureGizmo.GestureMode mode)
+    {
+        if (gizmo != null) gizmo.SetMode(mode);
+    }
+
     private void BuildPanel()
     {
         if (panelRoot != null) return;
@@ -343,23 +355,36 @@ public class TutorialManager : MonoBehaviour
         accentStrip.rectTransform.anchoredPosition = Vector2.zero;
         accentStrip.rectTransform.sizeDelta = new Vector2(0f, 8f);
 
-        titleLabel = CreateChildLabel(panelRoot.transform, "Title", 34f, FontStyles.Bold,
+        // All text blocks share the same left/right margin (8%) so their edges line up with
+        // each other and sit safely inside the background card's rounded/bordered artwork.
+        const float marginL = 0.08f, marginR = 0.92f;
+
+        titleLabel = CreateChildLabel(panelRoot.transform, "Title", 28f, FontStyles.Bold,
             new Color(0.92f, 0.96f, 1f, 1f), TextAlignmentOptions.Center);
-        Place(titleLabel.rectTransform, new Vector2(0.03f, 0.76f), new Vector2(0.97f, 0.96f));
+        titleLabel.enableAutoSizing = true;
+        titleLabel.fontSizeMin = 20f;
+        titleLabel.fontSizeMax = 28f;
+        Place(titleLabel.rectTransform, new Vector2(marginL, 0.76f), new Vector2(marginR, 0.96f));
 
-        bodyLabel = CreateChildLabel(panelRoot.transform, "Body", 24f, FontStyles.Normal,
+        bodyLabel = CreateChildLabel(panelRoot.transform, "Body", 19f, FontStyles.Normal,
             new Color(0.88f, 0.9f, 0.94f, 1f), TextAlignmentOptions.Top);
-        Place(bodyLabel.rectTransform, new Vector2(0.06f, 0.24f), new Vector2(0.94f, 0.74f));
+        bodyLabel.enableAutoSizing = true;
+        bodyLabel.fontSizeMin = 14f;
+        bodyLabel.fontSizeMax = 19f;
+        Place(bodyLabel.rectTransform, new Vector2(marginL, 0.24f), new Vector2(marginR, 0.74f));
 
-        progressLabel = CreateChildLabel(panelRoot.transform, "ProgressLabel", 24f, FontStyles.Bold,
+        progressLabel = CreateChildLabel(panelRoot.transform, "ProgressLabel", 19f, FontStyles.Bold,
             new Color(0.55f, 0.9f, 1f, 1f), TextAlignmentOptions.Center);
-        Place(progressLabel.rectTransform, new Vector2(0.2f, 0.13f), new Vector2(0.8f, 0.24f));
+        progressLabel.enableAutoSizing = true;
+        progressLabel.fontSizeMin = 15f;
+        progressLabel.fontSizeMax = 19f;
+        Place(progressLabel.rectTransform, new Vector2(marginL, 0.13f), new Vector2(marginR, 0.24f));
 
         // Progress fill bar
         progressBarRoot = new GameObject("ProgressBar");
         progressBarRoot.transform.SetParent(panelRoot.transform, false);
         RectTransform barRect = progressBarRoot.AddComponent<RectTransform>();
-        Place(barRect, new Vector2(0.2f, 0.075f), new Vector2(0.8f, 0.115f));
+        Place(barRect, new Vector2(marginL, 0.075f), new Vector2(marginR, 0.115f));
 
         progressBarBg = progressBarRoot.AddComponent<Image>();
         progressBarBg.color = new Color(1f, 1f, 1f, 0.12f);
@@ -373,9 +398,12 @@ public class TutorialManager : MonoBehaviour
         progressFill.rectTransform.offsetMin = Vector2.zero;
         progressFill.rectTransform.offsetMax = Vector2.zero;
 
-        stepCounterLabel = CreateChildLabel(panelRoot.transform, "StepCounter", 18f, FontStyles.Normal,
+        stepCounterLabel = CreateChildLabel(panelRoot.transform, "StepCounter", 15f, FontStyles.Normal,
             new Color(0.7f, 0.75f, 0.82f, 1f), TextAlignmentOptions.Center);
-        Place(stepCounterLabel.rectTransform, new Vector2(0.3f, 0.0f), new Vector2(0.7f, 0.07f));
+        stepCounterLabel.enableAutoSizing = true;
+        stepCounterLabel.fontSizeMin = 12f;
+        stepCounterLabel.fontSizeMax = 15f;
+        Place(stepCounterLabel.rectTransform, new Vector2(marginL, 0.0f), new Vector2(marginR, 0.07f));
 
         // Adopt the project's UI design language (RoomListPanel card sprite + fonts) and
         // give the panel a Skip button cloned from the same panel's CloseButton.

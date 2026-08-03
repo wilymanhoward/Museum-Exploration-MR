@@ -4,13 +4,14 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 /// <summary>
 /// Practice object for the "Pinch &amp; Hold to Drag/Rotate" tutorial step.
-/// A colourful gem (two nested cubes) the player pinch-holds and drags to spin.
-/// Uses the same grab configuration as RotateArtifact: the object never leaves
-/// its anchor position - hand movement while the pinch is held is converted to
-/// camera-relative rotation.
+/// Spins whichever visual it's given: a real Resources/Models/model_artifact_* prefab
+/// when one is supplied (matching the real exhibit's 3D View), or a placeholder gem
+/// (two nested cubes) otherwise. Uses the same grab configuration as RotateArtifact: the
+/// object never leaves its anchor position - hand movement while the pinch is held is
+/// converted to camera-relative rotation.
 ///
 /// The step reads TotalRotationDegrees / LongestHoldSeconds to decide success.
-/// Built entirely at runtime via Create() - no prefab needed.
+/// Built entirely at runtime via Create() - no prefab needs to be wired in the Inspector.
 /// </summary>
 public class PinchDragRotatePracticeTarget : XRGrabInteractable
 {
@@ -35,17 +36,74 @@ public class PinchDragRotatePracticeTarget : XRGrabInteractable
     private float currentHoldSeconds;
     private Transform visualRoot;
 
-    /// <summary>Creates a ready-to-use practice gem at the given world position.</summary>
-    public static PinchDragRotatePracticeTarget Create(Vector3 position)
+    /// <summary>
+    /// Creates a ready-to-use practice object at the given world position. If modelPrefab is
+    /// supplied and has renderers (e.g. one of the real Resources/Models/model_artifact_* prefabs),
+    /// it is used as the spin visual, scaled/recentred to fit; otherwise a placeholder gem
+    /// (two nested cubes) is built instead so the step always has something to show.
+    /// </summary>
+    public static PinchDragRotatePracticeTarget Create(Vector3 position, GameObject modelPrefab = null)
     {
         GameObject root = new GameObject("TutorialRotateTarget");
         root.transform.position = position;
 
-        // Visuals: two nested cubes offset 45 degrees read as a gem/star and make
-        // rotation obvious from every angle (a plain cube can look static mid-spin).
         Transform visuals = new GameObject("Visuals").transform;
         visuals.SetParent(root.transform, false);
 
+        bool builtFromModel = modelPrefab != null && TryBuildFromModel(visuals, modelPrefab);
+        if (!builtFromModel)
+        {
+            BuildPlaceholderGem(visuals);
+        }
+
+        // One generous collider on the root so the hand ray hits it easily.
+        BoxCollider grabCollider = root.AddComponent<BoxCollider>();
+        grabCollider.size = Vector3.one * (builtFromModel ? 0.26f : 0.2f);
+
+        PinchDragRotatePracticeTarget target = root.AddComponent<PinchDragRotatePracticeTarget>();
+        target.visualRoot = visuals;
+        return target;
+    }
+
+    /// <summary>Instantiates the real artifact prefab, strips its colliders/physics, and fits it to a comfortable practice size. Returns false (caller falls back to the gem) if the prefab has no renderers.</summary>
+    private static bool TryBuildFromModel(Transform visuals, GameObject modelPrefab)
+    {
+        const float targetSizeMeters = 0.16f;
+
+        GameObject model = Instantiate(modelPrefab, visuals, false);
+        model.name = "ArtifactModel";
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.identity;
+        model.transform.localScale = Vector3.one;
+
+        foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Destroy(c);
+        foreach (Rigidbody rb in model.GetComponentsInChildren<Rigidbody>(true)) Destroy(rb);
+
+        Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0)
+        {
+            Destroy(model);
+            return false;
+        }
+
+        Bounds bounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+
+        float maxDimension = Mathf.Max(bounds.size.x, Mathf.Max(bounds.size.y, bounds.size.z));
+        float scale = maxDimension > 0.0001f ? targetSizeMeters / maxDimension : 1f;
+        model.transform.localScale = Vector3.one * scale;
+
+        // Re-measure after scaling and recentre so the model's visual centre sits at the spin pivot.
+        Bounds scaledBounds = renderers[0].bounds;
+        for (int i = 1; i < renderers.Length; i++) scaledBounds.Encapsulate(renderers[i].bounds);
+        model.transform.localPosition = -visuals.InverseTransformPoint(scaledBounds.center);
+
+        return true;
+    }
+
+    /// <summary>Placeholder gem (two nested cubes offset 45 degrees) used when no artifact model is available.</summary>
+    private static void BuildPlaceholderGem(Transform visuals)
+    {
         GameObject cubeA = GameObject.CreatePrimitive(PrimitiveType.Cube);
         cubeA.name = "GemOuter";
         cubeA.transform.SetParent(visuals, false);
@@ -62,14 +120,6 @@ public class PinchDragRotatePracticeTarget : XRGrabInteractable
         Destroy(cubeB.GetComponent<Collider>());
         cubeB.GetComponent<Renderer>().material =
             TutorialGestureGizmo.MakeRuntimeMaterial(new Color(0.95f, 0.35f, 0.45f, 1f), false);
-
-        // One generous collider on the root so the hand ray hits it easily.
-        BoxCollider grabCollider = root.AddComponent<BoxCollider>();
-        grabCollider.size = Vector3.one * 0.2f;
-
-        PinchDragRotatePracticeTarget target = root.AddComponent<PinchDragRotatePracticeTarget>();
-        target.visualRoot = visuals;
-        return target;
     }
 
     protected override void Awake()
