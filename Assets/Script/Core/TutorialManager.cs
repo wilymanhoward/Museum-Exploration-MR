@@ -81,6 +81,8 @@ public class TutorialManager : MonoBehaviour
     // Runtime-built UI
     private GameObject panelRoot;
     private bool panelIsSceneAuthored;
+    private GameObject skipNarrationButtonRoot;
+    private bool skipNarrationRequested;
     private TextMeshProUGUI titleLabel;
     private TextMeshProUGUI bodyLabel;
     private TextMeshProUGUI progressLabel;
@@ -164,6 +166,18 @@ public class TutorialManager : MonoBehaviour
         {
             FacePanelTowardPlayer();
             UpdateProgressUI();
+            UpdateSkipNarrationButtonVisibility();
+        }
+    }
+
+    /// <summary>Shows the Skip Narration button only while a narration line is actually playing.</summary>
+    private void UpdateSkipNarrationButtonVisibility()
+    {
+        if (skipNarrationButtonRoot == null) return;
+        bool shouldShow = Audio != null && Audio.IsNarrationPlaying;
+        if (skipNarrationButtonRoot.activeSelf != shouldShow)
+        {
+            skipNarrationButtonRoot.SetActive(shouldShow);
         }
     }
 
@@ -191,7 +205,9 @@ public class TutorialManager : MonoBehaviour
         BuildPanel();
         PositionPanelInFrontOfPlayer();
         EnsureGizmo();
+        EnsureSkipNarrationButton();
         ConfigureHandRayVisuals(); // again here: hand rigs can activate after Awake
+        HideWristWatch();
 
         onTutorialStarted.Invoke();
         currentStepIndex = -1;
@@ -199,15 +215,42 @@ public class TutorialManager : MonoBehaviour
         Debug.Log($"[Tutorial] Started with {steps.Count} steps.");
     }
 
-    /// <summary>Plays the welcome/controls narration (if assigned) and waits for it to finish before the first step begins, so the two never talk over each other.</summary>
+    /// <summary>
+    /// Plays the welcome/controls narration (if assigned) and waits for it to finish
+    /// before the first step begins, so the two never talk over each other. The wait is
+    /// polled frame-by-frame (not a flat WaitForSeconds) so SkipNarration can cut it short.
+    /// </summary>
     private IEnumerator PlayIntroThenAdvance()
     {
+        skipNarrationRequested = false;
+
         if (introNarrationClip != null && Audio != null)
         {
             Audio.PlayNarration(introNarrationClip);
-            yield return new WaitForSeconds(introNarrationClip.length + introNarrationGap);
+
+            float duration = introNarrationClip.length + introNarrationGap;
+            float elapsed = 0f;
+            while (elapsed < duration && !skipNarrationRequested)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
         }
+
+        skipNarrationRequested = false;
         AdvanceToNextStep();
+    }
+
+    /// <summary>
+    /// Wired to the panel's Skip Narration button (visible only while the instructor is
+    /// talking). Cuts the current line off immediately; if that line was the intro (which
+    /// otherwise blocks the first step from appearing), this also advances straight to it.
+    /// </summary>
+    public void SkipNarration()
+    {
+        if (!IsTutorialRunning) return;
+        if (Audio != null) Audio.StopNarration();
+        skipNarrationRequested = true;
     }
 
     /// <summary>Aborts the tutorial immediately (e.g. if the player scans a QR mid-tutorial).</summary>
@@ -349,12 +392,23 @@ public class TutorialManager : MonoBehaviour
         StopAllCoroutines();
         IsTutorialRunning = false;
         currentStepIndex = -1;
+        skipNarrationRequested = false;
         if (Audio != null) Audio.StopNarration();
+        ShowWristWatch();
         if (panelRoot != null)
         {
             // An authored panel belongs to the scene - hide it so it can be reused/edited.
-            if (panelIsSceneAuthored) panelRoot.SetActive(false);
-            else Destroy(panelRoot);
+            if (panelIsSceneAuthored)
+            {
+                panelRoot.SetActive(false);
+                // skipNarrationButtonRoot is a child of the persisted authored panel -
+                // keep the reference so the next run doesn't build a duplicate.
+            }
+            else
+            {
+                Destroy(panelRoot);
+                skipNarrationButtonRoot = null; // destroyed along with panelRoot
+            }
         }
         if (gizmo != null) Destroy(gizmo.gameObject);
         panelRoot = null;
@@ -362,6 +416,20 @@ public class TutorialManager : MonoBehaviour
         skipArmed = false;
         skipDisarmCoroutine = null;
         gizmo = null;
+    }
+
+    private void HideWristWatch()
+    {
+        if (WristWatch.Instance != null) WristWatch.Instance.forceHidden = true;
+    }
+
+    private void ShowWristWatch()
+    {
+        if (WristWatch.Instance != null)
+        {
+            WristWatch.Instance.forceHidden = false;
+            WristWatch.Instance.EnsureWatchButtonVisible();
+        }
     }
 
     #region Placement helpers
@@ -430,6 +498,100 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Builds the "Skip Narration" pill button once (idempotent: no-ops on repeat calls
+    /// while a reference is already held) and parents it just below the panel, so it works
+    /// the same whether the panel is scene-authored or code-built without requiring any
+    /// manual wiring. UpdateSkipNarrationButtonVisibility toggles it on/off each frame based
+    /// on whether the instructor is currently talking.
+    /// </summary>
+    private void EnsureSkipNarrationButton()
+    {
+        if (skipNarrationButtonRoot != null || panelRoot == null) return;
+
+        GameObject styleTemplate = FindSceneObjectByName("RoomListPanel");
+        Transform closeT = styleTemplate != null ? FindDeepChild(styleTemplate.transform, "CloseButton") : null;
+
+        GameObject btn;
+        if (closeT != null)
+        {
+            btn = Instantiate(closeT.gameObject, panelRoot.transform);
+            btn.name = "SkipNarrationButton";
+
+            // Clear the cloned events (they point at the ORIGINAL room list panel) and
+            // replace the "X" glyph with a forward-skip label so its purpose reads as
+            // "skip the narration", not "close the tutorial".
+            Button b = btn.GetComponentInChildren<Button>(true);
+            if (b != null)
+            {
+                b.onClick = new Button.ButtonClickedEvent();
+                b.onClick.AddListener(SkipNarration);
+            }
+            XRButtonSelection xr = btn.GetComponentInChildren<XRButtonSelection>(true);
+            if (xr != null)
+            {
+                xr.onClick = new UnityEvent();
+                xr.onClick.AddListener(SkipNarration);
+
+                if (btn.GetComponentInChildren<Collider>(true) == null)
+                {
+                    xr.enabled = false;
+                    BoxCollider box = xr.gameObject.AddComponent<BoxCollider>();
+                    RectTransform xrRect = xr.GetComponent<RectTransform>();
+                    if (xrRect != null)
+                    {
+                        box.size = new Vector3(Mathf.Max(xrRect.rect.width, 40f), Mathf.Max(xrRect.rect.height, 40f), 10f);
+                    }
+                    xr.colliders.Add(box);
+                    xr.enabled = true;
+                }
+            }
+
+            TextMeshProUGUI label = btn.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label != null)
+            {
+                label.text = "Langkau ▶";
+                label.enableAutoSizing = true;
+                label.fontSizeMin = 12f;
+                label.fontSizeMax = 22f;
+                label.overflowMode = TextOverflowModes.Truncate;
+            }
+        }
+        else
+        {
+            btn = new GameObject("SkipNarrationButton");
+            btn.transform.SetParent(panelRoot.transform, false);
+            btn.AddComponent<RectTransform>();
+
+            Image img = btn.AddComponent<Image>();
+            img.color = new Color(0.9f, 0.9f, 0.93f, 0.85f);
+
+            BoxCollider box = btn.AddComponent<BoxCollider>();
+            box.size = new Vector3(180f, 54f, 10f);
+
+            XRButtonSelection xr = btn.AddComponent<XRButtonSelection>();
+            xr.buttonImage = img;
+            xr.onClick.AddListener(SkipNarration);
+
+            TextMeshProUGUI label = CreateChildLabel(btn.transform, "Label", 20f, FontStyles.Bold,
+                new Color(0.15f, 0.17f, 0.22f, 1f), TextAlignmentOptions.Center);
+            label.text = "Langkau ▶";
+            Place(label.rectTransform, Vector2.zero, Vector2.one);
+        }
+
+        // Fixed spot just below the panel's bottom edge, centered - works regardless of
+        // whatever layout the panel's own content uses, authored or code-built.
+        RectTransform rt = btn.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0f);
+        rt.anchorMax = new Vector2(0.5f, 0f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.anchoredPosition = new Vector2(0f, -18f);
+        rt.sizeDelta = new Vector2(180f, 54f);
+
+        btn.SetActive(false); // UpdateSkipNarrationButtonVisibility shows it only while narrating
+        skipNarrationButtonRoot = btn;
+    }
+
+    /// <summary>
     /// Binds to a panel authored in the scene hierarchy instead of building one from code,
     /// so designers can edit the layout, sizes and buttons in the Editor. Children are
     /// matched by name: Title, Body, ProgressLabel, ProgressBar (with child Fill),
@@ -482,6 +644,10 @@ public class TutorialManager : MonoBehaviour
         Transform skip = FindDeepChild(panelRoot.transform, "SkipButton");
         if (skip != null)
         {
+            // Match the look of the main menu's IntroVideoPanel Skip button (sprite + icon),
+            // without touching the authored size/position - the designer still controls layout.
+            RestyleSkipButtonFromIntroTemplate(skip);
+
             Button b = skip.GetComponentInChildren<Button>(true);
             if (b != null)
             {
@@ -682,13 +848,16 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds a Skip button to the panel's top-right corner. It clones the RoomListPanel's
-    /// CloseButton so it looks and behaves exactly like every other close button in the
-    /// app; if no template exists, a simple button in the house style is built instead.
+    /// Adds a Skip button to the panel's top-right corner. It clones the main menu's
+    /// IntroVideoPanel Skip button (the same round icon button used to skip the intro
+    /// cinematic) so the tutorial's "skip" action looks and behaves exactly like that one;
+    /// if that template can't be found, it falls back to the RoomListPanel's CloseButton,
+    /// and finally to a simple button in the house style if neither exists.
     /// </summary>
     private void BuildSkipButton(GameObject template)
     {
-        Transform closeT = template != null ? FindDeepChild(template.transform, "CloseButton") : null;
+        Transform closeT = FindIntroSkipButtonTemplate();
+        if (closeT == null && template != null) closeT = FindDeepChild(template.transform, "CloseButton");
         GameObject btn;
 
         if (closeT != null)
@@ -816,6 +985,58 @@ public class TutorialManager : MonoBehaviour
             if (t.name == childName) return t;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Finds the main menu's "SkipButton" specifically inside "IntoVideoPanel" - the button
+    /// that skips the intro cinematic. Scoped to that panel (not a scene-wide name search)
+    /// because the tutorial's own Skip button is also named "SkipButton" once built, and a
+    /// global lookup could find that one instead of the real template.
+    /// </summary>
+    private static Transform FindIntroSkipButtonTemplate()
+    {
+        GameObject introPanel = FindSceneObjectByName("IntoVideoPanel");
+        return introPanel != null ? FindDeepChild(introPanel.transform, "SkipButton") : null;
+    }
+
+    /// <summary>
+    /// Copies the IntroVideoPanel Skip button's visuals (background sprite/tint + icon
+    /// sprite) onto an existing "SkipButton" - used for a scene-authored panel, whose
+    /// SkipButton may have been built before this style was adopted. Only the visuals are
+    /// touched; the authored RectTransform (size/position) is left exactly as designed.
+    /// </summary>
+    private static void RestyleSkipButtonFromIntroTemplate(Transform target)
+    {
+        Transform introSkip = FindIntroSkipButtonTemplate();
+        if (introSkip == null || target == null) return;
+
+        Image srcBg = introSkip.GetComponent<Image>();
+        Image dstBg = target.GetComponent<Image>();
+        if (srcBg != null && dstBg != null)
+        {
+            dstBg.sprite = srcBg.sprite;
+            dstBg.type = srcBg.type;
+            dstBg.color = srcBg.color;
+            dstBg.material = srcBg.material;
+            dstBg.pixelsPerUnitMultiplier = srcBg.pixelsPerUnitMultiplier;
+        }
+
+        Image srcIcon = null;
+        foreach (Image img in introSkip.GetComponentsInChildren<Image>(true))
+        {
+            if (img.transform != introSkip) { srcIcon = img; break; }
+        }
+        Image dstIcon = null;
+        foreach (Image img in target.GetComponentsInChildren<Image>(true))
+        {
+            if (img.transform != target) { dstIcon = img; break; }
+        }
+        if (srcIcon != null && dstIcon != null)
+        {
+            dstIcon.sprite = srcIcon.sprite;
+            dstIcon.color = srcIcon.color;
+            dstIcon.material = srcIcon.material;
+        }
     }
 
     private static GameObject FindSceneObjectByName(string name)

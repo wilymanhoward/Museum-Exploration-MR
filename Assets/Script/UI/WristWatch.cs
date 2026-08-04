@@ -43,6 +43,13 @@ public class WristWatch : MonoBehaviour
     [Tooltip("The fixed local scale to enforce on wristWatchButtonObj.")]
     public Vector3 fixedWatchScale = Vector3.one;
 
+    // While true, the watch button (and any open options/games panel) is force-hidden
+    // regardless of MainMenu.IsExplorationStarted - used by TutorialManager so the wrist
+    // menu doesn't compete for attention during the tutorial. Must be respected INSIDE
+    // LateUpdate below: the "always visible once exploring" logic there runs every frame,
+    // so a one-off SetActive(false) from outside would be overridden within a frame.
+    [HideInInspector] public bool forceHidden = false;
+
     private bool optionsPanelActive = false;
 
     // The watch button is wired to ToggleOptionsPanel through several event paths at once
@@ -461,7 +468,7 @@ public class WristWatch : MonoBehaviour
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
-            if (!MainMenu.IsExplorationStarted)
+            if (!MainMenu.IsExplorationStarted || forceHidden)
             {
                 if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
 
