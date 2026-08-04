@@ -94,7 +94,7 @@ public class TutorialManager : MonoBehaviour
         // The authored panel is a design-time preview; keep it hidden until the tutorial runs.
         if (sceneAuthoredPanel != null) sceneAuthoredPanel.SetActive(false);
 
-        EnsureFullLengthHandRays();
+        ConfigureHandRayVisuals();
     }
 
     /// <summary>
@@ -105,19 +105,27 @@ public class TutorialManager : MonoBehaviour
     private const float HandRayVisibleLength = 2.5f;
 
     /// <summary>
-    /// The XRI sample's ray visual shrinks to 0.5m while not hovering anything
-    /// (autoAdjustLineLength on the Ray Interactor prefab), so players can't see where
-    /// they're aiming and read it as "my ray can't reach". Force a constant, reasonable
-    /// line length instead. Also fixed on the prefab itself; this guards against a sample
-    /// re-import reverting it.
+    /// App-wide hand-ray polish, applied to every ray line visual in the scene:
+    ///  - Constant, reasonable line length. The XRI sample's ray shrinks to 0.5m while
+    ///    not hovering anything (autoAdjustLineLength), so players couldn't see where
+    ///    they were aiming and read it as "my ray can't reach". Also fixed on the
+    ///    prefab itself; this guards against a sample re-import reverting it.
+    ///  - A Quest-style cursor dot (HandRayReticle) at the exact point the ray hits a
+    ///    panel/button/object, so aiming is always precise. The line visual itself
+    ///    positions, orients and shows/hides the dot.
     /// </summary>
-    private static void EnsureFullLengthHandRays()
+    private static void ConfigureHandRayVisuals()
     {
         foreach (XRInteractorLineVisual line in FindObjectsOfType<XRInteractorLineVisual>(true))
         {
             line.autoAdjustLineLength = false;
             line.overrideInteractorLineLength = true;
             line.lineLength = HandRayVisibleLength;
+
+            if (line.reticle == null)
+            {
+                line.reticle = HandRayReticle.Create();
+            }
         }
     }
 
@@ -167,7 +175,7 @@ public class TutorialManager : MonoBehaviour
         BuildPanel();
         PositionPanelInFrontOfPlayer();
         EnsureGizmo();
-        EnsureFullLengthHandRays(); // again here: hand rigs can activate after Awake
+        ConfigureHandRayVisuals(); // again here: hand rigs can activate after Awake
 
         onTutorialStarted.Invoke();
         currentStepIndex = -1;

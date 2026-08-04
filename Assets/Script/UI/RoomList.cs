@@ -149,9 +149,16 @@ public class RoomList : MonoBehaviour
 
                 roomIndex++;
             }
+
+            // The instantiate loop above already wired every new button. The fallback pass
+            // below must NOT also run: the old children destroyed above still exist until
+            // end of frame, so the new buttons would sit at child indices beyond roomsList
+            // and get their listeners stripped (RemoveAllListeners) with nothing added
+            // back - leaving every room button dead.
+            return;
         }
 
-        // Always wire existing child buttons in hierarchy as fallback
+        // Scene-authored buttons only (no prefab): wire whatever is in the hierarchy.
         WireExistingChildButtons();
     }
 
