@@ -6,19 +6,27 @@ using TMPro;
 public class RoomList : MonoBehaviour
 {
     [Header("UI Panels")]
-    [Tooltip("Reference to the Room Panel to transition to.")]
+    [Tooltip("Reference to the Room Panel to transition to for standard rooms.")]
     public Room roomPanel;
+
+    [Tooltip("Reference to the History List Panel to transition to when selecting Ruang Sejarah.")]
+    public HistoryListPanel historyListPanel;
+
+    [Header("Special Sejarah Room Reference")]
+    [Tooltip("Drag your Galeri Sejarah button directly here.")]
+    public Button sejarahRoomButton;
+    public XRButtonSelection sejarahRoomButtonXR;
 
     [Header("Canvas Reference")]
     [Tooltip("The canvas GameObject to hide. If null, will automatically find the parent Canvas's GameObject.")]
     public GameObject canvasObject;
 
     [Header("Hierarchy References")]
-    [Tooltip("The Layout Group (Grid Layout Group) transform where room buttons will be instantiated.")]
+    [Tooltip("The Layout Group (Grid Layout Group) transform where room buttons are located or instantiated.")]
     public Transform listContainer;
 
     [Header("Prefabs")]
-    [Tooltip("The room button prefab to instantiate in the list.")]
+    [Tooltip("The room button prefab to instantiate in the list. Leave empty if buttons are manually placed in scene.")]
     public GameObject roomButtonPrefab;
 
     [Header("Close Buttons")]
@@ -39,28 +47,33 @@ public class RoomList : MonoBehaviour
             closeButtonXR.onClick.AddListener(CloseCanvas);
         }
 
-        // Populate and display rooms list on start
+        WireSejarahButton();
         PopulateRoomsList();
     }
 
     private void OnEnable()
     {
-        // Refresh/re-populate when panel is enabled
+        WireSejarahButton();
         PopulateRoomsList();
+    }
+
+    private void WireSejarahButton()
+    {
+        if (sejarahRoomButton != null)
+        {
+            sejarahRoomButton.onClick.RemoveAllListeners();
+            sejarahRoomButton.onClick.AddListener(() => OpenHistoryFromRoomList("Ruang Sejarah", "Sejarah Terengganu"));
+        }
+        if (sejarahRoomButtonXR != null)
+        {
+            sejarahRoomButtonXR.onClick.RemoveAllListeners();
+            sejarahRoomButtonXR.onClick.AddListener(() => OpenHistoryFromRoomList("Ruang Sejarah", "Sejarah Terengganu"));
+        }
     }
 
     public void PopulateRoomsList()
     {
-        // Clear old list items
-        if (listContainer != null)
-        {
-            foreach (Transform child in listContainer)
-            {
-                Destroy(child.gameObject);
-            }
-        }
-
-        // Get the list of rooms
+        // Fetch room data list
         roomsList.Clear();
         if (RoomManager.Instance != null && RoomManager.Instance.rooms != null && RoomManager.Instance.rooms.Count > 0)
         {
@@ -68,7 +81,6 @@ public class RoomList : MonoBehaviour
         }
         else
         {
-            // Fallback load from resources
             RoomData[] loadedRooms = Resources.LoadAll<RoomData>("MuseumData/Rooms");
             if (loadedRooms != null)
             {
@@ -76,105 +88,176 @@ public class RoomList : MonoBehaviour
             }
         }
 
-        // Instantiate a button for each room
-        int roomIndex = 1;
-        foreach (RoomData room in roomsList)
+        // If listContainer already has manually placed buttons in scene (e.g. Button 05 for Sejarah), wire them directly
+        if (listContainer != null && listContainer.childCount > 0 && roomButtonPrefab == null)
         {
-            if (room == null || roomButtonPrefab == null || listContainer == null) continue;
+            WireExistingChildButtons();
+            return;
+        }
 
-            GameObject btnObj = Instantiate(roomButtonPrefab, listContainer);
-            btnObj.SetActive(true);
-
-            string formattedNum = roomIndex.ToString("D2");
-
-            // Update Number Text (01, 02, 03, 04, 05) and Room Name Text
-            TextMeshProUGUI numTextComp = null;
-            TextMeshProUGUI nameTextComp = null;
-
-            TextMeshProUGUI[] tmps = btnObj.GetComponentsInChildren<TextMeshProUGUI>(true);
-            foreach (TextMeshProUGUI tmp in tmps)
+        // Otherwise auto-instantiate if prefab is provided
+        if (listContainer != null && roomButtonPrefab != null)
+        {
+            foreach (Transform child in listContainer)
             {
-                string n = tmp.name.ToLower();
-                if (n.Contains("num") || n.Contains("number") || n.Contains("index") || n.Contains("no"))
-                {
-                    numTextComp = tmp;
-                }
-                else if (n.Contains("name") || n.Contains("title") || n.Contains("text") || n.Contains("room"))
-                {
-                    if (nameTextComp == null) nameTextComp = tmp;
-                }
+                Destroy(child.gameObject);
             }
 
-            if (numTextComp != null)
+            int roomIndex = 1;
+            foreach (RoomData room in roomsList)
             {
-                numTextComp.text = formattedNum;
-            }
-            else
-            {
-                Text[] legacyTexts = btnObj.GetComponentsInChildren<Text>(true);
-                foreach (Text txt in legacyTexts)
+                if (room == null) continue;
+
+                GameObject btnObj = Instantiate(roomButtonPrefab, listContainer);
+                btnObj.SetActive(true);
+
+                string formattedNum = roomIndex.ToString("D2");
+
+                TextMeshProUGUI numTextComp = null;
+                TextMeshProUGUI nameTextComp = null;
+
+                TextMeshProUGUI[] tmps = btnObj.GetComponentsInChildren<TextMeshProUGUI>(true);
+                foreach (TextMeshProUGUI tmp in tmps)
                 {
-                    if (txt.name.ToLower().Contains("num") || txt.name.ToLower().Contains("number"))
+                    string n = tmp.name.ToLower();
+                    if (n.Contains("num") || n.Contains("number") || n.Contains("index") || n.Contains("no"))
                     {
-                        txt.text = formattedNum;
-                        break;
+                        numTextComp = tmp;
+                    }
+                    else if (n.Contains("name") || n.Contains("title") || n.Contains("text") || n.Contains("room"))
+                    {
+                        if (nameTextComp == null) nameTextComp = tmp;
                     }
                 }
-            }
 
-            if (nameTextComp != null)
-            {
-                nameTextComp.enableWordWrapping = true;
-                nameTextComp.maxVisibleLines = 2;
-                nameTextComp.overflowMode = TextOverflowModes.Ellipsis;
+                if (numTextComp != null) numTextComp.text = formattedNum;
+                if (nameTextComp != null) nameTextComp.text = room.roomName;
 
-                string displayName = room.roomName;
-                if (!string.IsNullOrEmpty(displayName))
+                Button btn = btnObj.GetComponent<Button>();
+                if (btn != null)
                 {
-                    if (displayName.Equals("Serambi Mandalika", System.StringComparison.OrdinalIgnoreCase))
-                    {
-                        displayName = "Serambi\nMandalika";
-                    }
-                    else if (displayName.Contains("Serambi") && displayName.Contains("Mandalika"))
-                    {
-                        displayName = displayName.Replace("Serambi Mandalika", "Serambi\nMandalika");
-                    }
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() => OnRoomSelected(room));
                 }
-                nameTextComp.text = displayName;
-            }
-            else if (tmps.Length > 0 && numTextComp != tmps[0])
-            {
-                tmps[0].enableWordWrapping = true;
-                tmps[0].maxVisibleLines = 2;
-                string displayName = room.roomName;
-                if (!string.IsNullOrEmpty(displayName) && displayName.Contains("Serambi Mandalika"))
+
+                XRButtonSelection xrBtn = btnObj.GetComponent<XRButtonSelection>();
+                if (xrBtn != null)
                 {
-                    displayName = displayName.Replace("Serambi Mandalika", "Serambi\nMandalika");
+                    xrBtn.onClick.RemoveAllListeners();
+                    xrBtn.onClick.AddListener(() => OnRoomSelected(room));
                 }
-                tmps[0].text = displayName;
+
+                roomIndex++;
+            }
+        }
+
+        // Always wire existing child buttons in hierarchy as fallback
+        WireExistingChildButtons();
+    }
+
+    private void WireExistingChildButtons()
+    {
+        if (listContainer == null || listContainer.childCount == 0) return;
+
+        int index = 1;
+        for (int i = 0; i < listContainer.childCount; i++)
+        {
+            Transform child = listContainer.GetChild(i);
+            if (child == null || !child.gameObject.activeSelf) continue;
+
+            // Skip if this child is explicitly assigned as sejarahRoomButton
+            if (sejarahRoomButton != null && child.gameObject == sejarahRoomButton.gameObject)
+            {
+                index++;
+                continue;
             }
 
-            // Hook click event
-            Button btn = btnObj.GetComponent<Button>();
+            TMP_Text nameTxt = child.Find("RoomName")?.GetComponent<TMP_Text>();
+            TMP_Text numTxt = child.Find("Room Number")?.GetComponent<TMP_Text>();
+
+            if (nameTxt == null) nameTxt = child.GetComponentInChildren<TMP_Text>();
+
+            string roomName = nameTxt != null ? nameTxt.text : child.name;
+            string roomNum = numTxt != null ? numTxt.text : index.ToString("D2");
+
+            bool isSejarah = index == 5 || roomNum == "05" ||
+                             (!string.IsNullOrEmpty(roomName) &&
+                              (roomName.Contains("Sejarah") || roomName.Contains("History")));
+
+            Button btn = child.GetComponent<Button>();
             if (btn != null)
             {
                 btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() => OnRoomSelected(room));
+                if (isSejarah)
+                {
+                    btn.onClick.AddListener(() => OpenHistoryFromRoomList("Ruang Sejarah", "Sejarah Terengganu"));
+                }
+                else
+                {
+                    RoomData matchedData = (roomsList != null && index - 1 < roomsList.Count) ? roomsList[index - 1] : null;
+                    if (matchedData != null)
+                    {
+                        btn.onClick.AddListener(() => OnRoomSelected(matchedData));
+                    }
+                }
             }
 
-            XRButtonSelection xrBtn = btnObj.GetComponent<XRButtonSelection>();
+            XRButtonSelection xrBtn = child.GetComponent<XRButtonSelection>();
             if (xrBtn != null)
             {
                 xrBtn.onClick.RemoveAllListeners();
-                xrBtn.onClick.AddListener(() => OnRoomSelected(room));
+                if (isSejarah)
+                {
+                    xrBtn.onClick.AddListener(() => OpenHistoryFromRoomList("Ruang Sejarah", "Sejarah Terengganu"));
+                }
+                else
+                {
+                    RoomData matchedData = (roomsList != null && index - 1 < roomsList.Count) ? roomsList[index - 1] : null;
+                    if (matchedData != null)
+                    {
+                        xrBtn.onClick.AddListener(() => OnRoomSelected(matchedData));
+                    }
+                }
             }
 
-            roomIndex++;
+            index++;
         }
+    }
+
+    private void OpenHistoryFromRoomList(string title, string subtitle)
+    {
+        if (HistoryManager.Instance != null)
+        {
+            HistoryManager.Instance.ShowHistoryList(title, subtitle);
+        }
+        else
+        {
+            if (historyListPanel == null) historyListPanel = FindObjectOfType<HistoryListPanel>(true);
+            if (historyListPanel != null)
+            {
+                historyListPanel.ShowList(null, title, subtitle);
+            }
+        }
+
+        gameObject.SetActive(false);
     }
 
     private void OnRoomSelected(RoomData room)
     {
+        if (room == null) return;
+
+        // If selecting Ruang Sejarah / History room -> Route directly to HistoryListPanel
+        bool isHistoryRoom = !string.IsNullOrEmpty(room.roomName) &&
+            (room.roomName.IndexOf("Sejarah", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+             room.roomName.IndexOf("History", System.StringComparison.OrdinalIgnoreCase) >= 0);
+
+        if (isHistoryRoom)
+        {
+            OpenHistoryFromRoomList(room.roomName, string.IsNullOrEmpty(room.roomSubtitle) ? "Sejarah Terengganu" : room.roomSubtitle);
+            return;
+        }
+
+        // Standard Room handling
         if (RoomManager.Instance != null)
         {
             RoomManager.Instance.ChangeRoom(room);
@@ -182,21 +265,11 @@ public class RoomList : MonoBehaviour
 
         if (roomPanel != null)
         {
-            // Show the room panel with details
             roomPanel.ShowRoom(room);
-            // Hide this panel (canvas remains active)
             gameObject.SetActive(false);
-        }
-        else
-        {
-            Debug.LogError("RoomList: roomPanel reference is missing!");
         }
     }
 
-    /// <summary>
-    /// Hides the canvas/parent canvas. This function can be called from UnityEvents.
-    /// Since the panel state is not altered, revealing the canvas again will show the last active panel.
-    /// </summary>
     public void CloseCanvas()
     {
         if (canvasObject != null)
