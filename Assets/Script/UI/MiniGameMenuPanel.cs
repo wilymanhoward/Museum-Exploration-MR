@@ -68,6 +68,16 @@ public class MiniGameMenuPanel : MonoBehaviour
     private int currentIndex = 0;
     public int CurrentIndex => currentIndex;
 
+    // Each button here is wired to BOTH a UGUI Button.onClick and an XRButtonSelection.onClick
+    // (see WireButton) so it responds to hand-ray/poke as well as any other pointer path. A
+    // single pinch can trigger more than one of those for the same physical press, which
+    // previously advanced the game cycle twice for what felt like one tap. Debounce each
+    // action independently so a legitimate quick double-tap on two DIFFERENT buttons still
+    // works, but one press can't double-fire the same action.
+    private const float ActionDebounceSeconds = 0.25f;
+    private float lastPreviousTime = -10f;
+    private float lastNextTime = -10f;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Unity
     // ─────────────────────────────────────────────────────────────────────────
@@ -109,6 +119,9 @@ public class MiniGameMenuPanel : MonoBehaviour
     /// <summary>Cycle to the previous game, wrapping from first → last.</summary>
     public void OnPrevious()
     {
+        if (Time.unscaledTime - lastPreviousTime < ActionDebounceSeconds) return;
+        lastPreviousTime = Time.unscaledTime;
+
         if (games == null || games.Length == 0) return;
         currentIndex = (currentIndex - 1 + games.Length) % games.Length;
         RefreshTitle();
@@ -118,6 +131,9 @@ public class MiniGameMenuPanel : MonoBehaviour
     /// <summary>Cycle to the next game, wrapping from last → first.</summary>
     public void OnNext()
     {
+        if (Time.unscaledTime - lastNextTime < ActionDebounceSeconds) return;
+        lastNextTime = Time.unscaledTime;
+
         if (games == null || games.Length == 0) return;
         currentIndex = (currentIndex + 1) % games.Length;
         RefreshTitle();

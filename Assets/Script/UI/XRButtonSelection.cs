@@ -28,6 +28,21 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
     private Vector3 targetScale;
     private Color targetColor;
 
+    // A single physical pinch can fire BOTH OnSelectEntered (XRI's physics-based select,
+    // since these buttons carry a Collider for hand-ray/poke support) AND OnPointerDown
+    // (UGUI's pointer events via the graphic raycaster) within the same frame or two -
+    // which invoked onClick twice for one press (e.g. Next/Previous skipping an extra
+    // step). Debounce collapses any repeat invoke within this window into a no-op.
+    private const float ClickDebounceSeconds = 0.25f;
+    private float lastInvokeTime = -10f;
+
+    private void InvokeClickOnce()
+    {
+        if (Time.unscaledTime - lastInvokeTime < ClickDebounceSeconds) return;
+        lastInvokeTime = Time.unscaledTime;
+        onClick.Invoke();
+    }
+
     private bool IsWristWatchButton()
     {
         if (WristWatch.Instance != null && WristWatch.Instance.wristWatchButtonObj != null)
@@ -127,7 +142,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         
         Debug.Log($"Button Selected/Pressed: {gameObject.name}");
         ButtonClickAudio.PlayClickSound();
-        onClick.Invoke();
+        InvokeClickOnce();
 
         if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
         {
@@ -155,7 +170,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
         Debug.Log($"Button UI Clicked/Pressed: {gameObject.name}");
         ButtonClickAudio.PlayClickSound();
-        onClick.Invoke();
+        InvokeClickOnce();
     }
     #endregion
 }

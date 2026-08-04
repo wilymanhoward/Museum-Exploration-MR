@@ -167,12 +167,23 @@ public class MiniGames : MonoBehaviour
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Hides every mini-game panel under this canvas. Deliberately does NOT rely on
+    /// MiniGameMenuPanel.Instance.games: when the canvas is activated for the first time,
+    /// MiniGames.OnEnable (parent) can run before MiniGameMenuPanel.Awake (child) has set
+    /// Instance, which previously made this a silent no-op and let a panel left active in
+    /// the Editor (e.g. a game panel someone forgot to close before saving the scene) stay
+    /// visible on top of the menu. Searching for every BaseGame in the hierarchy instead
+    /// finds and hides all game panels unconditionally, regardless of Inspector wiring,
+    /// registration timing, or stray active state saved in the scene.
+    /// </summary>
     private void HideAllGamePanels()
     {
         if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
-        if (MiniGameMenuPanel.Instance == null) return;
-        foreach (var entry in MiniGameMenuPanel.Instance.games)
-            if (entry.gamePanel != null) entry.gamePanel.SetActive(false);
+        foreach (BaseGame game in GetComponentsInChildren<BaseGame>(true))
+        {
+            if (game != null) game.gameObject.SetActive(false);
+        }
     }
 
     public void PositionInFrontOfUser()
