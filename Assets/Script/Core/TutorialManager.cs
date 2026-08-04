@@ -105,28 +105,59 @@ public class TutorialManager : MonoBehaviour
     private const float HandRayVisibleLength = 2.5f;
 
     /// <summary>
-    /// App-wide hand-ray polish, applied to every ray line visual in the scene:
-    ///  - Constant, reasonable line length. The XRI sample's ray shrinks to 0.5m while
-    ///    not hovering anything (autoAdjustLineLength), so players couldn't see where
-    ///    they were aiming and read it as "my ray can't reach". Also fixed on the
-    ///    prefab itself; this guards against a sample re-import reverting it.
+    /// App-wide hand-ray polish, styled after the Meta Quest home rays:
+    ///  - XRI's own beam is made fully TRANSPARENT. It stretches to whatever the ray
+    ///    hits (that's why a gradient fade looked short only while grabbing the nearby
+    ///    tutorial artifact but long everywhere else), so it can never give a constant
+    ///    short look. A HandRayStub draws a fixed few-inch segment from the hand
+    ///    instead. Interaction, hover and clicking still work at full range.
     ///  - A Quest-style cursor dot (HandRayReticle) at the exact point the ray hits a
-    ///    panel/button/object, so aiming is always precise. The line visual itself
-    ///    positions, orients and shows/hides the dot.
+    ///    panel/button/object, so the player always sees precisely where they point.
+    ///    The (invisible) line visual still positions, orients and toggles the dot.
+    ///  Teleport/gaze rays are left untouched - they need their full visuals.
     /// </summary>
     private static void ConfigureHandRayVisuals()
     {
         foreach (XRInteractorLineVisual line in FindObjectsOfType<XRInteractorLineVisual>(true))
         {
+            string objName = line.gameObject.name.ToLower();
+            if (objName.Contains("teleport") || objName.Contains("gaze")) continue;
+
             line.autoAdjustLineLength = false;
             line.overrideInteractorLineLength = true;
             line.lineLength = HandRayVisibleLength;
+            line.validColorGradient = BuildTransparentGradient();
+            line.invalidColorGradient = BuildTransparentGradient();
+
+            if (line.GetComponent<XRRayInteractor>() != null &&
+                line.GetComponent<HandRayStub>() == null)
+            {
+                line.gameObject.AddComponent<HandRayStub>();
+            }
 
             if (line.reticle == null)
             {
                 line.reticle = HandRayReticle.Create();
             }
         }
+    }
+
+    /// <summary>Fully invisible gradient for XRI's stretchy beam; HandRayStub draws the visible part.</summary>
+    private static Gradient BuildTransparentGradient()
+    {
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new[]
+            {
+                new GradientColorKey(Color.white, 0f),
+                new GradientColorKey(Color.white, 1f)
+            },
+            new[]
+            {
+                new GradientAlphaKey(0f, 0f),
+                new GradientAlphaKey(0f, 1f)
+            });
+        return gradient;
     }
 
     private void Update()
