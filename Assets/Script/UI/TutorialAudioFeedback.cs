@@ -29,7 +29,11 @@ public class TutorialAudioFeedback : MonoBehaviour
     [Tooltip("1 = fully spatialized 3D audio at the interaction point.")]
     [Range(0f, 1f)] public float spatialBlend = 1f;
 
+    [Header("Narration (voice-over)")]
+    [Range(0f, 1f)] public float narrationVolume = 1f;
+
     private AudioSource source;
+    private AudioSource narrationSource;
     private readonly Dictionary<string, AudioClip> generatedClips = new Dictionary<string, AudioClip>();
 
     private void Awake()
@@ -41,7 +45,34 @@ public class TutorialAudioFeedback : MonoBehaviour
         source.rolloffMode = AudioRolloffMode.Logarithmic;
         source.minDistance = 0.4f;
         source.maxDistance = 10f;
+
+        // Separate source for the instructor's voice: always fully audible (2D, not tied to
+        // a 3D point like the interaction chimes above) and independently start/stoppable so
+        // a new line can cut off an unfinished one when the player moves faster than the VO.
+        narrationSource = gameObject.AddComponent<AudioSource>();
+        narrationSource.playOnAwake = false;
+        narrationSource.loop = false;
+        narrationSource.spatialBlend = 0f;
+        narrationSource.volume = narrationVolume;
     }
+
+    /// <summary>Plays a narration line, stopping whichever line was still playing.</summary>
+    public void PlayNarration(AudioClip clip)
+    {
+        if (clip == null || narrationSource == null) return;
+        narrationSource.Stop();
+        narrationSource.clip = clip;
+        narrationSource.volume = narrationVolume;
+        narrationSource.Play();
+    }
+
+    /// <summary>Stops the current narration line immediately (e.g. tutorial skipped).</summary>
+    public void StopNarration()
+    {
+        if (narrationSource != null) narrationSource.Stop();
+    }
+
+    public bool IsNarrationPlaying => narrationSource != null && narrationSource.isPlaying;
 
     public void PlayGesturePerformed(Vector3 position)
     {

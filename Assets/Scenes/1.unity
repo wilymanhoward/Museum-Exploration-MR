@@ -10780,6 +10780,7 @@ MonoBehaviour:
     <size=80%><i>PINCH and HOLD
     the artifact, then move your hand to rotate it. Keep spinning until the bar is
     full!</i></size>'
+  narrationClip: {fileID: 8300000, guid: a39bf9f6391cd3245b3468829614373c, type: 3}
   artifactResourcePath: Models/model_artifact_keris
   requiredRotationDegrees: 540
   minHoldSeconds: 0.6
@@ -10803,6 +10804,7 @@ MonoBehaviour:
     <size=80%><i>Point
     your hand ray at the button, then PINCH your thumb and index finger together
     to press it. Press it 2 times!</i></size>'
+  narrationClip: {fileID: 8300000, guid: abdce4b571769714f9514d6fa0024c17, type: 3}
   requiredClicks: 2
   repositionRadius: 0.18
 --- !u!114 &947676602
@@ -10832,6 +10834,9 @@ MonoBehaviour:
 
     Tutorial complete
     - enjoy exploring the museum!'
+  introNarrationClip: {fileID: 8300000, guid: c51880062efa0164a9f385d9082267f5, type: 3}
+  introNarrationGap: 0.5
+  completionNarrationClip: {fileID: 8300000, guid: e8e9a8d5e58dbff45986ab2b186ac8fe, type: 3}
   onTutorialStarted:
     m_PersistentCalls:
       m_Calls: []

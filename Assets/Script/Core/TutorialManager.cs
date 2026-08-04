@@ -59,6 +59,14 @@ public class TutorialManager : MonoBehaviour
     [TextArea] public string praiseText = "Bagus! / Well done!";
     [TextArea] public string completionText = "Tutorial selesai! Selamat meneroka muzium.\nTutorial complete - enjoy exploring the museum!";
 
+    [Header("Narration (optional voice-over)")]
+    [Tooltip("Played once when the tutorial starts, before the first step - a general welcome plus how the hand-ray/pinch controls work. Leave empty to skip.")]
+    public AudioClip introNarrationClip;
+    [Tooltip("Extra pause after the intro narration finishes before the first step begins, in seconds.")]
+    public float introNarrationGap = 0.5f;
+    [Tooltip("Played once when the whole tutorial completes. Leave empty to skip.")]
+    public AudioClip completionNarrationClip;
+
     [Header("Events")]
     public UnityEvent onTutorialStarted = new UnityEvent();
     public UnityEvent onTutorialCompleted = new UnityEvent();
@@ -187,8 +195,19 @@ public class TutorialManager : MonoBehaviour
 
         onTutorialStarted.Invoke();
         currentStepIndex = -1;
-        AdvanceToNextStep();
+        StartCoroutine(PlayIntroThenAdvance());
         Debug.Log($"[Tutorial] Started with {steps.Count} steps.");
+    }
+
+    /// <summary>Plays the welcome/controls narration (if assigned) and waits for it to finish before the first step begins, so the two never talk over each other.</summary>
+    private IEnumerator PlayIntroThenAdvance()
+    {
+        if (introNarrationClip != null && Audio != null)
+        {
+            Audio.PlayNarration(introNarrationClip);
+            yield return new WaitForSeconds(introNarrationClip.length + introNarrationGap);
+        }
+        AdvanceToNextStep();
     }
 
     /// <summary>Aborts the tutorial immediately (e.g. if the player scans a QR mid-tutorial).</summary>
@@ -271,6 +290,12 @@ public class TutorialManager : MonoBehaviour
             AdvanceToNextStep();
             return;
         }
+
+        if (Audio != null && step.narrationClip != null)
+        {
+            Audio.PlayNarration(step.narrationClip);
+        }
+
         Debug.Log($"[Tutorial] Step {currentStepIndex + 1}/{steps.Count} started: {step.stepTitle}");
     }
 
@@ -304,12 +329,17 @@ public class TutorialManager : MonoBehaviour
         if (bodyLabel != null) bodyLabel.text = completionText;
         if (stepCounterLabel != null) stepCounterLabel.text = "";
         if (Audio != null) Audio.PlayTutorialComplete(panelRoot != null ? panelRoot.transform.position : transform.position);
+        if (Audio != null && completionNarrationClip != null) Audio.PlayNarration(completionNarrationClip);
 
         PlayerPrefs.SetInt(CompletedPrefsKey, 1);
         PlayerPrefs.Save();
         onTutorialCompleted.Invoke();
 
-        yield return new WaitForSeconds(3.5f);
+        // Keep the completion panel up long enough for the narration to finish, if any.
+        float displaySeconds = completionNarrationClip != null
+            ? Mathf.Max(3.5f, completionNarrationClip.length + 0.5f)
+            : 3.5f;
+        yield return new WaitForSeconds(displaySeconds);
         Cleanup();
         Debug.Log("[Tutorial] Completed.");
     }
@@ -319,6 +349,7 @@ public class TutorialManager : MonoBehaviour
         StopAllCoroutines();
         IsTutorialRunning = false;
         currentStepIndex = -1;
+        if (Audio != null) Audio.StopNarration();
         if (panelRoot != null)
         {
             // An authored panel belongs to the scene - hide it so it can be reused/edited.

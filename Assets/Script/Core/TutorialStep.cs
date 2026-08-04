@@ -18,6 +18,9 @@ public abstract class TutorialStep : MonoBehaviour
     [Tooltip("Main instruction body text shown on the tutorial panel.")]
     public string instructionText = "";
 
+    [Tooltip("Optional voice-over clip played once when this step begins, narrating the gesture in Bahasa Melayu. Leave empty for no narration.")]
+    public AudioClip narrationClip;
+
     public bool IsRunning { get; private set; }
     public bool IsCompleted { get; private set; }
 
