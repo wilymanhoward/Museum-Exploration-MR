@@ -97,6 +97,7 @@ public class MainMenu : MonoBehaviour
         if (videoPlayer != null)
         {
             videoPlayer.loopPointReached += OnVideoFinished;
+            videoPlayer.errorReceived += OnVideoError;
         }
         if (skipButton != null)
         {
@@ -136,6 +137,12 @@ public class MainMenu : MonoBehaviour
         {
             introVideoPanel.SetActive(true);
             FadeBackground(1f, fadeDuration);
+
+            // EVERYTHING the player ever sees (name entry, main menu, wrist button) is
+            // gated behind this video finishing, and the background is faded to black
+            // while it plays. If the clip silently fails to decode on the headset the
+            // app would be a permanent black screen - so watchdog it.
+            StartCoroutine(VideoStartWatchdog(8f));
         }
         else
         {
@@ -443,6 +450,36 @@ public class MainMenu : MonoBehaviour
 
     private void OnVideoFinished(VideoPlayer source)
     {
+        EndVideoAndShowNameEntry();
+    }
+
+    private void OnVideoError(VideoPlayer source, string message)
+    {
+        Debug.LogError($"MainMenu: Intro video failed on this device - skipping the intro. {message}");
+        EndVideoAndShowNameEntry();
+    }
+
+    /// <summary>
+    /// Skips the intro automatically if the video never actually starts rendering frames
+    /// (codec/decode failures on Android often DON'T raise errorReceived - the player just
+    /// sits there forever, leaving the app on the black fade overlay with nothing visible).
+    /// </summary>
+    private System.Collections.IEnumerator VideoStartWatchdog(float timeoutSeconds)
+    {
+        float elapsed = 0f;
+        while (elapsed < timeoutSeconds)
+        {
+            // Intro already ended or was skipped - nothing to guard anymore.
+            if (introVideoPanel == null || !introVideoPanel.activeInHierarchy) yield break;
+
+            // Video is genuinely playing frames - the normal flow will take it from here.
+            if (videoPlayer != null && videoPlayer.isPlaying && videoPlayer.frame > 0) yield break;
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        Debug.LogWarning($"MainMenu: Intro video did not start within {timeoutSeconds}s - skipping the intro so the app remains usable.");
         EndVideoAndShowNameEntry();
     }
 
