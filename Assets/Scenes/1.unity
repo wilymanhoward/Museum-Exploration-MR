@@ -10836,7 +10836,8 @@ MonoBehaviour:
     - enjoy exploring the museum!'
   introNarrationClip: {fileID: 8300000, guid: c51880062efa0164a9f385d9082267f5, type: 3}
   introNarrationGap: 0.5
-  completionNarrationClip: {fileID: 8300000, guid: e8e9a8d5e58dbff45986ab2b186ac8fe, type: 3}
+  completionNarrationClip: {fileID: 8300000, guid: e8e9a8d5e58dbff45986ab2b186ac8fe,
+    type: 3}
   onTutorialStarted:
     m_PersistentCalls:
       m_Calls: []
@@ -25459,6 +25460,7 @@ MonoBehaviour:
   panelOffset: {x: 0, y: 0.22, z: 0}
   lockWatchButtonScale: 1
   fixedWatchScale: {x: 1, y: 1, z: 1}
+  forceHidden: 0
   toggleDebounce: 0.3
   freezeReachDistance: 0.18
 --- !u!224 &1985681182

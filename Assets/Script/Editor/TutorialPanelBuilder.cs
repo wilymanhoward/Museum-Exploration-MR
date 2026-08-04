@@ -193,18 +193,18 @@ public static class TutorialPanelBuilder
     }
 
     /// <summary>
-    /// Adds the Skip button in the panel's top-right corner: a clone of the main menu's
-    /// IntroVideoPanel Skip button (the round icon button used to skip the intro cinematic,
-    /// so the tutorial's "skip" looks and behaves like that one), falling back to the
-    /// RoomListPanel's CloseButton and then a simple house-style button if neither template
-    /// exists. Serialized events are cleared either way - they'd otherwise act on the
-    /// ORIGINAL panel. TutorialManager wires the actual skip action at runtime.
+    /// Adds the Skip (close/abort) button in the panel's top-right corner: a clone of the
+    /// RoomListPanel's CloseButton - a plain X, matching every other close button in the
+    /// app - or a simple house-style X button if no template exists. Deliberately NOT the
+    /// round skip-forward icon (that one is reserved for the separate runtime-built Skip
+    /// Narration button - see TutorialManager.EnsureSkipNarrationButton), so the two can
+    /// never be visually mistaken for each other. Serialized events are cleared either way -
+    /// they'd otherwise act on the ORIGINAL panel. TutorialManager wires the actual skip
+    /// action at runtime.
     /// </summary>
     private static void BuildSkipButton(GameObject panel, GameObject template)
     {
-        GameObject introPanel = FindInScene("IntoVideoPanel");
-        Transform closeT = introPanel != null ? FindChild(introPanel.transform, "SkipButton") : null;
-        if (closeT == null && template != null) closeT = FindChild(template.transform, "CloseButton");
+        Transform closeT = template != null ? FindChild(template.transform, "CloseButton") : null;
         GameObject btn;
 
         if (closeT != null)

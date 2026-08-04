@@ -508,18 +508,20 @@ public class TutorialManager : MonoBehaviour
     {
         if (skipNarrationButtonRoot != null || panelRoot == null) return;
 
-        GameObject styleTemplate = FindSceneObjectByName("RoomListPanel");
-        Transform closeT = styleTemplate != null ? FindDeepChild(styleTemplate.transform, "CloseButton") : null;
+        // Cloned from IntroVideoPanel's own Skip button - a small ROUND button with a
+        // forward-skip icon (matches "skip ahead", unlike an X which reads as "close").
+        // That icon is deliberately kept HERE and NOT on the abort/close SkipButton below,
+        // so the two buttons never look interchangeable: round skip-forward icon = skip
+        // this narration line, square X = close the whole tutorial.
+        Transform introSkip = FindIntroSkipButtonTemplate();
 
         GameObject btn;
-        if (closeT != null)
+        if (introSkip != null)
         {
-            btn = Instantiate(closeT.gameObject, panelRoot.transform);
+            btn = Instantiate(introSkip.gameObject, panelRoot.transform);
             btn.name = "SkipNarrationButton";
 
-            // Clear the cloned events (they point at the ORIGINAL room list panel) and
-            // replace the "X" glyph with a forward-skip label so its purpose reads as
-            // "skip the narration", not "close the tutorial".
+            // Clear the cloned events (they point at the ORIGINAL intro video panel).
             Button b = btn.GetComponentInChildren<Button>(true);
             if (b != null)
             {
@@ -545,19 +547,10 @@ public class TutorialManager : MonoBehaviour
                     xr.enabled = true;
                 }
             }
-
-            TextMeshProUGUI label = btn.GetComponentInChildren<TextMeshProUGUI>(true);
-            if (label != null)
-            {
-                label.text = "Langkau ▶";
-                label.enableAutoSizing = true;
-                label.fontSizeMin = 12f;
-                label.fontSizeMax = 22f;
-                label.overflowMode = TextOverflowModes.Truncate;
-            }
         }
         else
         {
+            // No template found: a plain round button with a skip-forward glyph.
             btn = new GameObject("SkipNarrationButton");
             btn.transform.SetParent(panelRoot.transform, false);
             btn.AddComponent<RectTransform>();
@@ -566,26 +559,27 @@ public class TutorialManager : MonoBehaviour
             img.color = new Color(0.9f, 0.9f, 0.93f, 0.85f);
 
             BoxCollider box = btn.AddComponent<BoxCollider>();
-            box.size = new Vector3(180f, 54f, 10f);
+            box.size = new Vector3(64f, 64f, 10f);
 
             XRButtonSelection xr = btn.AddComponent<XRButtonSelection>();
             xr.buttonImage = img;
             xr.onClick.AddListener(SkipNarration);
 
-            TextMeshProUGUI label = CreateChildLabel(btn.transform, "Label", 20f, FontStyles.Bold,
+            TextMeshProUGUI label = CreateChildLabel(btn.transform, "Label", 22f, FontStyles.Bold,
                 new Color(0.15f, 0.17f, 0.22f, 1f), TextAlignmentOptions.Center);
-            label.text = "Langkau ▶";
+            label.text = "▶";
             Place(label.rectTransform, Vector2.zero, Vector2.one);
         }
 
         // Fixed spot just below the panel's bottom edge, centered - works regardless of
-        // whatever layout the panel's own content uses, authored or code-built.
+        // whatever layout the panel's own content uses, authored or code-built. Forced to a
+        // small square/round footprint (not a wide pill) regardless of the source template.
         RectTransform rt = btn.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0f);
         rt.anchorMax = new Vector2(0.5f, 0f);
         rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = new Vector2(0f, -18f);
-        rt.sizeDelta = new Vector2(180f, 54f);
+        rt.anchoredPosition = new Vector2(0f, -16f);
+        rt.sizeDelta = new Vector2(64f, 64f);
 
         btn.SetActive(false); // UpdateSkipNarrationButtonVisibility shows it only while narrating
         skipNarrationButtonRoot = btn;
@@ -644,9 +638,11 @@ public class TutorialManager : MonoBehaviour
         Transform skip = FindDeepChild(panelRoot.transform, "SkipButton");
         if (skip != null)
         {
-            // Match the look of the main menu's IntroVideoPanel Skip button (sprite + icon),
-            // without touching the authored size/position - the designer still controls layout.
-            RestyleSkipButtonFromIntroTemplate(skip);
+            // Force an X/close icon (from RoomListPanel's CloseButton) so this button always
+            // reads as "close the tutorial" - kept visually distinct from the round
+            // skip-forward icon on the separate Skip Narration button, so the two can't be
+            // mistaken for each other.
+            RestyleSkipButtonToCloseIcon(skip);
 
             Button b = skip.GetComponentInChildren<Button>(true);
             if (b != null)
@@ -848,16 +844,15 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Adds a Skip button to the panel's top-right corner. It clones the main menu's
-    /// IntroVideoPanel Skip button (the same round icon button used to skip the intro
-    /// cinematic) so the tutorial's "skip" action looks and behaves exactly like that one;
-    /// if that template can't be found, it falls back to the RoomListPanel's CloseButton,
-    /// and finally to a simple button in the house style if neither exists.
+    /// Adds a Skip (close/abort) button to the panel's top-right corner. It clones the
+    /// RoomListPanel's CloseButton so it looks and behaves exactly like every other close
+    /// button in the app - a plain X, deliberately NOT the round skip-forward icon used by
+    /// the separate Skip Narration button, so the two are never visually interchangeable.
+    /// Falls back to a simple house-style X button if no template exists.
     /// </summary>
     private void BuildSkipButton(GameObject template)
     {
-        Transform closeT = FindIntroSkipButtonTemplate();
-        if (closeT == null && template != null) closeT = FindDeepChild(template.transform, "CloseButton");
+        Transform closeT = template != null ? FindDeepChild(template.transform, "CloseButton") : null;
         GameObject btn;
 
         if (closeT != null)
@@ -1000,17 +995,20 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Copies the IntroVideoPanel Skip button's visuals (background sprite/tint + icon
+    /// Copies the RoomListPanel CloseButton's visuals (background sprite/tint + X icon
     /// sprite) onto an existing "SkipButton" - used for a scene-authored panel, whose
-    /// SkipButton may have been built before this style was adopted. Only the visuals are
-    /// touched; the authored RectTransform (size/position) is left exactly as designed.
+    /// SkipButton may have picked up a different icon from an earlier authoring pass. Only
+    /// the visuals are touched; the authored RectTransform (size/position) is left exactly
+    /// as designed. Deliberately an X, not the round skip-forward icon used by the separate
+    /// Skip Narration button, so the two can never be mistaken for each other.
     /// </summary>
-    private static void RestyleSkipButtonFromIntroTemplate(Transform target)
+    private static void RestyleSkipButtonToCloseIcon(Transform target)
     {
-        Transform introSkip = FindIntroSkipButtonTemplate();
-        if (introSkip == null || target == null) return;
+        GameObject roomListPanel = FindSceneObjectByName("RoomListPanel");
+        Transform closeTemplate = roomListPanel != null ? FindDeepChild(roomListPanel.transform, "CloseButton") : null;
+        if (closeTemplate == null || target == null) return;
 
-        Image srcBg = introSkip.GetComponent<Image>();
+        Image srcBg = closeTemplate.GetComponent<Image>();
         Image dstBg = target.GetComponent<Image>();
         if (srcBg != null && dstBg != null)
         {
@@ -1022,9 +1020,9 @@ public class TutorialManager : MonoBehaviour
         }
 
         Image srcIcon = null;
-        foreach (Image img in introSkip.GetComponentsInChildren<Image>(true))
+        foreach (Image img in closeTemplate.GetComponentsInChildren<Image>(true))
         {
-            if (img.transform != introSkip) { srcIcon = img; break; }
+            if (img.transform != closeTemplate) { srcIcon = img; break; }
         }
         Image dstIcon = null;
         foreach (Image img in target.GetComponentsInChildren<Image>(true))
