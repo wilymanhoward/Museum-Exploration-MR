@@ -194,13 +194,21 @@ public class LeaderboardPanel : MonoBehaviour
             sample.Add(new LocalEntry { name = "Stephanie", timeSeconds = 45f });
             sample.Add(new LocalEntry { name = "Michael", timeSeconds = 53f });
         }
-        else if (gid.Contains("game_2") || gid.Contains("order") || gid.Contains("batik"))
+        else if (gid.Contains("game_2") || gid.Contains("batik"))
         {
             sample.Add(new LocalEntry { name = "Rayhan", timeSeconds = 28f });
             sample.Add(new LocalEntry { name = "Howard", timeSeconds = 35f });
             sample.Add(new LocalEntry { name = "Siti", timeSeconds = 42f });
             sample.Add(new LocalEntry { name = "Ahmad", timeSeconds = 49f });
             sample.Add(new LocalEntry { name = "Farhan", timeSeconds = 58f });
+        }
+        else if (gid.Contains("game_3") || gid.Contains("timeline") || gid.Contains("sejarah"))
+        {
+            sample.Add(new LocalEntry { name = "Budi", timeSeconds = 26f });
+            sample.Add(new LocalEntry { name = "Howard", timeSeconds = 33f });
+            sample.Add(new LocalEntry { name = "Dewi", timeSeconds = 41f });
+            sample.Add(new LocalEntry { name = "Rudi", timeSeconds = 47f });
+            sample.Add(new LocalEntry { name = "Siti", timeSeconds = 56f });
         }
         else
         {

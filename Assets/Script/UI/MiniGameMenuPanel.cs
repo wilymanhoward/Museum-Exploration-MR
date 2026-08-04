@@ -32,7 +32,7 @@ public class MiniGameMenuPanel : MonoBehaviour
     {
         new GameEntry { gameID = "game_1", gameName = "Tebak Bayangan Artefak" },
         new GameEntry { gameID = "game_2", gameName = "Urutkan Proses Pembuatan Batik" },
-        new GameEntry { gameID = "game_3", gameName = "Kuis Artefak" }
+        new GameEntry { gameID = "game_3", gameName = "Urutkan Timeline Sejarah" }
     };
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -131,7 +131,45 @@ public class MiniGameMenuPanel : MonoBehaviour
     public void StartSelected()
     {
         if (games == null || games.Length == 0) return;
-        MiniGames.Instance?.StartGame(games[currentIndex].gamePanel);
+        
+        GameObject panel = games[currentIndex].gamePanel;
+        if (panel == null)
+        {
+            panel = ResolveGamePanel(games[currentIndex].gameID);
+        }
+
+        MiniGames.Instance?.StartGame(panel);
+    }
+
+    private GameObject ResolveGamePanel(string gameId)
+    {
+        if (string.IsNullOrEmpty(gameId)) return null;
+
+        string cleanId = gameId.ToLower();
+        if (cleanId == "game_1")
+        {
+            Game1GuessName g1 = FindObjectOfType<Game1GuessName>(true);
+            if (g1 != null) return g1.gameObject;
+        }
+        else if (cleanId == "game_2")
+        {
+            Game2OrderProcess g2 = FindObjectOfType<Game2OrderProcess>(true);
+            if (g2 != null) return g2.gameObject;
+        }
+        else if (cleanId == "game_3")
+        {
+            Game3OrderTimeline g3 = FindObjectOfType<Game3OrderTimeline>(true);
+            if (g3 != null) return g3.gameObject;
+        }
+
+        // Scene search fallback by name
+        string targetName = cleanId == "game_1" ? "Game1Panel" : (cleanId == "game_2" ? "Game2Panel" : "Game3Panel");
+        foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+        {
+            if (t.name.Equals(targetName, System.StringComparison.OrdinalIgnoreCase) && t.gameObject.scene.IsValid())
+                return t.gameObject;
+        }
+        return null;
     }
 
     /// <summary>Tell MiniGames to show the LeaderboardPanel for the active game selection.</summary>
