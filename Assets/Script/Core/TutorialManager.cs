@@ -98,22 +98,25 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Comfortable visible length for the hand rays, in meters. Long enough to reach every
-    /// tutorial object and panel (~1.1m) with margin, short enough not to paint lines across
-    /// the whole room. The line still stops at whatever it hits.
+    /// Visible length of the hand-ray line, in meters (~5 inches). This clamps ONLY the
+    /// rendered line: XRI computes the render points after hit processing, so the raycast,
+    /// hover, clicking and the HandRayReticle cursor dot all still work at full range -
+    /// the player sees a short stub at the hand plus the dot on whatever they point at.
     /// </summary>
-    private const float HandRayVisibleLength = 2.5f;
+    private const float HandRayVisibleLength = 0.12f;
 
     /// <summary>
     /// App-wide hand-ray polish, styled after the Meta Quest home rays:
-    ///  - XRI's own beam is made fully TRANSPARENT. It stretches to whatever the ray
-    ///    hits (that's why a gradient fade looked short only while grabbing the nearby
-    ///    tutorial artifact but long everywhere else), so it can never give a constant
-    ///    short look. A HandRayStub draws a fixed few-inch segment from the hand
-    ///    instead. Interaction, hover and clicking still work at full range.
+    ///  - The rendered line is PHYSICALLY clamped to a short stub near the hand via
+    ///    overrideInteractorLineLength. XRI applies this clamp to the render points
+    ///    after hit processing, so the raycast, hover, clicking and the reticle all
+    ///    still reach panels at any distance. (Physical length is used because the
+    ///    line material ignores gradient alpha, so fade-based approaches render as a
+    ///    full-length beam.)
     ///  - A Quest-style cursor dot (HandRayReticle) at the exact point the ray hits a
     ///    panel/button/object, so the player always sees precisely where they point.
-    ///    The (invisible) line visual still positions, orients and toggles the dot.
+    ///    The line visual positions, orients and toggles the dot from the raycast hit,
+    ///    independent of the rendered line length.
     ///  Teleport/gaze rays are left untouched - they need their full visuals.
     /// </summary>
     private static void ConfigureHandRayVisuals()
@@ -127,52 +130,11 @@ public class TutorialManager : MonoBehaviour
             line.overrideInteractorLineLength = true;
             line.lineLength = HandRayVisibleLength;
 
-            // Near-hand fade on XRI's own line. It doubles as a BACKUP visual: even if
-            // the HandRayStub below fails to attach for any reason, the ray still shows
-            // a short visible segment near the hand instead of disappearing entirely.
-            line.validColorGradient = BuildNearHandFadeGradient(0.9f);
-            line.invalidColorGradient = BuildNearHandFadeGradient(0.5f);
-
-            // The stub prefers to live on the ray interactor's own GameObject, but must
-            // exist even if the hands rig keeps the line visual on a separate object -
-            // a missing stub means no visible ray at all.
-            XRRayInteractor rayInteractor = line.GetComponentInParent<XRRayInteractor>(true);
-            GameObject stubHost = rayInteractor != null ? rayInteractor.gameObject : line.gameObject;
-            if (stubHost.GetComponent<HandRayStub>() == null)
-            {
-                stubHost.AddComponent<HandRayStub>();
-            }
-
             if (line.reticle == null)
             {
                 line.reticle = HandRayReticle.Create();
             }
         }
-    }
-
-    /// <summary>
-    /// Tight fade for XRI's stretchy beam: visible for only the first few percent of the
-    /// rendered line (a short glow near the hand), transparent for the rest. The rendered
-    /// line stretches with hit distance, so the visible bit stays between roughly 2cm
-    /// (hovering a close panel) and 10cm (pointing at nothing at the 2.5m cap).
-    /// </summary>
-    private static Gradient BuildNearHandFadeGradient(float startAlpha)
-    {
-        Gradient gradient = new Gradient();
-        gradient.SetKeys(
-            new[]
-            {
-                new GradientColorKey(Color.white, 0f),
-                new GradientColorKey(Color.white, 1f)
-            },
-            new[]
-            {
-                new GradientAlphaKey(startAlpha, 0f),
-                new GradientAlphaKey(startAlpha * 0.5f, 0.02f),
-                new GradientAlphaKey(0f, 0.045f),
-                new GradientAlphaKey(0f, 1f)
-            });
-        return gradient;
     }
 
     private void Update()
