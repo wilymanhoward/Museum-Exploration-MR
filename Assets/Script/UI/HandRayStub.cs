@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
-using UnityEngine.EventSystems;
 
 /// <summary>
 /// Constant-length glowing stub drawn from the hand along the ray's aim direction -
@@ -9,7 +8,12 @@ using UnityEngine.EventSystems;
 /// "few inches" look); this stub replaces it while the interactor, the raycast and the
 /// HandRayReticle cursor dot all keep working at full range.
 ///
-/// Added to each ray interactor by TutorialManager.ConfigureHandRayVisuals.
+/// The stub is ALWAYS the same fixed length and always visible while its host object
+/// is active: no hit-based logic that could collapse or hide it. The renderer is built
+/// lazily (Awake, OnEnable or first LateUpdate - whichever happens first), so it works
+/// no matter when or on which object it gets added.
+///
+/// Added by TutorialManager.ConfigureHandRayVisuals.
 /// </summary>
 public class HandRayStub : MonoBehaviour
 {
@@ -17,14 +21,28 @@ public class HandRayStub : MonoBehaviour
     public float stubLength = 0.12f;
 
     [Tooltip("Line width at the hand, in meters.")]
-    public float width = 0.005f;
+    public float width = 0.008f;
 
     private XRRayInteractor rayInteractor;
     private LineRenderer stubRenderer;
 
     private void Awake()
     {
+        EnsureBuilt();
+    }
+
+    private void OnEnable()
+    {
+        EnsureBuilt();
+    }
+
+    private void EnsureBuilt()
+    {
+        if (stubRenderer != null) return;
+
         rayInteractor = GetComponent<XRRayInteractor>();
+        if (rayInteractor == null) rayInteractor = GetComponentInParent<XRRayInteractor>(true);
+        if (rayInteractor == null) rayInteractor = GetComponentInChildren<XRRayInteractor>(true);
 
         GameObject go = new GameObject("HandRayStubLine");
         go.transform.SetParent(transform, false);
@@ -37,11 +55,9 @@ public class HandRayStub : MonoBehaviour
         stubRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         stubRenderer.receiveShadows = false;
 
-        // Reuse the XRI line's material so the stub matches the app's existing ray look.
-        LineRenderer xriLine = GetComponent<LineRenderer>();
-        stubRenderer.material = xriLine != null && xriLine.sharedMaterial != null
-            ? xriLine.sharedMaterial
-            : TutorialGestureGizmo.MakeRuntimeMaterial(Color.white, true);
+        // Same unlit alpha-blended shader combo as the tutorial's pulse ring - proven
+        // to render on this project's URP + Quest setup.
+        stubRenderer.material = TutorialGestureGizmo.MakeRuntimeMaterial(Color.white, true);
 
         Gradient gradient = new Gradient();
         gradient.SetKeys(
@@ -52,38 +68,25 @@ public class HandRayStub : MonoBehaviour
             },
             new[]
             {
-                new GradientAlphaKey(0.85f, 0f),
-                new GradientAlphaKey(0.45f, 0.6f),
+                new GradientAlphaKey(1f, 0f),
+                new GradientAlphaKey(0.55f, 0.6f),
                 new GradientAlphaKey(0f, 1f)
             });
         stubRenderer.colorGradient = gradient;
+
+        Debug.Log($"[HandRay] Short ray stub built on '{name}' (interactor: {(rayInteractor != null ? rayInteractor.name : "none - using own transform")}).");
     }
 
     private void LateUpdate()
     {
-        if (stubRenderer == null) return;
+        EnsureBuilt();
 
         Transform origin = rayInteractor != null && rayInteractor.rayOriginTransform != null
             ? rayInteractor.rayOriginTransform
             : transform;
 
-        // If the ray hits something closer than the stub (panel right at the hand),
-        // end the stub at the hit so it never pokes through the surface.
-        float length = stubLength;
-        if (rayInteractor != null)
-        {
-            if (rayInteractor.TryGetCurrent3DRaycastHit(out RaycastHit hit))
-            {
-                length = Mathf.Min(length, hit.distance);
-            }
-            if (rayInteractor.TryGetCurrentUIRaycastResult(out RaycastResult uiHit))
-            {
-                length = Mathf.Min(length, uiHit.distance);
-            }
-        }
-
         Vector3 start = origin.position;
         stubRenderer.SetPosition(0, start);
-        stubRenderer.SetPosition(1, start + origin.forward * Mathf.Max(length, 0.01f));
+        stubRenderer.SetPosition(1, start + origin.forward * stubLength);
     }
 }

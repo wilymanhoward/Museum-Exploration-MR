@@ -126,13 +126,21 @@ public class TutorialManager : MonoBehaviour
             line.autoAdjustLineLength = false;
             line.overrideInteractorLineLength = true;
             line.lineLength = HandRayVisibleLength;
-            line.validColorGradient = BuildTransparentGradient();
-            line.invalidColorGradient = BuildTransparentGradient();
 
-            if (line.GetComponent<XRRayInteractor>() != null &&
-                line.GetComponent<HandRayStub>() == null)
+            // Near-hand fade on XRI's own line. It doubles as a BACKUP visual: even if
+            // the HandRayStub below fails to attach for any reason, the ray still shows
+            // a short visible segment near the hand instead of disappearing entirely.
+            line.validColorGradient = BuildNearHandFadeGradient(0.9f);
+            line.invalidColorGradient = BuildNearHandFadeGradient(0.5f);
+
+            // The stub prefers to live on the ray interactor's own GameObject, but must
+            // exist even if the hands rig keeps the line visual on a separate object -
+            // a missing stub means no visible ray at all.
+            XRRayInteractor rayInteractor = line.GetComponentInParent<XRRayInteractor>(true);
+            GameObject stubHost = rayInteractor != null ? rayInteractor.gameObject : line.gameObject;
+            if (stubHost.GetComponent<HandRayStub>() == null)
             {
-                line.gameObject.AddComponent<HandRayStub>();
+                stubHost.AddComponent<HandRayStub>();
             }
 
             if (line.reticle == null)
@@ -142,8 +150,13 @@ public class TutorialManager : MonoBehaviour
         }
     }
 
-    /// <summary>Fully invisible gradient for XRI's stretchy beam; HandRayStub draws the visible part.</summary>
-    private static Gradient BuildTransparentGradient()
+    /// <summary>
+    /// Tight fade for XRI's stretchy beam: visible for only the first few percent of the
+    /// rendered line (a short glow near the hand), transparent for the rest. The rendered
+    /// line stretches with hit distance, so the visible bit stays between roughly 2cm
+    /// (hovering a close panel) and 10cm (pointing at nothing at the 2.5m cap).
+    /// </summary>
+    private static Gradient BuildNearHandFadeGradient(float startAlpha)
     {
         Gradient gradient = new Gradient();
         gradient.SetKeys(
@@ -154,7 +167,9 @@ public class TutorialManager : MonoBehaviour
             },
             new[]
             {
-                new GradientAlphaKey(0f, 0f),
+                new GradientAlphaKey(startAlpha, 0f),
+                new GradientAlphaKey(startAlpha * 0.5f, 0.02f),
+                new GradientAlphaKey(0f, 0.045f),
                 new GradientAlphaKey(0f, 1f)
             });
         return gradient;
