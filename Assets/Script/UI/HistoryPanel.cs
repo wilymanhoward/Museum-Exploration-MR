@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Video;
 using UnityEngine.EventSystems;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.UI;
 using TMPro;
 
 /// <summary>
@@ -104,6 +106,34 @@ public class HistoryPanel : MonoBehaviour
     {
         if (Instance == null) Instance = this;
 
+        // This is a DETAIL view (one topic's full content) - like the Artifact Detail
+        // Panel, it must stay fixed in world space and be movable by the player, not get
+        // dragged around by the wrist. It was placed under ExplorationCanvas in the Editor
+        // (alongside the room/topic LIST panels, which SHOULD follow the wrist), and
+        // WristWatch.LateUpdate drags that whole canvas to the wrist every frame - its only
+        // exemption checks for child names containing "ArtifactDetail"/"ArtifactUI", which
+        // this panel doesn't match. Same fix WristWatch already uses for its own watch
+        // button: detach at runtime so nothing above can drag it around.
+        if (transform.parent != null)
+        {
+            transform.SetParent(null, true);
+        }
+
+        // ExplorationCanvas (the panel's former parent) was the only Canvas in its
+        // ancestry - detaching leaves it with nothing to render/raycast through unless it
+        // gets its own, exactly like the standalone ArtifactPanelPrefab does.
+        Canvas canvas = GetComponent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = gameObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.sortingOrder = 0;
+        }
+        if (GetComponent<GraphicRaycaster>() == null)
+        {
+            gameObject.AddComponent<TrackedDeviceGraphicRaycaster>();
+        }
+
         audioSource = GetComponent<AudioSource>();
         if (audioSource == null)
         {
@@ -116,6 +146,25 @@ public class HistoryPanel : MonoBehaviour
         WireVideoTriggerArea();
         AutoWireButtons();
         EnsureGalleryNavUI();
+        EnsureGrabbablePanel();
+    }
+
+    /// <summary>
+    /// Makes the panel pinch-and-hold draggable, and magnetically snappable onto a nearby
+    /// real-world wall, exactly like the Artifact Detail Panel - reuses the same
+    /// ArtifactPanelDragger component rather than duplicating its drag/wall-snap logic.
+    /// </summary>
+    private void EnsureGrabbablePanel()
+    {
+        XRGrabInteractable oldGrab = GetComponent<XRGrabInteractable>();
+        if (oldGrab != null && !(oldGrab is ArtifactPanelDragger))
+        {
+            Destroy(oldGrab);
+        }
+        if (GetComponent<ArtifactPanelDragger>() == null)
+        {
+            gameObject.AddComponent<ArtifactPanelDragger>();
+        }
     }
 
     private void OnEnable()
@@ -583,6 +632,11 @@ public class HistoryPanel : MonoBehaviour
 
     public void PositionInFrontOfPlayer()
     {
+        // Clears the dragger's "user moved" bookkeeping since this call IS the deliberate
+        // reset-to-in-front-of-player action - matches Artifact.cs.PositionInFrontOfUser.
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        if (dragger != null) dragger.ResetUserMoved();
+
         Transform cam = Camera.main != null ? Camera.main.transform : null;
         if (cam == null) return;
 
