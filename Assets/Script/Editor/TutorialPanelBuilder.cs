@@ -45,7 +45,11 @@ public static class TutorialPanelBuilder
         panel.transform.localScale = Vector3.one * 0.001f; // project standard: 1px = 1mm
         panel.transform.position = new Vector3(0f, 1.4f, 1.2f); // preview spot only
 
+        // Raycastable so the hand ray (and its cursor dot) registers anywhere over the
+        // panel, not only when pointing exactly at a button - text stays non-raycastable
+        // and lets the ray "see through" to this layer underneath.
         Image bg = CreateImage(panel.transform, "Background", new Color(0.07f, 0.09f, 0.13f, 0.88f));
+        bg.raycastTarget = true;
         bg.rectTransform.anchorMin = Vector2.zero;
         bg.rectTransform.anchorMax = Vector2.one;
         bg.rectTransform.offsetMin = Vector2.zero;

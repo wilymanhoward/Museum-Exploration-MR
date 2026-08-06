@@ -605,6 +605,20 @@ public class TutorialManager : MonoBehaviour
             panelRoot.AddComponent<TrackedDeviceGraphicRaycaster>();
         }
 
+        // Make sure the panel's background actually catches the hand ray. An authored
+        // panel built before this was enforced (or with the checkbox off by hand) would
+        // otherwise have a hole in the middle: pointing at a button works, but pointing at
+        // plain background or text registers no hit at all, so the cursor dot silently
+        // never appears there. Panel-level root Image only, not every button's own
+        // decorative art, so this can't steal clicks from anything already working.
+        Image authoredBg = panelRoot.GetComponent<Image>();
+        if (authoredBg == null)
+        {
+            Transform bgT = FindDeepChild(panelRoot.transform, "Background");
+            authoredBg = bgT != null ? bgT.GetComponent<Image>() : null;
+        }
+        if (authoredBg != null) authoredBg.raycastTarget = true;
+
         titleLabel = FindAuthoredLabel("Title");
         bodyLabel = FindAuthoredLabel("Body");
         progressLabel = FindAuthoredLabel("ProgressLabel");
@@ -702,9 +716,14 @@ public class TutorialManager : MonoBehaviour
         canvasRect.sizeDelta = new Vector2(560f, 340f);
         panelRoot.transform.localScale = Vector3.one * 0.001f; // project standard: 1px = 1mm
 
-        // Background card
+        // Background card. Raycastable (unlike every other decorative element built via
+        // CreateChildImage) so the hand ray registers a hit - and the cursor dot appears -
+        // anywhere over the panel, not only when pointing exactly at a button. Title/body
+        // text stay non-raycastable, so the ray simply "sees through" them to this
+        // background layer underneath, same as pointing at empty panel space.
         Image bg = CreateChildImage(panelRoot.transform, "Background",
             new Color(0.07f, 0.09f, 0.13f, 0.88f));
+        bg.raycastTarget = true;
         Stretch(bg.rectTransform, Vector2.zero, Vector2.zero);
 
         // Accent strip along the top (hidden if the project's panel style is adopted below)

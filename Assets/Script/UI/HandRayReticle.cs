@@ -9,10 +9,14 @@ using UnityEngine;
 /// round no matter which shader the runtime material fallback picks.
 ///
 /// An instance is assigned to each XRInteractorLineVisual's reticle slot (see
-/// TutorialManager.ConfigureHandRayVisuals). The line visual owns its behaviour: it
-/// places the dot at the exact hit point, turns it to face along the surface normal,
-/// and shows/hides it depending on whether the ray hits anything. This component only
-/// keeps the dot's apparent size constant with distance.
+/// TutorialManager.ConfigureHandRayVisuals). The line visual places the ROOT at the
+/// exact hit point and turns it to face along the surface normal - but for a pure UI
+/// hit (pointing at a Graphic with no matching 3D collider, e.g. plain panel background
+/// or text) there is no real surface normal to compute from, so that rotation can end up
+/// wrong and the dot renders edge-on or slightly into the surface instead of in front of
+/// it. To make the dot ALWAYS visibly sit in front of whatever it's on, this component
+/// ignores the root's rotation for the dot's own facing/offset and instead computes both
+/// directly from the camera every frame - a guarantee no reticle-normal ambiguity can break.
 ///
 /// Built entirely at runtime via Create() - no prefab, mesh or texture asset needed.
 /// </summary>
@@ -21,20 +25,20 @@ public class HandRayReticle : MonoBehaviour
     /// <summary>Dot diameter in meters at 1m distance (~1.1 degrees apparent size, a touch larger than the Quest cursor for readability).</summary>
     private const float BaseDiameterAtOneMeter = 0.02f;
 
+    /// <summary>How far in front of the hit surface (toward the camera) the dot floats, in meters.</summary>
+    private const float SurfaceLiftMeters = 0.003f;
+
     private Camera cachedCamera;
+    private Transform dotTransform;
 
     /// <summary>Creates a ready-to-use reticle instance (initially inactive; the line visual toggles it).</summary>
     public static GameObject Create()
     {
         GameObject root = new GameObject("HandRayReticle");
-        root.AddComponent<HandRayReticle>();
+        HandRayReticle reticle = root.AddComponent<HandRayReticle>();
 
         GameObject dot = new GameObject("Dot");
         dot.transform.SetParent(root.transform, false);
-        // The line visual points root.forward INTO the surface, so the disc looks back
-        // at the player. Lift it 2mm off the surface toward the viewer so it never
-        // z-fights the panel it sits on.
-        dot.transform.localPosition = new Vector3(0f, 0f, -0.002f);
         dot.transform.localScale = Vector3.one * BaseDiameterAtOneMeter;
 
         dot.AddComponent<MeshFilter>().mesh = GenerateDiscMesh();
@@ -43,21 +47,36 @@ public class HandRayReticle : MonoBehaviour
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         renderer.receiveShadows = false;
 
+        reticle.dotTransform = dot.transform;
+
         return root;
     }
 
     private void Update()
     {
-        // Constant angular size: scale linearly with distance from the eye, so the dot
-        // looks the same whether the panel is at arm's length or across the room.
         if (cachedCamera == null || !cachedCamera.isActiveAndEnabled)
         {
             cachedCamera = Camera.main != null ? Camera.main : FindObjectOfType<Camera>();
         }
-        if (cachedCamera == null) return;
+        if (cachedCamera == null || dotTransform == null) return;
 
-        float distance = Vector3.Distance(cachedCamera.transform.position, transform.position);
-        transform.localScale = Vector3.one * Mathf.Clamp(distance, 0.4f, 4f);
+        Vector3 towardCamera = cachedCamera.transform.position - transform.position;
+        float distance = towardCamera.magnitude;
+        if (distance < 0.0001f) return;
+        towardCamera /= distance;
+
+        // Always float a fixed distance in front of wherever the line visual placed the
+        // root (the hit point), directly toward the camera, and always face the camera -
+        // both computed fresh here rather than trusting the root's rotation. This is what
+        // guarantees the dot is never occluded by (or seen edge-on against) the panel it's
+        // sitting on, regardless of whether the hit came from a 3D collider (reliable
+        // normal) or a pure UI Graphic hit (no reliable normal).
+        dotTransform.position = transform.position + towardCamera * SurfaceLiftMeters;
+        dotTransform.rotation = Quaternion.LookRotation(-towardCamera, cachedCamera.transform.up);
+
+        // Constant angular size: scale linearly with distance from the eye, so the dot
+        // looks the same whether the panel is at arm's length or across the room.
+        dotTransform.localScale = Vector3.one * Mathf.Clamp(distance, 0.4f, 4f) * BaseDiameterAtOneMeter;
     }
 
     /// <summary>

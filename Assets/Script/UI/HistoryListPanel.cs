@@ -150,11 +150,43 @@ public class HistoryListPanel : MonoBehaviour
                 itemObj.transform.SetParent(artifactListContainer, false);
             }
 
-            // Set button text
-            TMP_Text txt = itemObj.GetComponentInChildren<TMP_Text>();
-            if (txt != null)
+            // Set button text. historyItemPrefab is the same ArtifactItem prefab the
+            // regular artifact rooms use, which has TWO text fields: NumText ("01") and
+            // NameText ("Mona Lisa" placeholder). Grabbing only the first TMP_Text (as
+            // this used to do) lands on NumText and leaves NameText's "Mona Lisa"
+            // placeholder showing untouched on every button - mirror Room.cs's matching
+            // logic so both fields (and any other stray placeholder) get handled properly.
+            string displayText = string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle;
+            string formattedNum = (i + 1).ToString("D2");
+
+            bool titleUpdated = false;
+            foreach (TMP_Text tmp in itemObj.GetComponentsInChildren<TMP_Text>(true))
             {
-                txt.text = string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle;
+                if (tmp == null) continue;
+                string nameLower = tmp.name.ToLower();
+                string textLower = (tmp.text ?? "").ToLower();
+
+                if (!titleUpdated && (nameLower.Contains("name") || nameLower.Contains("title") || textLower.Contains("mona") || textLower.Contains("lisa")))
+                {
+                    tmp.text = displayText;
+                    tmp.gameObject.SetActive(true);
+                    titleUpdated = true;
+                }
+                else if (nameLower.Contains("num") || nameLower.Contains("number") || nameLower.Contains("index"))
+                {
+                    tmp.text = formattedNum;
+                }
+                else if (textLower.Contains("mona") || textLower.Contains("lisa"))
+                {
+                    // Any other leftover placeholder text object - hide it.
+                    tmp.gameObject.SetActive(false);
+                }
+            }
+
+            if (!titleUpdated)
+            {
+                TMP_Text fallback = itemObj.GetComponentInChildren<TMP_Text>(true);
+                if (fallback != null) fallback.text = displayText;
             }
 
             // Wire click event to open detail panel
