@@ -170,6 +170,18 @@ public class HistoryListPanel : MonoBehaviour
                 {
                     tmp.text = displayText;
                     tmp.gameObject.SetActive(true);
+
+                    // NameText ships with auto-sizing and word-wrapping both OFF, fixed at
+                    // 22pt - fine for the short "Mona Lisa" placeholder, but real topic
+                    // titles ("Infrastruktur & Pembangunan") run past the button edge at
+                    // that size. Wrap first, then shrink only if it still doesn't fit, and
+                    // ellipsis as a last-resort safety net rather than ever overflowing.
+                    tmp.enableWordWrapping = true;
+                    tmp.enableAutoSizing = true;
+                    tmp.fontSizeMin = 12f;
+                    tmp.fontSizeMax = 22f;
+                    tmp.overflowMode = TextOverflowModes.Ellipsis;
+
                     titleUpdated = true;
                 }
                 else if (nameLower.Contains("num") || nameLower.Contains("number") || nameLower.Contains("index"))
@@ -186,7 +198,15 @@ public class HistoryListPanel : MonoBehaviour
             if (!titleUpdated)
             {
                 TMP_Text fallback = itemObj.GetComponentInChildren<TMP_Text>(true);
-                if (fallback != null) fallback.text = displayText;
+                if (fallback != null)
+                {
+                    fallback.text = displayText;
+                    fallback.enableWordWrapping = true;
+                    fallback.enableAutoSizing = true;
+                    fallback.fontSizeMin = 12f;
+                    fallback.fontSizeMax = 22f;
+                    fallback.overflowMode = TextOverflowModes.Ellipsis;
+                }
             }
 
             // Wire click event to open detail panel
