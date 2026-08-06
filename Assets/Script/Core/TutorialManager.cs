@@ -246,6 +246,8 @@ public class TutorialManager : MonoBehaviour
         AdvanceToNextStep();
     }
 
+    private float lastSkipNarrationPressTime = -10f;
+
     /// <summary>
     /// Wired to the panel's round Skip button (visible for the whole tutorial, not just
     /// while narrating). Always stops any playing narration line, and:
@@ -260,6 +262,15 @@ public class TutorialManager : MonoBehaviour
     public void SkipNarration()
     {
         if (!IsTutorialRunning) return;
+
+        // This button carries both a UGUI Button and an XRButtonSelection (for hand-ray/
+        // poke support, same as every other button in the app). XRButtonSelection already
+        // collapses ITS OWN two invoke paths, but the separate Button.onClick is a third
+        // path outside that guard - a single pinch could still fire this twice, which
+        // (since each call skips a whole step) was skipping 2+ tutorial steps per press.
+        if (Time.unscaledTime - lastSkipNarrationPressTime < 0.4f) return;
+        lastSkipNarrationPressTime = Time.unscaledTime;
+
         if (Audio != null) Audio.StopNarration();
 
         // Still waiting on the intro narration - no step has started yet, just unblock it.
