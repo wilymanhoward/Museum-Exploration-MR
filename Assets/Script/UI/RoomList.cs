@@ -69,6 +69,35 @@ public class RoomList : MonoBehaviour
             sejarahRoomButtonXR.onClick.RemoveAllListeners();
             sejarahRoomButtonXR.onClick.AddListener(() => OpenHistoryFromRoomList("Ruang Sejarah", "Sejarah Terengganu"));
         }
+        ApplySejarahButtonLabel();
+    }
+
+    /// <summary>
+    /// Sets the Sejarah button's number/name text in code, rather than relying on it being
+    /// hand-authored in the scene - it wasn't (the button was still silently showing a
+    /// leftover "Galeri Tekstil" / "01" placeholder from whatever it was cloned from).
+    /// </summary>
+    private void ApplySejarahButtonLabel()
+    {
+        if (sejarahRoomButton == null) return;
+        GameObject sejarahObj = sejarahRoomButton.gameObject;
+
+        TextMeshProUGUI numTextComp = null;
+        TextMeshProUGUI nameTextComp = null;
+        foreach (TextMeshProUGUI tmp in sejarahObj.GetComponentsInChildren<TextMeshProUGUI>(true))
+        {
+            string n = tmp.name.ToLower();
+            if (n.Contains("num") || n.Contains("number") || n.Contains("index") || n.Contains("no"))
+            {
+                numTextComp = tmp;
+            }
+            else if (n.Contains("name") || n.Contains("title") || n.Contains("text") || n.Contains("room"))
+            {
+                if (nameTextComp == null) nameTextComp = tmp;
+            }
+        }
+        if (numTextComp != null) numTextComp.text = "05";
+        if (nameTextComp != null) nameTextComp.text = "Sejarah Terengganu";
     }
 
     public void PopulateRoomsList()
@@ -98,8 +127,14 @@ public class RoomList : MonoBehaviour
         // Otherwise auto-instantiate if prefab is provided
         if (listContainer != null && roomButtonPrefab != null)
         {
+            // The Sejarah button is hand-placed in the scene (it has no backing RoomData, so
+            // nothing below would ever recreate it) - it must survive this destroy pass, or
+            // the room list silently loses it every time it repopulates.
+            GameObject sejarahObj = sejarahRoomButton != null ? sejarahRoomButton.gameObject : null;
+
             foreach (Transform child in listContainer)
             {
+                if (sejarahObj != null && child.gameObject == sejarahObj) continue;
                 Destroy(child.gameObject);
             }
 
@@ -148,6 +183,16 @@ public class RoomList : MonoBehaviour
                 }
 
                 roomIndex++;
+            }
+
+            // Keep the Sejarah button visible, correctly labelled, and always last in the
+            // list, since it was preserved (not destroyed/recreated) above.
+            if (sejarahObj != null)
+            {
+                sejarahObj.SetActive(true);
+                sejarahObj.transform.SetParent(listContainer, false);
+                sejarahObj.transform.SetAsLastSibling();
+                ApplySejarahButtonLabel();
             }
 
             // The instantiate loop above already wired every new button. The fallback pass

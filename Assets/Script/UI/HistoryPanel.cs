@@ -80,6 +80,16 @@ public class HistoryPanel : MonoBehaviour
     public Button closeButton;
     public XRButtonSelection closeButtonXR;
 
+    [Header("Photo Gallery UI (auto-found by name, or built at runtime if absent)")]
+    [Tooltip("Goes to the previous photo. Auto-found by name ('PreviousImageButton') or built at runtime next to the display image.")]
+    public Button previousImageButton;
+    public XRButtonSelection previousImageButtonXR;
+    [Tooltip("Goes to the next photo. Auto-found by name ('NextImageButton') or built at runtime next to the display image.")]
+    public Button nextImageButton;
+    public XRButtonSelection nextImageButtonXR;
+    [Tooltip("Shows '2 / 5' etc. Auto-found by name ('ImageCounterText') or built at runtime. Hidden for topics with 0 or 1 photo.")]
+    public TMP_Text imageCounterText;
+
     [Header("Active Data")]
     public HistoryData activeHistoryData;
 
@@ -87,6 +97,8 @@ public class HistoryPanel : MonoBehaviour
     private Action onCloseCallback;
     private Coroutine holdCheckCoroutine;
     private bool isHoldingTrigger = false;
+    private int currentImageIndex = 0;
+    private GameObject builtGalleryNavRoot;
 
     private void Awake()
     {
@@ -103,6 +115,7 @@ public class HistoryPanel : MonoBehaviour
 
         WireVideoTriggerArea();
         AutoWireButtons();
+        EnsureGalleryNavUI();
     }
 
     private void OnEnable()
@@ -127,6 +140,7 @@ public class HistoryPanel : MonoBehaviour
     {
         activeHistoryData = data;
         onCloseCallback = onClose;
+        currentImageIndex = 0;
 
         if (data == null) return;
 
@@ -204,9 +218,10 @@ public class HistoryPanel : MonoBehaviour
 
     private void PlayVideoClip()
     {
-        // Hide display image and reveal video panel
+        // Hide display image (and gallery controls) and reveal video panel
         if (displayImage != null) displayImage.gameObject.SetActive(false);
         if (noImageTextObj != null) noImageTextObj.SetActive(false);
+        SetGalleryNavVisible(false);
         if (videoPanel != null) videoPanel.SetActive(true);
 
         if (videoPlayer != null)
@@ -237,13 +252,233 @@ public class HistoryPanel : MonoBehaviour
         // Hide video panel
         if (videoPanel != null) videoPanel.SetActive(false);
 
-        // Reveal static image
+        // Reveal the current gallery photo (or the "no image" placeholder if this topic has none)
+        UpdateImageUI();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Photo Gallery (multiple photos, or none, per topic)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The effective photo list for the active topic: the new 'images' array when it has
+    /// entries, else the single legacy 'displaySprite' wrapped as a one-photo gallery, else
+    /// empty (topic has no photo at all - a fully supported, expected case).
+    /// </summary>
+    private HistoryImage[] GetCurrentImages()
+    {
+        if (activeHistoryData == null) return System.Array.Empty<HistoryImage>();
+        if (activeHistoryData.images != null && activeHistoryData.images.Length > 0) return activeHistoryData.images;
+        if (activeHistoryData.displaySprite != null)
+        {
+            return new[] { new HistoryImage { sprite = activeHistoryData.displaySprite, caption = "" } };
+        }
+        return System.Array.Empty<HistoryImage>();
+    }
+
+    // Gallery buttons carry both a UGUI Button and an XRButtonSelection (for hand-ray/poke
+    // support, same as every other button in the app) - a single pinch can fire both paths
+    // for one press, which without a guard skips an extra photo. Debounce each direction
+    // independently, matching the fix already applied to MiniGameMenuPanel's Next/Previous.
+    private const float GalleryNavDebounceSeconds = 0.25f;
+    private float lastNextImageTime = -10f;
+    private float lastPreviousImageTime = -10f;
+
+    public void ShowNextImage()
+    {
+        if (Time.unscaledTime - lastNextImageTime < GalleryNavDebounceSeconds) return;
+        lastNextImageTime = Time.unscaledTime;
+
+        HistoryImage[] images = GetCurrentImages();
+        if (images.Length == 0) return;
+        currentImageIndex = (currentImageIndex + 1) % images.Length;
+        UpdateImageUI();
+    }
+
+    public void ShowPreviousImage()
+    {
+        if (Time.unscaledTime - lastPreviousImageTime < GalleryNavDebounceSeconds) return;
+        lastPreviousImageTime = Time.unscaledTime;
+
+        HistoryImage[] images = GetCurrentImages();
+        if (images.Length == 0) return;
+        currentImageIndex = (currentImageIndex - 1 + images.Length) % images.Length;
+        UpdateImageUI();
+    }
+
+    /// <summary>
+    /// Shows the current gallery photo XOR the "no image" placeholder - never both, and
+    /// never a blank box. Gallery arrows/counter only appear when there's more than one
+    /// photo to page through; a single photo (or zero) shows no navigation chrome at all.
+    /// </summary>
+    private void UpdateImageUI()
+    {
+        HistoryImage[] images = GetCurrentImages();
+        bool hasImage = images.Length > 0 && currentImageIndex >= 0 && currentImageIndex < images.Length
+                        && images[currentImageIndex].sprite != null;
+
         if (displayImage != null)
         {
-            bool hasSprite = activeHistoryData != null && activeHistoryData.displaySprite != null;
-            displayImage.gameObject.SetActive(hasSprite);
-            if (noImageTextObj != null) noImageTextObj.SetActive(!hasSprite);
+            displayImage.gameObject.SetActive(hasImage);
+            if (hasImage)
+            {
+                displayImage.sprite = images[currentImageIndex].sprite;
+                displayImage.color = Color.white;
+            }
         }
+        if (noImageTextObj != null) noImageTextObj.SetActive(!hasImage);
+
+        SetGalleryNavVisible(hasImage && images.Length > 1);
+        if (imageCounterText != null && images.Length > 1)
+        {
+            imageCounterText.text = $"{currentImageIndex + 1} / {images.Length}";
+        }
+    }
+
+    private void SetGalleryNavVisible(bool visible)
+    {
+        if (previousImageButton != null) previousImageButton.gameObject.SetActive(visible);
+        if (nextImageButton != null) nextImageButton.gameObject.SetActive(visible);
+        if (imageCounterText != null) imageCounterText.gameObject.SetActive(visible);
+    }
+
+    /// <summary>
+    /// Finds PreviousImageButton/NextImageButton/ImageCounterText by name if the scene
+    /// already has them (so a designer can customise their look), otherwise builds small
+    /// chevron buttons and a counter label next to the display image at runtime. Either
+    /// way the gallery works without any scene wiring.
+    /// </summary>
+    private void EnsureGalleryNavUI()
+    {
+        if (previousImageButton == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "PreviousImageButton");
+            if (t != null) previousImageButton = t.GetComponent<Button>();
+        }
+        if (nextImageButton == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "NextImageButton");
+            if (t != null) nextImageButton = t.GetComponent<Button>();
+        }
+        if (imageCounterText == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "ImageCounterText");
+            if (t != null) imageCounterText = t.GetComponent<TMP_Text>();
+        }
+        if (previousImageButtonXR == null && previousImageButton != null)
+        {
+            previousImageButtonXR = previousImageButton.GetComponent<XRButtonSelection>();
+        }
+        if (nextImageButtonXR == null && nextImageButton != null)
+        {
+            nextImageButtonXR = nextImageButton.GetComponent<XRButtonSelection>();
+        }
+
+        if ((previousImageButton == null || nextImageButton == null) && displayImage != null)
+        {
+            BuildGalleryNavFallback();
+        }
+
+        WireButton(previousImageButton, previousImageButtonXR, ShowPreviousImage);
+        WireButton(nextImageButton, nextImageButtonXR, ShowNextImage);
+    }
+
+    /// <summary>
+    /// Small "‹"/"›" chevron buttons straddling the display image, plus a counter label
+    /// under it. Parented next to the image (not inside it) so they don't get hidden along
+    /// with it when the image itself is toggled off.
+    /// </summary>
+    private void BuildGalleryNavFallback()
+    {
+        Transform parent = displayImage.transform.parent != null ? displayImage.transform.parent : transform;
+
+        builtGalleryNavRoot = new GameObject("GalleryNav");
+        builtGalleryNavRoot.transform.SetParent(parent, false);
+        RectTransform navRect = builtGalleryNavRoot.AddComponent<RectTransform>();
+        RectTransform imgRect = displayImage.rectTransform;
+        navRect.anchorMin = imgRect.anchorMin;
+        navRect.anchorMax = imgRect.anchorMax;
+        navRect.anchoredPosition = imgRect.anchoredPosition;
+        navRect.sizeDelta = imgRect.sizeDelta;
+        navRect.pivot = imgRect.pivot;
+
+        if (previousImageButton == null)
+        {
+            previousImageButton = BuildChevronButton(builtGalleryNavRoot.transform, "PreviousImageButton", "‹",
+                new Vector2(0f, 0.5f), new Vector2(-18f, 0f));
+            previousImageButtonXR = previousImageButton.GetComponent<XRButtonSelection>();
+        }
+        if (nextImageButton == null)
+        {
+            nextImageButton = BuildChevronButton(builtGalleryNavRoot.transform, "NextImageButton", "›",
+                new Vector2(1f, 0.5f), new Vector2(18f, 0f));
+            nextImageButtonXR = nextImageButton.GetComponent<XRButtonSelection>();
+        }
+        if (imageCounterText == null)
+        {
+            GameObject counterGo = new GameObject("ImageCounterText");
+            counterGo.transform.SetParent(builtGalleryNavRoot.transform, false);
+            imageCounterText = counterGo.AddComponent<TextMeshProUGUI>();
+            imageCounterText.fontSize = 16f;
+            imageCounterText.alignment = TextAlignmentOptions.Center;
+            imageCounterText.color = new Color(1f, 1f, 1f, 0.85f);
+            RectTransform counterRect = counterGo.GetComponent<RectTransform>();
+            counterRect.anchorMin = new Vector2(0.5f, 0f);
+            counterRect.anchorMax = new Vector2(0.5f, 0f);
+            counterRect.pivot = new Vector2(0.5f, 1f);
+            counterRect.anchoredPosition = new Vector2(0f, -6f);
+            counterRect.sizeDelta = new Vector2(120f, 28f);
+        }
+    }
+
+    private static Button BuildChevronButton(Transform parent, string name, string glyph, Vector2 anchor, Vector2 offset)
+    {
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+
+        RectTransform rect = go.AddComponent<RectTransform>();
+        rect.anchorMin = anchor;
+        rect.anchorMax = anchor;
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = offset;
+        rect.sizeDelta = new Vector2(36f, 44f);
+
+        Image img = go.AddComponent<Image>();
+        img.color = new Color(0f, 0f, 0f, 0.4f);
+
+        BoxCollider box = go.AddComponent<BoxCollider>();
+        box.size = new Vector3(36f, 44f, 10f);
+
+        XRButtonSelection xr = go.AddComponent<XRButtonSelection>();
+        xr.buttonImage = img;
+        Button btn = go.AddComponent<Button>();
+        btn.targetGraphic = img;
+
+        GameObject labelGo = new GameObject("Glyph");
+        labelGo.transform.SetParent(go.transform, false);
+        TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
+        label.text = glyph;
+        label.fontSize = 24f;
+        label.fontStyle = FontStyles.Bold;
+        label.color = Color.white;
+        label.alignment = TextAlignmentOptions.Center;
+        label.raycastTarget = false;
+        RectTransform labelRect = labelGo.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.sizeDelta = Vector2.zero;
+
+        return btn;
+    }
+
+    private static Transform FindDeepChildTransform(Transform root, string childName)
+    {
+        if (root == null) return null;
+        foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (t != null && t.name == childName) return t;
+        }
+        return null;
     }
 
     private void OnVideoLoopPointReached(VideoPlayer source)
