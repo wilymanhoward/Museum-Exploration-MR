@@ -191,20 +191,31 @@ public class HistoryPanel : MonoBehaviour
         onCloseCallback = onClose;
         currentImageIndex = 0;
 
+        // Both callers (HistoryManager, HistoryListPanel) call Setup BEFORE OpenPanel, so
+        // this can run while still inactive - activate early (after activeHistoryData is
+        // already set, so OnEnable's own refresh below sees the right data) so
+        // SetCappedTwoLineText's ForceMeshUpdate further down measures wrapped lines
+        // against a live hierarchy. OpenPanel's own SetActive(true) right after this
+        // returns is then just a no-op.
+        if (!gameObject.activeSelf) gameObject.SetActive(true);
+
         if (data == null) return;
 
-        // Header Title & Subtitle
-        if (topTitleText != null) SetSmallerText(topTitleText, string.IsNullOrEmpty(data.topTitle) ? "Sejarah" : data.topTitle, 20f);
-        if (categoryText != null) SetSmallerText(categoryText, string.IsNullOrEmpty(data.category) ? "" : data.category, 15f);
+        // Header Title & Subtitle - capped at 2 lines (long titles like "Infrastruktur &
+        // Pembangunan Terengganu" wrap once, then ellipsise, instead of running past the box).
+        if (topTitleText != null) SetCappedTwoLineText(topTitleText, string.IsNullOrEmpty(data.topTitle) ? "Sejarah" : data.topTitle, 20f);
+        if (categoryText != null) SetCappedTwoLineText(categoryText, string.IsNullOrEmpty(data.category) ? "" : data.category, 15f);
 
         // Event / Story Title
-        if (eventTitleText != null) SetSmallerText(eventTitleText, string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle, 16f);
+        if (eventTitleText != null) SetCappedTwoLineText(eventTitleText, string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle, 16f);
 
         // Detail Sejarah (Time Period & Location)
-        if (timePeriodText != null) SetSmallerText(timePeriodText, string.IsNullOrEmpty(data.timePeriod) ? "-" : data.timePeriod, 13f);
-        if (locationText != null) SetSmallerText(locationText, string.IsNullOrEmpty(data.location) ? "-" : data.location, 13f);
+        if (timePeriodText != null) SetCappedTwoLineText(timePeriodText, string.IsNullOrEmpty(data.timePeriod) ? "-" : data.timePeriod, 13f);
+        if (locationText != null) SetCappedTwoLineText(locationText, string.IsNullOrEmpty(data.location) ? "-" : data.location, 13f);
 
-        // Description
+        // Description is a full paragraph, not a label - it deliberately keeps normal
+        // wrapping with NO line cap, since capping it at 2 lines would hide most of the
+        // actual historical content instead of just fixing an overflowing title.
         if (descriptionText != null) SetSmallerText(descriptionText, string.IsNullOrEmpty(data.description) ? "" : data.description, 13f);
 
         // Narration Audio Setup
@@ -243,6 +254,38 @@ public class HistoryPanel : MonoBehaviour
         label.fontSize = fontSize;
         label.enableWordWrapping = true;
         label.overflowMode = TextOverflowModes.Overflow;
+    }
+
+    /// <summary>
+    /// Same as SetSmallerText, but also caps title/label fields at 2 wrapped lines,
+    /// ellipsising anything beyond that ("Infrastruktur &amp; Pembangunan Terengganu…").
+    /// Deliberately does NOT use TMP's maxVisibleLines/Ellipsis overflow mode - both need a
+    /// real positive box HEIGHT to know how much text fits, and this panel's text fields
+    /// have a degenerate (negative/near-zero) height baked into the source prefab, which
+    /// made maxVisibleLines compute "zero lines fit" and hide the text completely. Instead
+    /// this measures the WIDTH-based wrap result directly (ForceMeshUpdate + lineCount,
+    /// which don't care about box height) and manually truncates the string to the first 2
+    /// lines' worth of characters, so it can never disappear regardless of box height.
+    /// </summary>
+    private static void SetCappedTwoLineText(TMP_Text label, string text, float fontSize)
+    {
+        label.enableAutoSizing = false;
+        label.fontSize = fontSize;
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Overflow;
+        label.maxVisibleLines = int.MaxValue;
+        label.text = text ?? "";
+
+        label.ForceMeshUpdate();
+        TMP_TextInfo info = label.textInfo;
+        if (info != null && info.lineCount > 2 && !string.IsNullOrEmpty(text))
+        {
+            int lastCharOfSecondLine = info.lineInfo[1].lastCharacterIndex;
+            string clipped = text.Substring(0, Mathf.Clamp(lastCharOfSecondLine + 1, 0, text.Length)).TrimEnd();
+            if (clipped.Length > 1) clipped = clipped.Substring(0, clipped.Length - 1).TrimEnd();
+            label.text = clipped + "…";
+            label.ForceMeshUpdate();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

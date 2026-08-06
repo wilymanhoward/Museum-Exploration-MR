@@ -54,6 +54,18 @@ public abstract class TutorialStep : MonoBehaviour
         Completed?.Invoke(this);
     }
 
+    /// <summary>
+    /// Forces this step to report completion immediately, without the player actually
+    /// performing the gesture - wired to the tutorial panel's Skip button so a player who
+    /// wants to move on isn't stuck repeating a step. Goes through the exact same
+    /// Completed event as a genuine pass, so TutorialManager's celebrate-then-advance flow
+    /// (and cleanup) behaves identically either way.
+    /// </summary>
+    public void SkipStep()
+    {
+        ReportCompleted();
+    }
+
     /// <summary>Spawn practice objects and subscribe to their events here.</summary>
     protected abstract void OnStepBegin();
 

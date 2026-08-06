@@ -170,11 +170,16 @@ public class TutorialManager : MonoBehaviour
         }
     }
 
-    /// <summary>Shows the Skip Narration button only while a narration line is actually playing.</summary>
+    /// <summary>
+    /// Shows the Skip button throughout the tutorial (intro narration and every step),
+    /// so the player can jump ahead at any point - not just while the instructor happens
+    /// to be talking. Hidden once the last step is done (currentStepIndex has advanced
+    /// past the end), since there's nothing left to skip on the completion screen.
+    /// </summary>
     private void UpdateSkipNarrationButtonVisibility()
     {
         if (skipNarrationButtonRoot == null) return;
-        bool shouldShow = Audio != null && Audio.IsNarrationPlaying;
+        bool shouldShow = currentStepIndex < steps.Count;
         if (skipNarrationButtonRoot.activeSelf != shouldShow)
         {
             skipNarrationButtonRoot.SetActive(shouldShow);
@@ -242,15 +247,37 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Wired to the panel's Skip Narration button (visible only while the instructor is
-    /// talking). Cuts the current line off immediately; if that line was the intro (which
-    /// otherwise blocks the first step from appearing), this also advances straight to it.
+    /// Wired to the panel's round Skip button (visible for the whole tutorial, not just
+    /// while narrating). Always stops any playing narration line, and:
+    ///  - During the intro wait (before step 1 has begun): unblocks that wait so step 1
+    ///    appears immediately, same as before.
+    ///  - During an active step (e.g. "Pinch to Click"): skips the step's gesture
+    ///    requirement entirely and advances straight to the next one (e.g. "Pinch & Hold
+    ///    to Rotate"), instead of only silencing that step's narration and leaving the
+    ///    player stuck performing the same gesture. Goes through the step's normal
+    ///    Completed event, so the usual praise-then-advance flow still plays.
     /// </summary>
     public void SkipNarration()
     {
         if (!IsTutorialRunning) return;
         if (Audio != null) Audio.StopNarration();
-        skipNarrationRequested = true;
+
+        // Still waiting on the intro narration - no step has started yet, just unblock it.
+        if (currentStepIndex < 0)
+        {
+            skipNarrationRequested = true;
+            return;
+        }
+
+        // Mid-step: force it to report completion immediately.
+        if (currentStepIndex < steps.Count)
+        {
+            TutorialStep step = steps[currentStepIndex];
+            if (step != null && step.IsRunning && !step.IsCompleted)
+            {
+                step.SkipStep();
+            }
+        }
     }
 
     /// <summary>Aborts the tutorial immediately (e.g. if the player scans a QR mid-tutorial).</summary>

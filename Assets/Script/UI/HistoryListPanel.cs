@@ -76,24 +76,13 @@ public class HistoryListPanel : MonoBehaviour
             EnsureHistoryItems();
         }
 
-        if (roomTitleText != null)
-        {
-            roomTitleText.text = title;
-            roomTitleText.enableAutoSizing = false;
-            roomTitleText.fontSize = 20f;
-            roomTitleText.enableWordWrapping = true;
-            roomTitleText.overflowMode = TextOverflowModes.Overflow;
-        }
-        if (roomSubtitleText != null)
-        {
-            roomSubtitleText.text = subtitle;
-            roomSubtitleText.enableAutoSizing = false;
-            roomSubtitleText.fontSize = 14f;
-            roomSubtitleText.enableWordWrapping = true;
-            roomSubtitleText.overflowMode = TextOverflowModes.Overflow;
-        }
-
+        // Activate BEFORE measuring wrapped line counts below (ApplyCappedTwoLineStyle uses
+        // TMP's ForceMeshUpdate, which needs the object live to lay text out correctly).
         gameObject.SetActive(true);
+
+        if (roomTitleText != null) ApplyCappedTwoLineStyle(roomTitleText, title, 20f);
+        if (roomSubtitleText != null) ApplyCappedTwoLineStyle(roomSubtitleText, subtitle, 14f);
+
         PopulateHistoryList();
     }
 
@@ -135,9 +124,7 @@ public class HistoryListPanel : MonoBehaviour
         if (artifactCountText != null)
         {
             int count = historyItems != null ? historyItems.Count : 0;
-            artifactCountText.text = $"Jumlah: {count}";
-            artifactCountText.enableAutoSizing = false;
-            artifactCountText.fontSize = 13f;
+            ApplyCappedTwoLineStyle(artifactCountText, $"Jumlah: {count}", 13f);
         }
 
         if (artifactListContainer == null) return;
@@ -184,23 +171,8 @@ public class HistoryListPanel : MonoBehaviour
 
                 if (!titleUpdated && (nameLower.Contains("name") || nameLower.Contains("title") || textLower.Contains("mona") || textLower.Contains("lisa")))
                 {
-                    tmp.text = displayText;
                     tmp.gameObject.SetActive(true);
-
-                    // NameText's RectTransform ships with a degenerate NEGATIVE height baked
-                    // into the prefab (a pre-existing quirk, not something we set) - TMP's
-                    // shrink-to-fit auto-sizing collapses to an invisible near-zero font size
-                    // against a box like that, which is why enabling it made the text vanish
-                    // entirely instead of just fixing the overflow. Wrapping doesn't have that
-                    // failure mode (it only depends on WIDTH, which is a sane positive value
-                    // here), so fix the overflow with a smaller fixed size + wrap instead, and
-                    // keep overflowMode at TMP's default Overflow so text is NEVER hidden even
-                    // in the worst case - it would just spill past the box like it did before.
-                    tmp.enableAutoSizing = false;
-                    tmp.fontSize = 12f;
-                    tmp.enableWordWrapping = true;
-                    tmp.overflowMode = TextOverflowModes.Overflow;
-
+                    ApplyCappedTwoLineStyle(tmp, displayText, 12f);
                     titleUpdated = true;
                 }
                 else if (nameLower.Contains("num") || nameLower.Contains("number") || nameLower.Contains("index"))
@@ -221,11 +193,7 @@ public class HistoryListPanel : MonoBehaviour
                 TMP_Text fallback = itemObj.GetComponentInChildren<TMP_Text>(true);
                 if (fallback != null)
                 {
-                    fallback.text = displayText;
-                    fallback.enableAutoSizing = false;
-                    fallback.fontSize = 12f;
-                    fallback.enableWordWrapping = true;
-                    fallback.overflowMode = TextOverflowModes.Overflow;
+                    ApplyCappedTwoLineStyle(fallback, displayText, 12f);
                 }
             }
 
@@ -275,6 +243,38 @@ public class HistoryListPanel : MonoBehaviour
     public void OnBackPressed()
     {
         ClosePanel();
+    }
+
+    /// <summary>
+    /// Wraps long text to at most 2 lines, ellipsising anything beyond that ("Infrastruktur
+    /// &amp; Pembangunan Terengganu…"). Deliberately does NOT use TMP's maxVisibleLines/
+    /// Ellipsis overflow mode - both need a real positive box HEIGHT to know how much text
+    /// fits, and this prefab's text fields have a degenerate (negative/near-zero) height
+    /// baked in, which made maxVisibleLines compute "zero lines fit" and hide the text
+    /// completely. Instead this measures the WIDTH-based wrap result directly (via
+    /// ForceMeshUpdate + textInfo.lineCount, which don't care about box height) and manually
+    /// truncates the string to the first 2 lines' worth of characters - so it can never
+    /// disappear regardless of whatever the container's height happens to be.
+    /// </summary>
+    private static void ApplyCappedTwoLineStyle(TMP_Text label, string text, float fontSize)
+    {
+        label.enableAutoSizing = false;
+        label.fontSize = fontSize;
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Overflow;
+        label.maxVisibleLines = int.MaxValue;
+        label.text = text ?? "";
+
+        label.ForceMeshUpdate();
+        TMP_TextInfo info = label.textInfo;
+        if (info != null && info.lineCount > 2 && !string.IsNullOrEmpty(text))
+        {
+            int lastCharOfSecondLine = info.lineInfo[1].lastCharacterIndex;
+            string clipped = text.Substring(0, Mathf.Clamp(lastCharOfSecondLine + 1, 0, text.Length)).TrimEnd();
+            if (clipped.Length > 1) clipped = clipped.Substring(0, clipped.Length - 1).TrimEnd();
+            label.text = clipped + "…";
+            label.ForceMeshUpdate();
+        }
     }
 
     private void WireControlButtons()
