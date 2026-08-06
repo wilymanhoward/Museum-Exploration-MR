@@ -214,6 +214,18 @@ public class TutorialManager : MonoBehaviour
         ConfigureHandRayVisuals(); // again here: hand rigs can activate after Awake
         HideWristWatch();
 
+        // The panel becomes visible here, but step 1's real instruction text isn't set
+        // until AdvanceToNextStep runs - which PlayIntroThenAdvance below only calls AFTER
+        // the intro narration finishes playing. For a scene-authored panel, whatever was
+        // left in the Body field at design time (e.g. the builder's placeholder preview
+        // copy) would otherwise sit there, fully visible, for that entire wait. Clear it to
+        // just the panel header so nothing stale or placeholder-looking shows through.
+        if (titleLabel != null) titleLabel.text = panelHeader;
+        if (bodyLabel != null) bodyLabel.text = "";
+        if (progressLabel != null) progressLabel.text = "";
+        if (stepCounterLabel != null) stepCounterLabel.text = "";
+        if (progressBarRoot != null) progressBarRoot.SetActive(false);
+
         onTutorialStarted.Invoke();
         currentStepIndex = -1;
         StartCoroutine(PlayIntroThenAdvance());
