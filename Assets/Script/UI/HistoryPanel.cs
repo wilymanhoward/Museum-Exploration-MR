@@ -194,18 +194,18 @@ public class HistoryPanel : MonoBehaviour
         if (data == null) return;
 
         // Header Title & Subtitle
-        if (topTitleText != null) topTitleText.text = string.IsNullOrEmpty(data.topTitle) ? "Sejarah" : data.topTitle;
-        if (categoryText != null) categoryText.text = string.IsNullOrEmpty(data.category) ? "" : data.category;
+        if (topTitleText != null) SetSmallerText(topTitleText, string.IsNullOrEmpty(data.topTitle) ? "Sejarah" : data.topTitle, 20f);
+        if (categoryText != null) SetSmallerText(categoryText, string.IsNullOrEmpty(data.category) ? "" : data.category, 15f);
 
         // Event / Story Title
-        if (eventTitleText != null) eventTitleText.text = string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle;
+        if (eventTitleText != null) SetSmallerText(eventTitleText, string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle, 16f);
 
         // Detail Sejarah (Time Period & Location)
-        if (timePeriodText != null) timePeriodText.text = string.IsNullOrEmpty(data.timePeriod) ? "-" : data.timePeriod;
-        if (locationText != null) locationText.text = string.IsNullOrEmpty(data.location) ? "-" : data.location;
+        if (timePeriodText != null) SetSmallerText(timePeriodText, string.IsNullOrEmpty(data.timePeriod) ? "-" : data.timePeriod, 13f);
+        if (locationText != null) SetSmallerText(locationText, string.IsNullOrEmpty(data.location) ? "-" : data.location, 13f);
 
         // Description
-        if (descriptionText != null) descriptionText.text = string.IsNullOrEmpty(data.description) ? "" : data.description;
+        if (descriptionText != null) SetSmallerText(descriptionText, string.IsNullOrEmpty(data.description) ? "" : data.description, 13f);
 
         // Narration Audio Setup
         if (audioSource != null)
@@ -226,6 +226,23 @@ public class HistoryPanel : MonoBehaviour
         // Rule 1: Always start off hiding the video panel and revealing static image
         ResetMediaToImageState();
         UpdatePlayPauseIcons();
+    }
+
+    /// <summary>
+    /// Sets text at a smaller fixed size than whatever the field was authored with, plus
+    /// word-wrapping so long topic titles/descriptions wrap instead of running past their
+    /// box. Deliberately a FIXED size, not auto-sizing: some of this panel's text fields
+    /// have degenerate RectTransform bounds (same issue found on the list panel's item
+    /// buttons), and TMP's shrink-to-fit auto-sizing collapses to invisible text against a
+    /// box like that instead of just fixing the overflow.
+    /// </summary>
+    private static void SetSmallerText(TMP_Text label, string text, float fontSize)
+    {
+        label.text = text;
+        label.enableAutoSizing = false;
+        label.fontSize = fontSize;
+        label.enableWordWrapping = true;
+        label.overflowMode = TextOverflowModes.Overflow;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

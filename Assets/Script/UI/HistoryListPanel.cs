@@ -76,8 +76,22 @@ public class HistoryListPanel : MonoBehaviour
             EnsureHistoryItems();
         }
 
-        if (roomTitleText != null) roomTitleText.text = title;
-        if (roomSubtitleText != null) roomSubtitleText.text = subtitle;
+        if (roomTitleText != null)
+        {
+            roomTitleText.text = title;
+            roomTitleText.enableAutoSizing = false;
+            roomTitleText.fontSize = 20f;
+            roomTitleText.enableWordWrapping = true;
+            roomTitleText.overflowMode = TextOverflowModes.Overflow;
+        }
+        if (roomSubtitleText != null)
+        {
+            roomSubtitleText.text = subtitle;
+            roomSubtitleText.enableAutoSizing = false;
+            roomSubtitleText.fontSize = 14f;
+            roomSubtitleText.enableWordWrapping = true;
+            roomSubtitleText.overflowMode = TextOverflowModes.Overflow;
+        }
 
         gameObject.SetActive(true);
         PopulateHistoryList();
@@ -122,6 +136,8 @@ public class HistoryListPanel : MonoBehaviour
         {
             int count = historyItems != null ? historyItems.Count : 0;
             artifactCountText.text = $"Jumlah: {count}";
+            artifactCountText.enableAutoSizing = false;
+            artifactCountText.fontSize = 13f;
         }
 
         if (artifactListContainer == null) return;
@@ -171,22 +187,27 @@ public class HistoryListPanel : MonoBehaviour
                     tmp.text = displayText;
                     tmp.gameObject.SetActive(true);
 
-                    // NameText ships with auto-sizing and word-wrapping both OFF, fixed at
-                    // 22pt - fine for the short "Mona Lisa" placeholder, but real topic
-                    // titles ("Infrastruktur & Pembangunan") run past the button edge at
-                    // that size. Wrap first, then shrink only if it still doesn't fit, and
-                    // ellipsis as a last-resort safety net rather than ever overflowing.
+                    // NameText's RectTransform ships with a degenerate NEGATIVE height baked
+                    // into the prefab (a pre-existing quirk, not something we set) - TMP's
+                    // shrink-to-fit auto-sizing collapses to an invisible near-zero font size
+                    // against a box like that, which is why enabling it made the text vanish
+                    // entirely instead of just fixing the overflow. Wrapping doesn't have that
+                    // failure mode (it only depends on WIDTH, which is a sane positive value
+                    // here), so fix the overflow with a smaller fixed size + wrap instead, and
+                    // keep overflowMode at TMP's default Overflow so text is NEVER hidden even
+                    // in the worst case - it would just spill past the box like it did before.
+                    tmp.enableAutoSizing = false;
+                    tmp.fontSize = 12f;
                     tmp.enableWordWrapping = true;
-                    tmp.enableAutoSizing = true;
-                    tmp.fontSizeMin = 12f;
-                    tmp.fontSizeMax = 22f;
-                    tmp.overflowMode = TextOverflowModes.Ellipsis;
+                    tmp.overflowMode = TextOverflowModes.Overflow;
 
                     titleUpdated = true;
                 }
                 else if (nameLower.Contains("num") || nameLower.Contains("number") || nameLower.Contains("index"))
                 {
                     tmp.text = formattedNum;
+                    tmp.enableAutoSizing = false;
+                    tmp.fontSize = 12f;
                 }
                 else if (textLower.Contains("mona") || textLower.Contains("lisa"))
                 {
@@ -201,11 +222,10 @@ public class HistoryListPanel : MonoBehaviour
                 if (fallback != null)
                 {
                     fallback.text = displayText;
+                    fallback.enableAutoSizing = false;
+                    fallback.fontSize = 12f;
                     fallback.enableWordWrapping = true;
-                    fallback.enableAutoSizing = true;
-                    fallback.fontSizeMin = 12f;
-                    fallback.fontSizeMax = 22f;
-                    fallback.overflowMode = TextOverflowModes.Ellipsis;
+                    fallback.overflowMode = TextOverflowModes.Overflow;
                 }
             }
 
