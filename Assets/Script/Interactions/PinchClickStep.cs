@@ -28,8 +28,7 @@ public class PinchClickStep : TutorialStep
     {
         stepTitle = "Langkah 1: Cubit untuk Klik";
         instructionText =
-            "Halakan sinar tangan anda ke butang, kemudian CUBIT ibu jari dan jari telunjuk untuk menekannya. Tekan sebanyak 2 kali!\n" +
-            "<size=80%><i>Point your hand ray at the button, then PINCH your thumb and index finger together to press it. Press it 2 times!</i></size>";
+            "Halakan sinar tangan anda ke butang, kemudian CUBIT ibu jari dan jari telunjuk untuk menekannya. Tekan sebanyak 2 kali!";
     }
 
     protected override void OnStepBegin()
@@ -44,7 +43,7 @@ public class PinchClickStep : TutorialStep
         Quaternion rot;
         Manager.GetPlacementPose(Manager.practiceDistance, Manager.practiceHeightOffset, out pos, out rot);
 
-        target = PinchButtonPracticeTarget.Create(pos, "TEKAN / PRESS");
+        target = PinchButtonPracticeTarget.Create(pos, "TEKAN");
         target.Pressed += OnTargetClicked;
     }
 

@@ -139,7 +139,7 @@ public class GameListMenu : MonoBehaviour
         Transform closeT = FindDeepChild(panel.transform, "CloseButton");
 
         MakeSingleColumn(listContainer);
-        SetTitle(panel, "List Game");
+        SetTitle(panel, "Senarai Permainan");
         Populate(listContainer, buttonPrefab);
         WireButton(closeT != null ? closeT.gameObject : null, Close);
     }

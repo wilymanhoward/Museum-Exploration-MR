@@ -69,7 +69,7 @@ public class TimelineGamePrefabCreator : Editor
         taskRect.anchoredPosition = new Vector2(-15f, 168f);
         taskRect.sizeDelta = new Vector2(320f, 36f);
         TextMeshProUGUI taskTxt = taskObj.AddComponent<TextMeshProUGUI>();
-        taskTxt.text = "Urutkan Babak Utama Sejarah Indonesia";
+        taskTxt.text = "Urutkan Babak Utama Sejarah Terengganu";
         taskTxt.fontSize = 16;
         taskTxt.alignment = TextAlignmentOptions.Left;
         taskTxt.color = new Color(0.96f, 0.96f, 0.92f, 1f);
@@ -167,7 +167,7 @@ public class TimelineGamePrefabCreator : Editor
         ctRect.anchorMax = Vector2.one;
         ctRect.sizeDelta = Vector2.zero;
         TextMeshProUGUI checkTxt = checkTxtObj.AddComponent<TextMeshProUGUI>();
-        checkTxt.text = "Periksa Jawaban  >";
+        checkTxt.text = "Periksa Jawapan  >";
         checkTxt.fontSize = 13;
         checkTxt.alignment = TextAlignmentOptions.Center;
         checkTxt.color = new Color(0.96f, 0.96f, 0.92f, 1f);
@@ -180,7 +180,7 @@ public class TimelineGamePrefabCreator : Editor
         wrongRect.anchoredPosition = new Vector2(0f, -130f);
         wrongRect.sizeDelta = new Vector2(300f, 30f);
         TextMeshProUGUI wrongTxt = wrongObj.AddComponent<TextMeshProUGUI>();
-        wrongTxt.text = "Urutan belum tepat! Coba lagi.";
+        wrongTxt.text = "Urutan belum tepat! Cuba lagi.";
         wrongTxt.fontSize = 14;
         wrongTxt.alignment = TextAlignmentOptions.Center;
         wrongTxt.color = new Color(0.95f, 0.3f, 0.3f, 1f);

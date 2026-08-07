@@ -77,8 +77,7 @@ public static class TutorialPanelBuilder
 
         TextMeshProUGUI body = CreateLabel(panel.transform, "Body", 19f, 14f, FontStyles.Normal,
             new Color(0.88f, 0.9f, 0.94f, 1f), TextAlignmentOptions.Top);
-        body.text = "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!\n" +
-            "<size=80%><i>PINCH and HOLD the artifact, then move your hand to rotate it. Keep spinning until the bar is full!</i></size>";
+        body.text = "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!";
         Place(body.rectTransform, new Vector2(marginL, 0.24f), new Vector2(marginR, 0.74f));
 
         TextMeshProUGUI progress = CreateLabel(panel.transform, "ProgressLabel", 19f, 15f, FontStyles.Bold,

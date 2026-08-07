@@ -830,7 +830,7 @@ public class RoomManager : MonoBehaviour
                 Debug.Log($"Already in room '{roomMatch.roomName}'. Ignoring repeat scan.");
                 return;
             }
-            SetScanStatus($"Scanned Room: {roomMatch.roomName}", new Color(0f, 0.7f, 0.9f));
+            SetScanStatus($"Ruang Diimbas: {roomMatch.roomName}", new Color(0f, 0.7f, 0.9f));
             ChangeRoom(roomMatch);
         }
         else
@@ -866,7 +866,7 @@ public class RoomManager : MonoBehaviour
             if (artifact != null)
             {
                 UpdateListItemVisual(item, artifact, true);
-                SetScanStatus($"Completed: {artifact.artifactName}", new Color(0f, 0.8f, 0.4f));
+                SetScanStatus($"Selesai: {artifact.artifactName}", new Color(0f, 0.8f, 0.4f));
             }
         }
     }

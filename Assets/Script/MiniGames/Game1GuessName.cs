@@ -145,7 +145,7 @@ public class Game1GuessName : BaseGame
 
         if (taskText != null)
         {
-            taskText.text = "Drag to Rotate Model";
+            taskText.text = "Seret untuk Putar Model";
         }
 
         // 1. Pick a random target artifact with a 3D model

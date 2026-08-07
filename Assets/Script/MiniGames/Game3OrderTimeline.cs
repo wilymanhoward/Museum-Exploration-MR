@@ -53,26 +53,49 @@ public class Game3OrderTimeline : BaseGame
         },
         new TimelineQuestion
         {
-            questionTitle = "Ekonomi",
+            questionTitle = "Ekonomi Trengganu",
             timelineItems = new TimelineItem[]
             {
-                new TimelineItem { text = "Sistem Barter & Mata Wang Kerang", correctSlotIndex = 1 },
-                new TimelineItem { text = "Pengeluaran Mata Wang Logam & Koin", correctSlotIndex = 2 },
-                new TimelineItem { text = "Pengenalan Wang Kertas & Bank", correctSlotIndex = 3 },
-                new TimelineItem { text = "Perbankan Elektronik & Kad Kredit", correctSlotIndex = 4 },
-                new TimelineItem { text = "Mata Wang Digital & Transaksi Dalam Talian", correctSlotIndex = 5 }
+                new TimelineItem { text = "Bandar pelabuhan & hasil hutan merancakkan ekonomi.", correctSlotIndex = 1 },
+                new TimelineItem { text = "Terengganu jadi pengeluar utama lada hitam.", correctSlotIndex = 2 },
+                new TimelineItem { text = "Galakan tanaman kopi, tebu & galian emas/timah.", correctSlotIndex = 3 },
+                new TimelineItem { text = "Tambang bijih timah & besi mula dibuka.", correctSlotIndex = 4 },
+                new TimelineItem { text = "Penemuan minyak tingkatkan ekonomi negeri.", correctSlotIndex = 5 }
             }
         },
         new TimelineQuestion
         {
-            questionTitle = "Peristiwa Proklamasi Kemerdekaan",
+            questionTitle = "Tragedi Megat Panji Alam",
             timelineItems = new TimelineItem[]
             {
-                new TimelineItem { text = "Pembentukan BPUPKI\n(1 Mac 1945)", correctSlotIndex = 1 },
-                new TimelineItem { text = "Pembentukan PPKI\n(7 Ogos 1945)", correctSlotIndex = 2 },
-                new TimelineItem { text = "Peristiwa Rengasdengklok\n(16 Ogos 1945)", correctSlotIndex = 3 },
-                new TimelineItem { text = "Pembacaan Teks Proklamasi\n(17 Ogos 1945)", correctSlotIndex = 4 },
-                new TimelineItem { text = "Pengesahan UUD 1945\n(18 Ogos 1945)", correctSlotIndex = 5 }
+                new TimelineItem { text = "Hang Tuah bawa Tun Teja dari Pahang ke Melaka.", correctSlotIndex = 1 },
+                new TimelineItem { text = "Megat Panji Alam tahu tunangnya dilarikan.", correctSlotIndex = 2 },
+                new TimelineItem { text = "Beliau ke Pahang untuk menentang Hang Tuah.", correctSlotIndex = 3 },
+                new TimelineItem { text = "Beliau ditikam Hang Jebat & Kasturi di tangga istana.", correctSlotIndex = 4 }
+            }
+        },
+        new TimelineQuestion
+        {
+            questionTitle = "Asal Usul \"Taring Anu\"",
+            timelineItems = new TimelineItem[]
+            {
+                new TimelineItem { text = "Pemburu Pahang berburu di Hulu Terengganu.", correctSlotIndex = 1 },
+                new TimelineItem { text = "Taring haiwan misteri dijumpai di sungai.", correctSlotIndex = 2 },
+                new TimelineItem { text = "Pemburu panggil tempat itu \"Taring Anu\".", correctSlotIndex = 3 },
+                new TimelineItem { text = "Mereka sebut \"Taring Anu\" bila ditanya lokasi.", correctSlotIndex = 4 },
+                new TimelineItem { text = "\"Taring Anu\" berubah jadi Terengganu.", correctSlotIndex = 5 }
+            }
+        },
+        new TimelineQuestion
+        {
+            questionTitle = "Rombongan Kelantan",
+            timelineItems = new TimelineItem[]
+            {
+                new TimelineItem { text = "Rombongan Kelantan belayar waktu hujan renyai.", correctSlotIndex = 1 },
+                new TimelineItem { text = "Cahaya terang di langit dipanggil \"Ular Mayang\".", correctSlotIndex = 2 },
+                new TimelineItem { text = "Penduduk tempatan panggil kawasan itu \"Ganu\".", correctSlotIndex = 3 },
+                new TimelineItem { text = "Rombongan kata \"Terang sungguh Ganu di sini\".", correctSlotIndex = 4 },
+                new TimelineItem { text = "Perkataan \"Terangnya Ganu\" menjadi Terengganu.", correctSlotIndex = 5 }
             }
         }
     };

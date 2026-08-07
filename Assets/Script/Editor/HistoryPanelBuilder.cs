@@ -159,7 +159,7 @@ public class HistoryPanelBuilder : Editor
         holdRect.anchoredPosition = new Vector2(0f, 130f);
         holdRect.sizeDelta = new Vector2(230f, 24f);
         TextMeshProUGUI holdTxt = holdObj.AddComponent<TextMeshProUGUI>();
-        holdTxt.text = "Hold to Play Clip";
+        holdTxt.text = "Tahan untuk Main Klip";
         holdTxt.fontSize = 15;
         holdTxt.alignment = TextAlignmentOptions.Center;
         holdTxt.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
@@ -253,7 +253,7 @@ public class HistoryPanelBuilder : Editor
         tplRect.anchoredPosition = new Vector2(-40f, -2f);
         tplRect.sizeDelta = new Vector2(130f, 20f);
         TextMeshProUGUI tplTxt = tpLabelObj.AddComponent<TextMeshProUGUI>();
-        tplTxt.text = "📅 Time Period";
+        tplTxt.text = "📅 Tempoh Masa";
         tplTxt.fontSize = 13;
         tplTxt.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
 
@@ -276,7 +276,7 @@ public class HistoryPanelBuilder : Editor
         loclRect.anchoredPosition = new Vector2(-40f, -26f);
         loclRect.sizeDelta = new Vector2(130f, 20f);
         TextMeshProUGUI loclTxt = locLabelObj.AddComponent<TextMeshProUGUI>();
-        loclTxt.text = "📍 Location";
+        loclTxt.text = "📍 Lokasi";
         loclTxt.fontSize = 13;
         loclTxt.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
 
@@ -329,7 +329,7 @@ public class HistoryPanelBuilder : Editor
         descBodyRect.anchoredPosition = new Vector2(0f, -12f);
         descBodyRect.sizeDelta = new Vector2(210f, 120f);
         TextMeshProUGUI descBodyTxt = descBodyObj.AddComponent<TextMeshProUGUI>();
-        descBodyTxt.text = "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters.";
+        descBodyTxt.text = "Keterangan sejarah akan dipaparkan di sini.";
         descBodyTxt.fontSize = 11;
         descBodyTxt.alignment = TextAlignmentOptions.TopLeft;
         descBodyTxt.enableWordWrapping = true;

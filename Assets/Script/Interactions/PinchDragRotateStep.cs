@@ -37,8 +37,7 @@ public class PinchDragRotateStep : TutorialStep
     {
         stepTitle = "Langkah 2: Cubit & Tahan untuk Putar";
         instructionText =
-            "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!\n" +
-            "<size=80%><i>PINCH and HOLD the artifact, then move your hand to rotate it. Keep spinning until the bar is full!</i></size>";
+            "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!";
     }
 
     protected override void OnStepBegin()

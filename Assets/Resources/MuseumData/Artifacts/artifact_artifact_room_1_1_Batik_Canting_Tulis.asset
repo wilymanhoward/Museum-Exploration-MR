@@ -22,10 +22,11 @@ MonoBehaviour:
   width: 0
   length: 0
   material: Kain & Lilin
-  description: Batik Canting is a traditional Javanese art where intricate patterns
-    are hand-drawn onto fabric using melted wax. The textile is dyed and then boiled
-    to remove the wax, revealing detailed floral, geometric, or  abstract designs.
-    This finished material is commonly used to create clothing for both men and women.
+  description: Batik Canting ialah seni tradisional Jawa di mana corak yang rumit
+    dilukis dengan tangan pada kain menggunakan lilin cair. Kain tersebut kemudiannya
+    dicelup dan direbus untuk menanggalkan lilin, mendedahkan corak bunga, geometri,
+    atau abstrak yang terperinci. Bahan siap ini lazimnya digunakan untuk membuat
+    pakaian bagi lelaki dan wanita.
   modelPrefab: {fileID: 0}
   narrationClip: {fileID: 8300000, guid: 1a2307a76cc9fb14cb942f9801f8b524, type: 3}
   instrumentClip: {fileID: 0}

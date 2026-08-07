@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e8c5dd542f197a40a8e49868a21bb1f, type: 3}
+  m_Name: TragediMegatPanjiAlam
+  m_EditorClassIdentifier:
+  historyId: sejarah_tragedi_megat_panji_alam
+  topTitle: Sejarah Terengganu
+  category: Cerita Rakyat
+  eventTitle: Tragedi Megat Panji Alam
+  timePeriod: Zaman Kesultanan Melaka (Legenda)
+  location: Pahang & Melaka
+  description: 'Kisah ini merupakan sebahagian daripada cerita rakyat yang dikaitkan
+    dengan Hikayat Hang Tuah, seperti yang dipaparkan dalam permainan "Susunkan
+    Garis Masa" di muzium ini.
+
+
+    Hang Tuah membawa Tun Teja dari Pahang ke Melaka. Apabila Megat Panji Alam,
+    tunang Tun Teja, mengetahui bahawa tunangnya telah dilarikan, baginda pergi
+    ke Pahang untuk menentang Hang Tuah. Namun begitu, Megat Panji Alam akhirnya
+    ditikam oleh Hang Jebat dan Hang Kasturi di tangga istana.'
+  images: []
+  displaySprite: {fileID: 0}
+  videoClip: {fileID: 0}
+  narrationClip: {fileID: 0}

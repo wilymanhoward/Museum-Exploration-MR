@@ -101,6 +101,7 @@ public class HistoryPanel : MonoBehaviour
     private bool isHoldingTrigger = false;
     private int currentImageIndex = 0;
     private GameObject builtGalleryNavRoot;
+    private ScrollRect descriptionScrollRect;
 
     private void Awake()
     {
@@ -147,6 +148,7 @@ public class HistoryPanel : MonoBehaviour
         AutoWireButtons();
         EnsureGalleryNavUI();
         EnsureGrabbablePanel();
+        EnsureDescriptionScrollView();
     }
 
     /// <summary>
@@ -165,6 +167,91 @@ public class HistoryPanel : MonoBehaviour
         {
             gameObject.AddComponent<ArtifactPanelDragger>();
         }
+    }
+
+    /// <summary>
+    /// Wraps descriptionText in a standard Viewport/Content/ScrollRect so a description too
+    /// long to fit its box (e.g. "Tragedi Megat Panji Alam"'s multi-paragraph legend) can be
+    /// pinch-held and dragged to scroll instead of just running past the panel's edge. Reuses
+    /// Unity's built-in ScrollRect rather than custom drag code - it drives the exact same
+    /// IBeginDragHandler/IDragHandler/IEndDragHandler interfaces that TrackedDeviceGraphicRaycaster
+    /// already pumps hand-ray pinch input through elsewhere in this project (ArtifactPanelDragger,
+    /// the timeline mini-game's draggable cards), so pinch-hold-drag scrolling works for free.
+    /// Runs once in Awake, before Setup() ever assigns text, and re-parents descriptionText's
+    /// own GameObject rather than replacing it, so every other reference to descriptionText
+    /// (Setup/SetSmallerText) keeps working unchanged.
+    /// </summary>
+    private void EnsureDescriptionScrollView()
+    {
+        if (descriptionText == null) return;
+        if (descriptionText.GetComponentInParent<ScrollRect>() != null) return; // already wrapped
+
+        Transform originalParent = descriptionText.transform.parent;
+        RectTransform textRect = descriptionText.rectTransform;
+
+        // Capture the description's original slot - the scroll view takes it over so nothing
+        // else in the panel needs to know this restructuring happened.
+        Vector2 anchorMin = textRect.anchorMin;
+        Vector2 anchorMax = textRect.anchorMax;
+        Vector2 anchoredPosition = textRect.anchoredPosition;
+        Vector2 sizeDelta = textRect.sizeDelta;
+        Vector2 pivot = textRect.pivot;
+        int siblingIndex = textRect.GetSiblingIndex();
+
+        // 1. Scroll view root - the visible, clipped window; occupies the description's old spot.
+        GameObject scrollGo = new GameObject("DescriptionScrollView");
+        RectTransform scrollRootRect = scrollGo.AddComponent<RectTransform>();
+        scrollGo.transform.SetParent(originalParent, false);
+        scrollRootRect.anchorMin = anchorMin;
+        scrollRootRect.anchorMax = anchorMax;
+        scrollRootRect.anchoredPosition = anchoredPosition;
+        scrollRootRect.sizeDelta = sizeDelta;
+        scrollRootRect.pivot = pivot;
+        scrollRootRect.SetSiblingIndex(siblingIndex);
+
+        // 2. Viewport - clips content to the visible window and receives the pinch-drag input.
+        GameObject viewportGo = new GameObject("Viewport");
+        RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
+        viewportGo.transform.SetParent(scrollGo.transform, false);
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.offsetMin = Vector2.zero;
+        viewportRect.offsetMax = Vector2.zero;
+        viewportGo.AddComponent<RectMask2D>();
+        Image viewportImg = viewportGo.AddComponent<Image>();
+        viewportImg.color = new Color(1f, 1f, 1f, 0.001f); // invisible but still raycastable
+        viewportImg.raycastTarget = true;
+
+        // 3. Content - grows to the text's full unclipped height; this is what scrolls.
+        GameObject contentGo = new GameObject("Content");
+        RectTransform contentRect = contentGo.AddComponent<RectTransform>();
+        contentGo.transform.SetParent(viewportGo.transform, false);
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = Vector2.zero;
+        ContentSizeFitter fitter = contentGo.AddComponent<ContentSizeFitter>();
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        // 4. Re-parent the description text itself into Content, stretched to Content's width
+        // so it wraps normally and reports a correct preferred height for the fitter above.
+        descriptionText.transform.SetParent(contentGo.transform, false);
+        textRect.anchorMin = new Vector2(0f, 1f);
+        textRect.anchorMax = new Vector2(1f, 1f);
+        textRect.pivot = new Vector2(0.5f, 1f);
+        textRect.anchoredPosition = Vector2.zero;
+        textRect.sizeDelta = Vector2.zero;
+
+        // 5. Wire the ScrollRect.
+        descriptionScrollRect = scrollGo.AddComponent<ScrollRect>();
+        descriptionScrollRect.content = contentRect;
+        descriptionScrollRect.viewport = viewportRect;
+        descriptionScrollRect.horizontal = false;
+        descriptionScrollRect.vertical = true;
+        descriptionScrollRect.movementType = ScrollRect.MovementType.Clamped;
+        descriptionScrollRect.scrollSensitivity = 20f;
     }
 
     private void OnEnable()
@@ -216,7 +303,18 @@ public class HistoryPanel : MonoBehaviour
         // Description is a full paragraph, not a label - it deliberately keeps normal
         // wrapping with NO line cap, since capping it at 2 lines would hide most of the
         // actual historical content instead of just fixing an overflowing title.
-        if (descriptionText != null) SetSmallerText(descriptionText, string.IsNullOrEmpty(data.description) ? "" : data.description, 13f);
+        if (descriptionText != null)
+        {
+            SetSmallerText(descriptionText, string.IsNullOrEmpty(data.description) ? "" : data.description, 13f);
+
+            // The ScrollRect's Content only recomputes its (fitter-driven) height on the next
+            // layout pass - force it immediately so the new scroll range is correct this frame
+            // instead of lagging a frame, and snap back to the top so switching topics doesn't
+            // leave the reader scrolled partway down the PREVIOUS description.
+            RectTransform contentRect = descriptionText.transform.parent as RectTransform;
+            if (contentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            if (descriptionScrollRect != null) descriptionScrollRect.verticalNormalizedPosition = 1f;
+        }
 
         // Narration Audio Setup
         if (audioSource != null)

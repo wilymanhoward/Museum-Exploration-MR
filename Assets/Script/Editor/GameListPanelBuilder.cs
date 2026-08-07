@@ -43,11 +43,11 @@ public static class GameListPanelBuilder
         foreach (RoomList rl in panel.GetComponentsInChildren<RoomList>(true))
             Object.DestroyImmediate(rl);
 
-        // Retitle the header to "List Game".
+        // Retitle the header to "Senarai Permainan".
         foreach (TMPro.TextMeshProUGUI tmp in panel.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
         {
             if (tmp.name == "RoomTitleText" || (!string.IsNullOrEmpty(tmp.text) && tmp.text.Contains("Ruang")))
-                tmp.text = "List Game";
+                tmp.text = "Senarai Permainan";
         }
 
         // Clear any room rows the template carried over so the panel starts empty (GameListMenu

@@ -179,7 +179,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Explore
+  m_text: Terokai
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -903,7 +903,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Pure Titanium
+  m_text: Titanium Tulen
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -1038,9 +1038,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: It is a long established fact that a reader will be distracted by the readable
-    content of a page when looking at its layout. The point of using Lorem Ipsum
-    is that it has a more-or-less normal distribution of letters.
+  m_text: Keterangan sejarah akan dipaparkan di sini.
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -3609,7 +3607,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 3D View
+  m_text: Paparan 3D
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -4279,7 +4277,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Museum Exploration
+  m_text: Penerokaan Muzium
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -4414,7 +4412,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: No Images Available
+  m_text: Tiada Gambar Tersedia
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -4928,7 +4926,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Wrong Answer, Try Again
+  m_Text: Jawapan Salah, Cuba Lagi
 --- !u!222 &339683965
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -4994,7 +4992,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Location
+  m_text: Lokasi
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -6274,7 +6272,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Time Period
+  m_text: Tempoh Masa
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -7323,7 +7321,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: List Ruang
+  m_text: Senarai Ruang
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -8373,7 +8371,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Introduction Video
+  m_text: Video Pengenalan
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -9088,7 +9086,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Games
+  m_text: Permainan
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -10286,7 +10284,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Time Period
+  m_text: Tempoh Masa
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -11293,7 +11291,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: No Images Available
+  m_text: Tiada Gambar Tersedia
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -12220,7 +12218,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: No 3D Model Available
+  m_text: Model 3D Tidak Tersedia
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -13130,7 +13128,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Options
+  m_text: Pilihan
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -13556,7 +13554,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Periksa Jawaban
+  m_Text: Periksa Jawapan
 --- !u!222 &1135885424
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -13770,7 +13768,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Mulai
+  m_Text: Mula
 --- !u!222 &1155771148
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -14378,7 +14376,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Traditional Malaysian Painting
+  m_text: Lukisan Tradisional Melayu
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -15382,7 +15380,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Dimension
+  m_text: Dimensi
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -16032,7 +16030,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Images
+  m_text: Gambar
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -18075,7 +18073,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Hold to Play Clip
+  m_text: Tahan untuk Main Klip
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -18937,7 +18935,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Drag to Rotate
+  m_text: Seret untuk Putar
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -20030,8 +20028,8 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Instruction text is filled in at runtime. This preview copy only helps
-    while editing the layout.
+  m_text: Teks arahan akan diisi semasa masa nyata. Salinan pratonton ini hanya
+    membantu semasa mengedit susun atur.
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -22398,7 +22396,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Location
+  m_text: Lokasi
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -24752,9 +24750,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: It is a long established fact that a reader will be distracted by the readable
-    content of a page when looking at its layout. The point of using Lorem Ipsum
-    is that it has a more-or-less normal distribution of letters.
+  m_text: Keterangan sejarah akan dipaparkan di sini.
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -25247,7 +25243,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Artifact:\n<color=#E5EE9C>\u201CGamelan\u201D</color>"
+  m_text: "Artefak:\n<color=#E5EE9C>\u201CGamelan\u201D</color>"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,

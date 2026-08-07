@@ -312,7 +312,7 @@ public class ArtifactManager : MonoBehaviour
         {
             if (RoomManager.Instance != null)
             {
-                RoomManager.Instance.SetScanStatus($"Scanned Exhibit: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
+                RoomManager.Instance.SetScanStatus($"Artefak Diimbas: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
             }
             SpawnArtifactDetailPanel(artifactMatch, pose);
         }
@@ -672,12 +672,12 @@ public class ArtifactManager : MonoBehaviour
             bool isScanned = IsArtifactScanned(artifact);
             if (isScanned)
             {
-                statusText.text = "Sudah Dikunjung";
+                statusText.text = "Sudah Dikunjungi";
                 statusText.color = new Color(0.486f, 1f, 0.541f);
             }
             else
             {
-                statusText.text = "Belum Dikunjung";
+                statusText.text = "Belum Dikunjungi";
                 statusText.color = new Color(0.816f, 0.835f, 0.8f);
             }
         }

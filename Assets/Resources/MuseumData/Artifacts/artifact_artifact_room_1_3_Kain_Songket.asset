@@ -22,10 +22,10 @@ MonoBehaviour:
   width: 0
   length: 0
   material: Benang asas
-  description: Kain Songket is a highly aesthetic, traditionally woven Malay fabric.
-    Its patterns and colors historically symbolized the wearer's social status. The
-    fabric requires a complex production process involving multiple detailed weaving
-    stages
+  description: Kain Songket ialah kain tenunan tradisional Melayu yang sangat indah
+    dari segi estetika. Corak dan warnanya pada zaman dahulu melambangkan status
+    sosial pemakainya. Kain ini memerlukan proses pengeluaran yang kompleks, melibatkan
+    pelbagai peringkat tenunan yang terperinci.
   modelPrefab: {fileID: 919132149155446097, guid: 17f61d7342e911c48a3302df263e373e,
     type: 3}
   narrationClip: {fileID: 8300000, guid: a9c9310401eda1347a3e033051a2e030, type: 3}

@@ -35,7 +35,7 @@ public class HistoryData : ScriptableObject
 
     [Header("Description")]
     [TextArea(6, 14)]
-    public string description = "It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout...";
+    public string description = "Keterangan sejarah akan dipaparkan di sini.";
 
     [Header("Media & Visuals")]
     [Tooltip("Photo gallery for this topic. Can hold any number of photos, including zero - " +

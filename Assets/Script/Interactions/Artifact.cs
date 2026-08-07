@@ -823,7 +823,7 @@ public class Artifact : MonoBehaviour
             if (noImagesText != null)
             {
                 noImagesText.gameObject.SetActive(true);
-                noImagesText.text = "Artefak tidak ada Gambar";
+                noImagesText.text = "Artefak ini tiada gambar";
             }
         }
     }

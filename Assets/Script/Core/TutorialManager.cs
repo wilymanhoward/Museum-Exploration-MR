@@ -58,10 +58,9 @@ public class TutorialManager : MonoBehaviour
     public string panelHeader = "Tutorial";
     [Tooltip("Shown in the body while the welcome narration plays, before step 1 begins - a short explanation of what the tutorial is about to teach.")]
     [TextArea] public string introBodyText =
-        "Sebelum meneroka muzium, mari kita belajar cara mengawal aplikasi ini menggunakan tangan anda. Tutorial ini mengambil masa kurang dari seminit.\n" +
-        "<size=80%><i>Before exploring the museum, let's learn how to control this app with your hands. This tutorial takes less than a minute.</i></size>";
-    [TextArea] public string praiseText = "Bagus! / Well done!";
-    [TextArea] public string completionText = "Tutorial selesai! Selamat meneroka muzium.\nTutorial complete - enjoy exploring the museum!";
+        "Sebelum meneroka muzium, mari kita belajar cara mengawal aplikasi ini menggunakan tangan anda. Tutorial ini mengambil masa kurang dari seminit.";
+    [TextArea] public string praiseText = "Bagus!";
+    [TextArea] public string completionText = "Tutorial selesai! Selamat meneroka muzium.";
 
     [Header("Narration (optional voice-over)")]
     [Tooltip("Played once when the tutorial starts, before the first step - a general welcome plus how the hand-ray/pinch controls work. Leave empty to skip.")]
@@ -1046,7 +1045,7 @@ public class TutorialManager : MonoBehaviour
             skipArmed = true;
             if (stepCounterLabel != null)
             {
-                stepCounterLabel.text = "Tekan sekali lagi untuk langkau / Press again to skip";
+                stepCounterLabel.text = "Tekan sekali lagi untuk langkau";
             }
             if (skipDisarmCoroutine != null) StopCoroutine(skipDisarmCoroutine);
             skipDisarmCoroutine = StartCoroutine(DisarmSkipAfterDelay(3f));
