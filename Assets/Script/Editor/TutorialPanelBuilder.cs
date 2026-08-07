@@ -70,6 +70,10 @@ public static class TutorialPanelBuilder
             new Color(0.92f, 0.96f, 1f, 1f), TextAlignmentOptions.Center);
         title.text = "Langkah 2: Cubit & Tahan untuk Putar";
         Place(title.rectTransform, new Vector2(marginL, 0.76f), new Vector2(marginR, 0.96f));
+        // The Skip (X) button (built further down) sits in the top-right corner and reaches
+        // further in than the standard 8% margin gives room for - pull the title's right
+        // edge in some more so a long title can never render underneath/behind it.
+        title.rectTransform.offsetMax -= new Vector2(70f, 0f);
 
         TextMeshProUGUI body = CreateLabel(panel.transform, "Body", 19f, 14f, FontStyles.Normal,
             new Color(0.88f, 0.9f, 0.94f, 1f), TextAlignmentOptions.Top);
