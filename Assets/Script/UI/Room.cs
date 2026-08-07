@@ -59,6 +59,36 @@ public class Room : MonoBehaviour
         {
             backButtonXR.onClick.AddListener(OnBackPressed);
         }
+
+        EnsureTitleFitsAndClearsCornerButtons();
+    }
+
+    /// <summary>
+    /// The title's box stretches almost the full width of the panel with nothing reserved
+    /// for the back/close icon buttons in the top-right corner - a longer room name (e.g.
+    /// "Serambi Mandalika") renders right underneath them. Pulls the title's right edge in
+    /// to clear those buttons, and adds shrink-to-fit safety so future long room names wrap/
+    /// shrink instead of overflowing. Runs ONCE (not per room shown): UpdateRoomDetails only
+    /// changes the text content, not layout, and re-applying an offsetMax inset on every
+    /// room switch would keep shrinking the box further each time.
+    /// </summary>
+    private void EnsureTitleFitsAndClearsCornerButtons()
+    {
+        if (roomTitleText == null) return;
+
+        RectTransform titleRect = roomTitleText.rectTransform;
+        titleRect.offsetMax -= new Vector2(65f, 0f);
+
+        float authoredSize = roomTitleText.enableAutoSizing ? roomTitleText.fontSizeMax : roomTitleText.fontSize;
+        if (authoredSize <= 0f) authoredSize = 24f;
+        roomTitleText.enableAutoSizing = true;
+        roomTitleText.fontSizeMax = authoredSize;
+        roomTitleText.fontSizeMin = authoredSize * 0.55f;
+        roomTitleText.enableWordWrapping = true;
+        // Overflow, not Ellipsis: combined with auto-sizing, Ellipsis can fail to find a
+        // size that fits and render garbled/overlapping text instead of shrinking cleanly
+        // (confirmed on the History panel's and Tutorial panel's equivalent fields).
+        roomTitleText.overflowMode = TextOverflowModes.Overflow;
     }
 
     /// <summary>
