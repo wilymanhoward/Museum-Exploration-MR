@@ -56,6 +56,10 @@ public class TutorialManager : MonoBehaviour
 
     [Header("Panel Copy")]
     public string panelHeader = "Tutorial";
+    [Tooltip("Shown in the body while the welcome narration plays, before step 1 begins - a short explanation of what the tutorial is about to teach.")]
+    [TextArea] public string introBodyText =
+        "Sebelum meneroka muzium, mari kita belajar cara mengawal aplikasi ini menggunakan tangan anda. Tutorial ini mengambil masa kurang dari seminit.\n" +
+        "<size=80%><i>Before exploring the museum, let's learn how to control this app with your hands. This tutorial takes less than a minute.</i></size>";
     [TextArea] public string praiseText = "Bagus! / Well done!";
     [TextArea] public string completionText = "Tutorial selesai! Selamat meneroka muzium.\nTutorial complete - enjoy exploring the museum!";
 
@@ -218,10 +222,10 @@ public class TutorialManager : MonoBehaviour
         // until AdvanceToNextStep runs - which PlayIntroThenAdvance below only calls AFTER
         // the intro narration finishes playing. For a scene-authored panel, whatever was
         // left in the Body field at design time (e.g. the builder's placeholder preview
-        // copy) would otherwise sit there, fully visible, for that entire wait. Clear it to
-        // just the panel header so nothing stale or placeholder-looking shows through.
+        // copy) would otherwise sit there, fully visible, for that entire wait - so fill it
+        // with a short explanation of what the tutorial covers instead of leaving it blank.
         if (titleLabel != null) titleLabel.text = panelHeader;
-        if (bodyLabel != null) bodyLabel.text = "";
+        if (bodyLabel != null) bodyLabel.text = introBodyText;
         if (progressLabel != null) progressLabel.text = "";
         if (stepCounterLabel != null) stepCounterLabel.text = "";
         if (progressBarRoot != null) progressBarRoot.SetActive(false);
@@ -674,6 +678,17 @@ public class TutorialManager : MonoBehaviour
         progressLabel = FindAuthoredLabel("ProgressLabel");
         stepCounterLabel = FindAuthoredLabel("StepCounter");
 
+        // The Skip (X) button sits in the top-right corner, but nothing about the authored
+        // Title rect knows to leave room for it - a long title (e.g. "Langkah 1: Cubit
+        // untuk Klik") can render right underneath/behind the button. offsetMax works the
+        // same way regardless of whether Title is anchor-stretched or point-anchored, so
+        // this reliably pulls its right edge in without needing to know which one it is.
+        if (titleLabel != null)
+        {
+            RectTransform titleRect = titleLabel.rectTransform;
+            titleRect.offsetMax -= new Vector2(70f, 0f);
+        }
+
         // The authored preview text ("Tutorial") is much shorter than the real step titles
         // and instructions, so a label that looks fine in the Editor can overflow at runtime.
         // Treat the authored font size as the MAXIMUM and let long copy shrink to fit the
@@ -745,9 +760,17 @@ public class TutorialManager : MonoBehaviour
         if (authoredSize <= 0f) authoredSize = 19f;
         label.enableAutoSizing = true;
         label.fontSizeMax = authoredSize;
-        label.fontSizeMin = authoredSize * 0.45f;
+        // More shrink headroom than before (was 0.45x) - the real body copy is long
+        // bilingual instruction text (3 Malay lines + 2 English lines), which needs more
+        // room to shrink into than a short single-line label does.
+        label.fontSizeMin = authoredSize * 0.3f;
         label.enableWordWrapping = true;
-        label.overflowMode = TextOverflowModes.Ellipsis;
+        // Deliberately NOT Ellipsis: combined with auto-sizing, Ellipsis can fail to find a
+        // size that fits and render garbled/overlapping text instead of just shrinking or
+        // truncating cleanly (confirmed on the History panel's equivalent fields). Overflow
+        // never garbles - worst case, at the fontSizeMin floor, it spills slightly past the
+        // box instead, which is far less broken-looking than overlapping text.
+        label.overflowMode = TextOverflowModes.Overflow;
     }
 
     private void BuildPanel()
@@ -795,6 +818,10 @@ public class TutorialManager : MonoBehaviour
         titleLabel.fontSizeMin = 20f;
         titleLabel.fontSizeMax = 28f;
         Place(titleLabel.rectTransform, new Vector2(marginL, 0.76f), new Vector2(marginR, 0.96f));
+        // The Skip (X) button (built further down) sits in the top-right corner and reaches
+        // further in than the standard 8% margin gives room for - pull the title's right
+        // edge in some more so a long title can never render underneath/behind it.
+        titleLabel.rectTransform.offsetMax -= new Vector2(70f, 0f);
 
         bodyLabel = CreateChildLabel(panelRoot.transform, "Body", 19f, FontStyles.Normal,
             new Color(0.88f, 0.9f, 0.94f, 1f), TextAlignmentOptions.Top);
