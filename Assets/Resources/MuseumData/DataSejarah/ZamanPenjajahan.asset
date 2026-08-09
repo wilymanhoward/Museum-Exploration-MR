@@ -16,13 +16,21 @@ MonoBehaviour:
   topTitle: Sejarah Terengganu
   category: Zaman Penjajahan
   eventTitle: Zaman Penjajahan di Terengganu
-  timePeriod:
+  timePeriod: 1781 - 1945
   location: Terengganu
-  description: 'Ruangan ini menceritakan zaman penjajahan yang dilalui oleh Terengganu.
+  description: 'Sejarah Zaman Penjajahan di Terengganu merangkumi 4 fasa utama:
 
 
-    [PLACEHOLDER - sila gantikan dengan kandungan sebenar mengikut sumber rujukan
-    sejarah yang sahih.]'
+    • Kuasa Siam (1781–1909): Penghantaran Bunga Emas/Perak bermula 1781 sebagai tanda persahabatan, bukan ufti. Perjanjian Bangkok 1909 menyerahkan Terengganu kepada British.
+
+
+    • Campurtangan British (1862–1919): Pembedilan Kuala Terengganu (1862). Pada 1919, Terengganu secara rasmi menerima Penasihat British pertama.
+
+
+    • Penentangan Tani (1928): Dipimpin Haji Abdul Rahman Limbong menentang cukai tanah dan pas hutan British dalam Pemberontakan Tani 1928.
+
+
+    • Pendudukan Jepun & Thai (1942–1945): Pentadbiran tentera Jepun (1942) dan penyerahan kuasa kepada Thai (1943) sehingga Perang Dunia Ke-2 tamat (1945).'
   images: []
   displaySprite: {fileID: 0}
   videoClip: {fileID: 0}
