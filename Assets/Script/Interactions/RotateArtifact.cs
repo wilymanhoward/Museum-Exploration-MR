@@ -150,17 +150,30 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
 
         string key = ((prefab.name ?? "") + " " + (artifactId ?? "")).ToLower();
 
-        // 3. Instantiate under the spawner
-        spawnedModel = Instantiate(prefab, transform.position, transform.rotation, transform);
-        spawnedModel.transform.localRotation = GetUprightOrientation(prefab.name, artifactId);
+        // 3. Create a pivot container at (0, 0, -0.15f) in spawner space.
+        // This container becomes spawnedModel, ensuring its local origin (0,0,0) is placed
+        // PRECISELY at the geometric center of the mesh. Rotating spawnedModel will now rotate
+        // cleanly around the true visual center of any artifact (e.g., Wayang Kulit).
+        spawnedModel = new GameObject("ArtifactPivot");
+        spawnedModel.transform.SetParent(transform, false);
+        spawnedModel.transform.localPosition = new Vector3(0f, 0f, -0.15f);
+        spawnedModel.transform.localRotation = Quaternion.identity;
+        spawnedModel.transform.localScale = Vector3.one;
 
-        // 4. Determine target world size in meters
+        // 4. Instantiate the model prefab under the pivot container
+        GameObject modelInstance = Instantiate(prefab, spawnedModel.transform);
+        modelInstance.name = prefab.name;
+        modelInstance.transform.localPosition = Vector3.zero;
+        modelInstance.transform.localRotation = GetUprightOrientation(prefab.name, artifactId);
+        modelInstance.transform.localScale = Vector3.one;
+
+        // 5. Determine target world size in meters
         float targetSize = targetSizeMeters > 0f ? targetSizeMeters : GetTargetWorldSize(key);
 
-        // 5. Fit model bounds and align geometric center at (0, 0, -0.15f) in spawner space
-        FitModelToBounds(spawnedModel, targetSize);
+        // 6. Fit model bounds and offset modelInstance inside pivot so geometric center is at pivot origin (0,0,0)
+        FitModelToBounds(spawnedModel, modelInstance, targetSize);
 
-        // 6. Setup colliders so raycasts can detect model without blocking UI buttons below
+        // 7. Setup colliders so raycasts can detect model without blocking UI buttons below
         SetupCollidersAndInteractable(spawnedModel);
 
         return spawnedModel;
@@ -197,15 +210,16 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         return Quaternion.identity;
     }
 
-    private void FitModelToBounds(GameObject model, float targetWorldSizeMeters = 0.22f)
+    private void FitModelToBounds(GameObject pivot, GameObject modelInstance, float targetWorldSizeMeters = 0.22f)
     {
-        if (model == null) return;
+        if (pivot == null || modelInstance == null) return;
 
-        // Reset local scale to 1 to measure natural unscaled bounds
-        model.transform.localScale = Vector3.one;
+        // Reset local scale to 1 and position to 0 to measure natural unscaled bounds
+        modelInstance.transform.localScale = Vector3.one;
+        modelInstance.transform.localPosition = Vector3.zero;
 
-        MeshFilter[] filters = model.GetComponentsInChildren<MeshFilter>(true);
-        SkinnedMeshRenderer[] skinned = model.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+        MeshFilter[] filters = modelInstance.GetComponentsInChildren<MeshFilter>(true);
+        SkinnedMeshRenderer[] skinned = modelInstance.GetComponentsInChildren<SkinnedMeshRenderer>(true);
 
         Bounds combinedLocalBounds = new Bounds();
         bool hasBounds = false;
@@ -213,7 +227,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         foreach (MeshFilter mf in filters)
         {
             if (mf == null || mf.sharedMesh == null) continue;
-            Bounds b = GetMeshBoundsInRootSpace(model.transform, mf.transform, mf.sharedMesh.bounds);
+            Bounds b = GetMeshBoundsInRootSpace(pivot.transform, mf.transform, mf.sharedMesh.bounds);
             if (!hasBounds)
             {
                 combinedLocalBounds = b;
@@ -228,7 +242,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         foreach (SkinnedMeshRenderer smr in skinned)
         {
             if (smr == null || smr.sharedMesh == null) continue;
-            Bounds b = GetMeshBoundsInRootSpace(model.transform, smr.transform, smr.sharedMesh.bounds);
+            Bounds b = GetMeshBoundsInRootSpace(pivot.transform, smr.transform, smr.sharedMesh.bounds);
             if (!hasBounds)
             {
                 combinedLocalBounds = b;
@@ -244,7 +258,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
 
         if (!hasBounds)
         {
-            Renderer[] renderers = model.GetComponentsInChildren<Renderer>(true);
+            Renderer[] renderers = modelInstance.GetComponentsInChildren<Renderer>(true);
             if (renderers.Length > 0)
             {
                 Bounds b = renderers[0].bounds;
@@ -260,10 +274,11 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
                 if (worldDim > 0.0001f)
                 {
                     float scaleFactor = targetWorldSizeMeters / (worldDim * spawnerScale);
-                    model.transform.localScale = Vector3.one * scaleFactor;
+                    modelInstance.transform.localScale = Vector3.one * scaleFactor;
                 }
+                Vector3 centerInPivot = pivot.transform.InverseTransformPoint(b.center);
+                modelInstance.transform.localPosition = -centerInPivot;
             }
-            model.transform.localPosition = new Vector3(0f, 0f, -0.15f);
             return;
         }
 
@@ -280,16 +295,15 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
                 desiredLocalScale = 1.0f;
             }
 
-            model.transform.localScale = Vector3.one * desiredLocalScale;
+            modelInstance.transform.localScale = Vector3.one * desiredLocalScale;
         }
 
-        // 2. Position model root so its geometric center aligns at (0, 0, -0.15f) in spawner space
+        // 2. Position modelInstance inside pivot container so its geometric center aligns EXACTLY at pivot origin (0, 0, 0)
         Vector3 centerOffset = combinedLocalBounds.center;
         Vector3 localPos = -centerOffset * desiredLocalScale;
-        localPos.z -= 0.15f; // Float 15cm forward in front of canvas plane
-        model.transform.localPosition = localPos;
+        modelInstance.transform.localPosition = localPos;
 
-        Debug.Log($"[RotateArtifact] FitModelToBounds for '{model.name}': localMaxDim={localMaxDim}, spawnerScale={spawnerScale}, set localScale={desiredLocalScale}, localPos={localPos}");
+        Debug.Log($"[RotateArtifact] FitModelToBounds for '{modelInstance.name}': localMaxDim={localMaxDim}, spawnerScale={spawnerScale}, set localScale={desiredLocalScale}, modelInstance localPos={localPos}");
     }
 
     private Bounds GetMeshBoundsInRootSpace(Transform root, Transform child, Bounds meshBounds)
