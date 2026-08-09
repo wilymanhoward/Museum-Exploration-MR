@@ -184,7 +184,26 @@ public class HistoryPanel : MonoBehaviour
     private void EnsureDescriptionScrollView()
     {
         if (descriptionText == null) return;
-        if (descriptionText.GetComponentInParent<ScrollRect>() != null) return; // already wrapped
+
+        descriptionScrollRect = descriptionText.GetComponentInParent<ScrollRect>();
+        if (descriptionScrollRect != null)
+        {
+            // Already wrapped - ensure raycast target is active on text so UI raycasts hit
+            descriptionText.raycastTarget = true;
+            // Remove any ContentSizeFitter on Content that could collapse contentRect height
+            Transform currentContent = descriptionText.transform.parent;
+            if (currentContent != null)
+            {
+                ContentSizeFitter csf = currentContent.GetComponent<ContentSizeFitter>();
+                if (csf != null) Destroy(csf);
+            }
+
+            if (descriptionScrollRect.verticalScrollbar == null)
+            {
+                BuildScrollbarForScrollRect(descriptionScrollRect);
+            }
+            return;
+        }
 
         Transform originalParent = descriptionText.transform.parent;
         RectTransform textRect = descriptionText.rectTransform;
@@ -209,14 +228,19 @@ public class HistoryPanel : MonoBehaviour
         scrollRootRect.pivot = pivot;
         scrollRootRect.SetSiblingIndex(siblingIndex);
 
-        // 2. Viewport - clips content to the visible window and receives the pinch-drag input.
+        // Invisible background image on root to ensure raycasts anywhere in the box hit the ScrollRect
+        Image scrollBg = scrollGo.AddComponent<Image>();
+        scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
+        scrollBg.raycastTarget = true;
+
+        // 2. Viewport - clips content to the visible window and leaves 12px right margin for scrollbar track
         GameObject viewportGo = new GameObject("Viewport");
         RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
         viewportGo.transform.SetParent(scrollGo.transform, false);
         viewportRect.anchorMin = Vector2.zero;
         viewportRect.anchorMax = Vector2.one;
         viewportRect.offsetMin = Vector2.zero;
-        viewportRect.offsetMax = Vector2.zero;
+        viewportRect.offsetMax = new Vector2(-12f, 0f);
         viewportGo.AddComponent<RectMask2D>();
         Image viewportImg = viewportGo.AddComponent<Image>();
         viewportImg.color = new Color(1f, 1f, 1f, 0.001f); // invisible but still raycastable
@@ -230,19 +254,16 @@ public class HistoryPanel : MonoBehaviour
         contentRect.anchorMax = new Vector2(1f, 1f);
         contentRect.pivot = new Vector2(0.5f, 1f);
         contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = Vector2.zero;
-        ContentSizeFitter fitter = contentGo.AddComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+        contentRect.sizeDelta = new Vector2(0f, sizeDelta.y);
 
         // 4. Re-parent the description text itself into Content, stretched to Content's width
-        // so it wraps normally and reports a correct preferred height for the fitter above.
         descriptionText.transform.SetParent(contentGo.transform, false);
         textRect.anchorMin = new Vector2(0f, 1f);
         textRect.anchorMax = new Vector2(1f, 1f);
         textRect.pivot = new Vector2(0.5f, 1f);
         textRect.anchoredPosition = Vector2.zero;
         textRect.sizeDelta = Vector2.zero;
+        descriptionText.raycastTarget = true;
 
         // 5. Wire the ScrollRect.
         descriptionScrollRect = scrollGo.AddComponent<ScrollRect>();
@@ -251,7 +272,135 @@ public class HistoryPanel : MonoBehaviour
         descriptionScrollRect.horizontal = false;
         descriptionScrollRect.vertical = true;
         descriptionScrollRect.movementType = ScrollRect.MovementType.Clamped;
-        descriptionScrollRect.scrollSensitivity = 20f;
+        descriptionScrollRect.scrollSensitivity = 35f;
+
+        // 6. Build sleek vertical Scrollbar indicator
+        BuildScrollbarForScrollRect(descriptionScrollRect);
+    }
+
+    private static Sprite cachedRoundedPillSprite;
+
+    private static Sprite GetOrCreateRoundedPillSprite()
+    {
+        if (cachedRoundedPillSprite != null) return cachedRoundedPillSprite;
+
+        int width = 32;
+        int height = 64;
+        float radius = 16f; // Smooth semi-circular rounded tips at top and bottom
+
+        Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color[] pixels = new Color[width * height];
+        Vector2 centerTop = new Vector2(width / 2f, height - radius);
+        Vector2 centerBottom = new Vector2(width / 2f, radius);
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Vector2 pos = new Vector2(x + 0.5f, y + 0.5f);
+                float dist = 0f;
+
+                if (pos.y > centerTop.y)
+                {
+                    dist = Vector2.Distance(pos, centerTop);
+                }
+                else if (pos.y < centerBottom.y)
+                {
+                    dist = Vector2.Distance(pos, centerBottom);
+                }
+                else
+                {
+                    dist = Mathf.Abs(pos.x - (width / 2f));
+                }
+
+                float alpha = Mathf.Clamp01(radius - dist + 0.5f);
+                pixels[y * width + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        Vector4 border = new Vector4(15, 16, 15, 16);
+        cachedRoundedPillSprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        return cachedRoundedPillSprite;
+    }
+
+    private void BuildScrollbarForScrollRect(ScrollRect scrollRect)
+    {
+        if (scrollRect == null || scrollRect.gameObject == null) return;
+
+        Sprite roundedPill = GetOrCreateRoundedPillSprite();
+
+        // Check if scrollbar already exists
+        Scrollbar existingSb = scrollRect.gameObject.GetComponentInChildren<Scrollbar>(true);
+        if (existingSb != null)
+        {
+            scrollRect.verticalScrollbar = existingSb;
+            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+            if (existingSb.targetGraphic is Image existingHandleImg)
+            {
+                existingHandleImg.sprite = roundedPill;
+                existingHandleImg.type = Image.Type.Sliced;
+            }
+            Image existingTrackImg = existingSb.GetComponent<Image>();
+            if (existingTrackImg != null)
+            {
+                existingTrackImg.sprite = roundedPill;
+                existingTrackImg.type = Image.Type.Sliced;
+            }
+            return;
+        }
+
+        GameObject scrollbarGo = new GameObject("ScrollbarVertical");
+        scrollbarGo.transform.SetParent(scrollRect.transform, false);
+
+        RectTransform sbRect = scrollbarGo.AddComponent<RectTransform>();
+        sbRect.anchorMin = new Vector2(1f, 0f);
+        sbRect.anchorMax = new Vector2(1f, 1f);
+        sbRect.pivot = new Vector2(1f, 0.5f);
+        sbRect.anchoredPosition = Vector2.zero;
+        sbRect.sizeDelta = new Vector2(6f, 0f); // Sleek 6px wide scrollbar
+
+        Image trackImg = scrollbarGo.AddComponent<Image>();
+        trackImg.sprite = roundedPill;
+        trackImg.type = Image.Type.Sliced;
+        trackImg.color = new Color(1f, 1f, 1f, 0.15f); // Translucent track
+        trackImg.raycastTarget = true;
+
+        Scrollbar sbComp = scrollbarGo.AddComponent<Scrollbar>();
+        sbComp.direction = Scrollbar.Direction.BottomToTop;
+
+        GameObject slidingAreaGo = new GameObject("Sliding Area");
+        slidingAreaGo.transform.SetParent(scrollbarGo.transform, false);
+        RectTransform slidingRect = slidingAreaGo.AddComponent<RectTransform>();
+        slidingRect.anchorMin = Vector2.zero;
+        slidingRect.anchorMax = Vector2.one;
+        slidingRect.sizeDelta = Vector2.zero;
+
+        GameObject handleGo = new GameObject("Handle");
+        handleGo.transform.SetParent(slidingAreaGo.transform, false);
+        RectTransform handleRect = handleGo.AddComponent<RectTransform>();
+        handleRect.anchorMin = Vector2.zero;
+        handleRect.anchorMax = Vector2.one;
+        handleRect.sizeDelta = Vector2.zero;
+
+        Image handleImg = handleGo.AddComponent<Image>();
+        handleImg.sprite = roundedPill;
+        handleImg.type = Image.Type.Sliced;
+        handleImg.color = new Color(0.90f, 0.93f, 0.63f, 0.85f); // Pale lime yellow accent (#E5EE9C)
+        handleImg.raycastTarget = true;
+
+        sbComp.targetGraphic = handleImg;
+        sbComp.handleRect = handleRect;
+
+        scrollRect.verticalScrollbar = sbComp;
+        scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        scrollRect.verticalScrollbarSpacing = 4f;
     }
 
     private void OnEnable()
@@ -305,15 +454,36 @@ public class HistoryPanel : MonoBehaviour
         // actual historical content instead of just fixing an overflowing title.
         if (descriptionText != null)
         {
-            SetSmallerText(descriptionText, string.IsNullOrEmpty(data.description) ? "" : data.description, 13f);
+            EnsureDescriptionScrollView();
 
-            // The ScrollRect's Content only recomputes its (fitter-driven) height on the next
-            // layout pass - force it immediately so the new scroll range is correct this frame
-            // instead of lagging a frame, and snap back to the top so switching topics doesn't
-            // leave the reader scrolled partway down the PREVIOUS description.
+            SetSmallerText(descriptionText, string.IsNullOrEmpty(data.description) ? "" : data.description, 13f);
+            descriptionText.raycastTarget = true;
+
+            // Force TextMeshPro layout update to calculate exact line wrapping height
+            descriptionText.ForceMeshUpdate();
+
             RectTransform contentRect = descriptionText.transform.parent as RectTransform;
-            if (contentRect != null) LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
-            if (descriptionScrollRect != null) descriptionScrollRect.verticalNormalizedPosition = 1f;
+            if (contentRect != null)
+            {
+                float textHeight = descriptionText.preferredHeight;
+                float viewportHeight = 120f;
+                if (descriptionScrollRect != null && descriptionScrollRect.viewport != null)
+                {
+                    viewportHeight = descriptionScrollRect.viewport.rect.height;
+                    if (viewportHeight <= 1f) viewportHeight = 120f;
+                }
+
+                float totalHeight = Mathf.Max(textHeight + 20f, viewportHeight);
+                contentRect.sizeDelta = new Vector2(0f, totalHeight);
+                descriptionText.rectTransform.sizeDelta = new Vector2(0f, totalHeight);
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            }
+
+            if (descriptionScrollRect != null)
+            {
+                descriptionScrollRect.verticalNormalizedPosition = 1f; // Always reset to top when changing topics
+            }
         }
 
         // Narration Audio Setup

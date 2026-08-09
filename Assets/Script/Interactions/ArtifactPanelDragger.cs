@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.EventSystems;
 using UnityEngine.XR.Interaction.Toolkit.UI;
@@ -93,7 +94,18 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     {
         base.OnSelectEntered(args);
         Transform interactorT = args.interactorObject != null ? args.interactorObject.transform : null;
-        StartPinchHold(interactorT, null);
+
+        // This selection path comes from the 3D collider (XRSimpleInteractable), which has no
+        // PointerEventData of its own - ask the ray interactor what it's CURRENTLY over in UI
+        // space too, so a pinch that started on a scrollable area (e.g. the description text)
+        // is recognized here exactly like it is via OnPointerDown below.
+        GameObject uiHitObj = null;
+        if (args.interactorObject is XRRayInteractor rayInteractor && rayInteractor.TryGetCurrentUIRaycastResult(out RaycastResult uiResult))
+        {
+            uiHitObj = uiResult.gameObject;
+        }
+
+        StartPinchHold(interactorT, uiHitObj);
     }
 
     protected override void OnSelectExited(SelectExitEventArgs args)
@@ -106,7 +118,8 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     public void OnPointerDown(PointerEventData eventData)
     {
         Transform interactorT = ExtractInteractorTransform(eventData);
-        StartPinchHold(interactorT, eventData);
+        GameObject hitObj = eventData != null ? eventData.pointerCurrentRaycast.gameObject : null;
+        StartPinchHold(interactorT, hitObj);
     }
 
     public void OnPointerUp(PointerEventData eventData)
@@ -129,11 +142,10 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     }
     #endregion
 
-    private bool IsTargeting3DArtifactModel(PointerEventData eventData)
+    private bool IsTargeting3DArtifactModel(GameObject hitObj)
     {
-        if (eventData != null && eventData.pointerCurrentRaycast.gameObject != null)
+        if (hitObj != null)
         {
-            GameObject hitObj = eventData.pointerCurrentRaycast.gameObject;
             if (hitObj.GetComponent<RotateArtifact>() != null || hitObj.name.Contains("ObjectSpawner") || hitObj.name.Contains("3DDisplay") || hitObj.name.Contains("Model"))
             {
                 return true;
@@ -151,6 +163,18 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// True if the pinch landed inside ANY ScrollRect's hierarchy (e.g. the History panel's
+    /// scrollable description text) - pinch-hold-drag there must scroll the content, not move
+    /// the whole panel. Generic on purpose: this component is shared by the Artifact and
+    /// History detail panels, so any current or future scrollable area is excluded automatically
+    /// without this dragger needing to know about specific fields on either panel.
+    /// </summary>
+    private static bool IsTargetingScrollableContent(GameObject hitObj)
+    {
+        return hitObj != null && hitObj.GetComponentInParent<ScrollRect>() != null;
     }
 
     private Transform ExtractInteractorTransform(PointerEventData eventData)
@@ -191,11 +215,17 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
         return null;
     }
 
-    private void StartPinchHold(Transform interactorTransform, PointerEventData eventData = null)
+    private void StartPinchHold(Transform interactorTransform, GameObject hitObj = null)
     {
-        if (IsTargeting3DArtifactModel(eventData))
+        if (IsTargeting3DArtifactModel(hitObj))
         {
             Debug.Log("[ArtifactPanelDragger] Pinch target is the 3D artifact model or model rotator! Suppressing panel drag.");
+            return;
+        }
+
+        if (IsTargetingScrollableContent(hitObj))
+        {
+            Debug.Log("[ArtifactPanelDragger] Pinch target is inside a scrollable area (e.g. description text). Suppressing panel drag so it can scroll instead.");
             return;
         }
 
