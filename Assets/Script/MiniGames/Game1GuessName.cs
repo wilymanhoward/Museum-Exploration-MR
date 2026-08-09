@@ -416,15 +416,45 @@ public class Game1GuessName : BaseGame
             if (rend == null) continue;
             originalMaterialsMap[rend] = rend.sharedMaterials;
 
-            if (silhouetteMaterial != null)
+            Material[] silMats = new Material[rend.sharedMaterials.Length];
+            for (int i = 0; i < silMats.Length; i++)
             {
-                Material[] silMats = new Material[rend.sharedMaterials.Length];
-                for (int i = 0; i < silMats.Length; i++)
+                Material origMat = rend.sharedMaterials[i];
+                if (origMat != null)
+                {
+                    // Create an instance copy of the original material so texture alpha maps & cutout shaders are preserved!
+                    Material silMat = new Material(origMat);
+                    silMat.name = origMat.name + "_Silhouette";
+
+                    // Tint the base RGB color to pure black while retaining original alpha channel & cutout properties
+                    if (silMat.HasProperty("_BaseColor"))
+                    {
+                        Color c = silMat.GetColor("_BaseColor");
+                        silMat.SetColor("_BaseColor", new Color(0f, 0f, 0f, c.a));
+                    }
+                    if (silMat.HasProperty("_Color"))
+                    {
+                        Color c = silMat.GetColor("_Color");
+                        silMat.SetColor("_Color", new Color(0f, 0f, 0f, c.a));
+                    }
+                    if (silMat.HasProperty("_SpecColor"))
+                    {
+                        silMat.SetColor("_SpecColor", Color.black);
+                    }
+                    if (silMat.HasProperty("_EmissionColor"))
+                    {
+                        silMat.SetColor("_EmissionColor", Color.black);
+                    }
+
+                    silMat.DisableKeyword("_EMISSION");
+                    silMats[i] = silMat;
+                }
+                else if (silhouetteMaterial != null)
                 {
                     silMats[i] = silhouetteMaterial;
                 }
-                rend.materials = silMats;
             }
+            rend.materials = silMats;
         }
     }
 

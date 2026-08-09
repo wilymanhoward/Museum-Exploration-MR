@@ -278,62 +278,53 @@ public class HistoryPanel : MonoBehaviour
         BuildScrollbarForScrollRect(descriptionScrollRect);
     }
 
-    private static Sprite cachedRoundedPillSprite;
+    private static Sprite cachedRoundedRectSprite;
 
-    private static Sprite GetOrCreateRoundedPillSprite()
+    private static Sprite GetOrCreateRoundedRectSprite()
     {
-        if (cachedRoundedPillSprite != null) return cachedRoundedPillSprite;
+        if (cachedRoundedRectSprite != null) return cachedRoundedRectSprite;
 
-        int width = 32;
-        int height = 64;
-        float radius = 16f; // Smooth semi-circular rounded tips at top and bottom
+        int size = 64;
+        float cornerRadius = 10f; // 10px corner radius on 64x64 texture
+        float halfSize = size / 2f; // 32f
+        float innerHalf = halfSize - cornerRadius; // 22f
 
-        Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
         tex.wrapMode = TextureWrapMode.Clamp;
         tex.filterMode = FilterMode.Bilinear;
 
-        Color[] pixels = new Color[width * height];
-        Vector2 centerTop = new Vector2(width / 2f, height - radius);
-        Vector2 centerBottom = new Vector2(width / 2f, radius);
+        Color[] pixels = new Color[size * size];
 
-        for (int y = 0; y < height; y++)
+        for (int y = 0; y < size; y++)
         {
-            for (int x = 0; x < width; x++)
+            for (int x = 0; x < size; x++)
             {
-                Vector2 pos = new Vector2(x + 0.5f, y + 0.5f);
-                float dist = 0f;
+                float px = Mathf.Abs((x + 0.5f) - halfSize);
+                float py = Mathf.Abs((y + 0.5f) - halfSize);
 
-                if (pos.y > centerTop.y)
-                {
-                    dist = Vector2.Distance(pos, centerTop);
-                }
-                else if (pos.y < centerBottom.y)
-                {
-                    dist = Vector2.Distance(pos, centerBottom);
-                }
-                else
-                {
-                    dist = Mathf.Abs(pos.x - (width / 2f));
-                }
+                float dx = Mathf.Max(px - innerHalf, 0f);
+                float dy = Mathf.Max(py - innerHalf, 0f);
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
 
-                float alpha = Mathf.Clamp01(radius - dist + 0.5f);
-                pixels[y * width + x] = new Color(1f, 1f, 1f, alpha);
+                float alpha = Mathf.Clamp01(cornerRadius - dist + 0.5f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
             }
         }
 
         tex.SetPixels(pixels);
         tex.Apply();
 
-        Vector4 border = new Vector4(15, 16, 15, 16);
-        cachedRoundedPillSprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
-        return cachedRoundedPillSprite;
+        // 9-slice borders: 14px on all 4 sides -> clean, symmetrical rounded rectangular corners
+        Vector4 border = new Vector4(14, 14, 14, 14);
+        cachedRoundedRectSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        return cachedRoundedRectSprite;
     }
 
     private void BuildScrollbarForScrollRect(ScrollRect scrollRect)
     {
         if (scrollRect == null || scrollRect.gameObject == null) return;
 
-        Sprite roundedPill = GetOrCreateRoundedPillSprite();
+        Sprite roundedRect = GetOrCreateRoundedRectSprite();
 
         // Check if scrollbar already exists
         Scrollbar existingSb = scrollRect.gameObject.GetComponentInChildren<Scrollbar>(true);
@@ -344,13 +335,13 @@ public class HistoryPanel : MonoBehaviour
 
             if (existingSb.targetGraphic is Image existingHandleImg)
             {
-                existingHandleImg.sprite = roundedPill;
+                existingHandleImg.sprite = roundedRect;
                 existingHandleImg.type = Image.Type.Sliced;
             }
             Image existingTrackImg = existingSb.GetComponent<Image>();
             if (existingTrackImg != null)
             {
-                existingTrackImg.sprite = roundedPill;
+                existingTrackImg.sprite = roundedRect;
                 existingTrackImg.type = Image.Type.Sliced;
             }
             return;
@@ -364,10 +355,10 @@ public class HistoryPanel : MonoBehaviour
         sbRect.anchorMax = new Vector2(1f, 1f);
         sbRect.pivot = new Vector2(1f, 0.5f);
         sbRect.anchoredPosition = Vector2.zero;
-        sbRect.sizeDelta = new Vector2(6f, 0f); // Sleek 6px wide scrollbar
+        sbRect.sizeDelta = new Vector2(7f, 0f); // Sleek 7px wide rounded rectangular scrollbar
 
         Image trackImg = scrollbarGo.AddComponent<Image>();
-        trackImg.sprite = roundedPill;
+        trackImg.sprite = roundedRect;
         trackImg.type = Image.Type.Sliced;
         trackImg.color = new Color(1f, 1f, 1f, 0.15f); // Translucent track
         trackImg.raycastTarget = true;
@@ -390,7 +381,7 @@ public class HistoryPanel : MonoBehaviour
         handleRect.sizeDelta = Vector2.zero;
 
         Image handleImg = handleGo.AddComponent<Image>();
-        handleImg.sprite = roundedPill;
+        handleImg.sprite = roundedRect;
         handleImg.type = Image.Type.Sliced;
         handleImg.color = new Color(0.90f, 0.93f, 0.63f, 0.85f); // Pale lime yellow accent (#E5EE9C)
         handleImg.raycastTarget = true;
