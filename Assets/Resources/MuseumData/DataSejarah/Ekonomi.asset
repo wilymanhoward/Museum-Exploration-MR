@@ -16,14 +16,21 @@ MonoBehaviour:
   topTitle: Sejarah Terengganu
   category: Ekonomi
   eventTitle: Ekonomi Terengganu
-  timePeriod:
+  timePeriod: Abad ke-12 – Kini
   location: Terengganu
-  description: 'Ruangan ini menceritakan perkembangan ekonomi Terengganu dari semasa
-    ke semasa.
+  description: 'Sejarah Perkembangan Ekonomi Terengganu merangkumi fasa utama:
 
 
-    [PLACEHOLDER - sila gantikan dengan kandungan sebenar mengikut sumber rujukan
-    sejarah yang sahih.]'
+    • Ekonomi Tradisi & Sumber Alam: Dipelopori kegiatan perikanan, pertanian, penternakan, serta hasil hutan (rotan, gaharu, damar) dan kayu-kayuan bagi pembinaan perahu dan rumah.
+
+
+    • Pelabuhan & Perdagangan (Abad ke-12–19): Tercatat sejak abad ke-12 sebagai pelabuhan persinggahan (Foloan, Kole, Primula). Abad ke-18 & 19 berkembang pesat di bawah pentadbiran Syahbandar dengan penubuhan Pasar Tanjung & Pasar Payang serta eksport lada hitam, tebu, dan perahu besar ke Siam.
+
+
+    • Perlombongan Bijih Timah & Besi (1920-an–1970-an): Pembukaan lombong bijih timah di Kemaman dan bijih besi di Bukit Besi (Dungun) menjadi komoditi eksport utama negeri.
+
+
+    • Penemuan Minyak & Industri Moden (1978–Kini): Penemuan petroleum di perairan Terengganu pada tahun 1978 memacu transformasi ekonomi moden di samping industri pelancongan dan warisan.'
   images: []
   displaySprite: {fileID: 0}
   videoClip: {fileID: 0}
