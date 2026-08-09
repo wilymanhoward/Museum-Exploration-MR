@@ -16,14 +16,21 @@ MonoBehaviour:
   topTitle: Sejarah Terengganu
   category: Infrastruktur & Pembangunan
   eventTitle: Infrastruktur & Pembangunan Terengganu
-  timePeriod:
+  timePeriod: 150 M – Kini
   location: Terengganu
-  description: 'Ruangan ini menceritakan perkembangan infrastruktur dan pembangunan
-    di Terengganu.
+  description: 'Sejarah Pembangunan & Infrastruktur Terengganu merangkumi 4 fasa utama:
 
 
-    [PLACEHOLDER - sila gantikan dengan kandungan sebenar mengikut sumber rujukan
-    sejarah yang sahih.]'
+    • Catatan Awal (150 M–Abad ke-13): Nama Primula & Kole tercatat dalam peta Ptolemy (150 M), serta Fo-Lo-An (Kuala Berang) dalam catatan Chao-Ju-Kua (1226 M) sebagai pelabuhan entrepot dan pusat penempatan terawal.
+
+
+    • Pembentukan Kota & Bandar (1728–1800-an): Sultan Zainal Abidin I membina istana di Bukit Keledang (1728). Sultan Mansor II mengembangkan kota pelabuhan dan pasar (Pasar Tanjung & Pasar Payang), manakala Sultan Zainal Abidin II membina Masjid Abidin (Masjid Putih).
+
+
+    • Pemodenan Awal & Pentadbiran (1900–1912): Sultan Zainal Abidin III memperbesar rangkaian jalan raya utama serta menubuhkan Pejabat Setiausaha Kerajaan Negeri (SUK) dan jabatan pentadbiran di Istana Maziah pada 1912.
+
+
+    • Pembangunan Moden (1960-an–Kini): Pembinaan Rangkaian Jalan Persekutuan 3, Wilayah KETENGAH, Lebuhraya Pantai Timur (LPT), lapangan terbang, jambatan konkrit (Manir, Sultan Mahmud, Pulau Sekati, Jambatan Angkat Drawbridge), serta Kompleks Pentadbiran Wisma Darul Iman dan Seri Iman.'
   images: []
   displaySprite: {fileID: 0}
   videoClip: {fileID: 0}
