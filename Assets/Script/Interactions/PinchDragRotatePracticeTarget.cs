@@ -18,6 +18,9 @@ public class PinchDragRotatePracticeTarget : XRGrabInteractable
     [Tooltip("Degrees of rotation per meter of hand movement while pinching.")]
     public float rotationSensitivity = 420f;
 
+    [Tooltip("A quick pinch has a tiny bit of involuntary hand-tracking jitter as the fingers close, which would otherwise register as a few degrees of 'rotation' even though the player never actually dragged anything. Rotation only starts counting toward progress once the pinch has been held this long - matches the step's own 'pinch AND HOLD, then drag' instruction, so repeatedly tapping pinch/unpinch contributes nothing.")]
+    public float settleSecondsBeforeRotationCounts = 0.15f;
+
     public event Action GrabStarted;
     public event Action GrabEnded;
     /// <summary>Fired with the unsigned degrees rotated this frame, while held.</summary>
@@ -184,7 +187,9 @@ public class PinchDragRotatePracticeTarget : XRGrabInteractable
 
         Vector3 delta = currentPos - lastInteractorPos;
         lastInteractorPos = currentPos;
-        if (delta.sqrMagnitude < 0.000001f) return;
+        // ~3mm dead zone - well below any deliberate rotation gesture, but large enough to
+        // absorb ordinary hand-tracking jitter (Unity's default 1mm was effectively no filter).
+        if (delta.sqrMagnitude < 0.000009f) return;
 
         Vector3 camRight = Vector3.ProjectOnPlane(mainCamera.transform.right, Vector3.up).normalized;
         Vector3 camUp = mainCamera.transform.up;
@@ -198,9 +203,15 @@ public class PinchDragRotatePracticeTarget : XRGrabInteractable
         visualRoot.Rotate(Vector3.up, yawDegrees, Space.World);
         visualRoot.Rotate(camRight, pitchDegrees, Space.World);
 
-        float rotatedThisFrame = Mathf.Abs(yawDegrees) + Mathf.Abs(pitchDegrees);
-        TotalRotationDegrees += rotatedThisFrame;
-        Rotated?.Invoke(rotatedThisFrame);
+        // The visual above stays responsive immediately (feels tactile the instant you grab),
+        // but progress only accrues once the hold has settled past the jitter window - see
+        // settleSecondsBeforeRotationCounts.
+        if (currentHoldSeconds >= settleSecondsBeforeRotationCounts)
+        {
+            float rotatedThisFrame = Mathf.Abs(yawDegrees) + Mathf.Abs(pitchDegrees);
+            TotalRotationDegrees += rotatedThisFrame;
+            Rotated?.Invoke(rotatedThisFrame);
+        }
     }
 
     private void LateUpdate()
