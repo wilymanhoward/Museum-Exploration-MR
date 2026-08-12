@@ -52,13 +52,13 @@ public class GameListMenu : MonoBehaviour
     public void Show()
     {
         EnsureBuilt();
-        if (explorationCanvas != null) explorationCanvas.SetActive(true);
         if (gameListPanel == null)
         {
             Debug.LogWarning("GameListMenu: could not build the List Game panel (RoomListPanel template not found).");
             return;
         }
 
+        ConfigurePanel(gameListPanel);
         gameListPanel.SetActive(true);
 
         // Only the game list should be visible among the canvas panels.
@@ -139,7 +139,7 @@ public class GameListMenu : MonoBehaviour
         Transform closeT = FindDeepChild(panel.transform, "CloseButton");
 
         MakeSingleColumn(listContainer);
-        SetTitle(panel, "Senarai Permainan");
+        SetTitle(panel, "List Game");
         Populate(listContainer, buttonPrefab);
         WireButton(closeT != null ? closeT.gameObject : null, Close);
     }
@@ -161,9 +161,25 @@ public class GameListMenu : MonoBehaviour
 
     private void Populate(Transform container, GameObject buttonPrefab)
     {
-        if (container == null || buttonPrefab == null)
+        if (container == null)
         {
-            Debug.LogWarning("GameListMenu: missing list container or button prefab; cannot build game rows.");
+            Debug.LogWarning("GameListMenu: missing list container; cannot build game rows.");
+            return;
+        }
+
+        GameObject templateObj = buttonPrefab;
+        bool createdTemporaryTemplate = false;
+
+        if (templateObj == null && container.childCount > 0)
+        {
+            templateObj = Instantiate(container.GetChild(0).gameObject);
+            templateObj.SetActive(false);
+            createdTemporaryTemplate = true;
+        }
+
+        if (templateObj == null)
+        {
+            Debug.LogWarning("GameListMenu: missing button template/prefab; cannot build game rows.");
             return;
         }
 
@@ -182,9 +198,7 @@ public class GameListMenu : MonoBehaviour
             GameObject btnObj = Instantiate(buttonPrefab, container);
             btnObj.SetActive(true);
 
-            string number = index.ToString("D2");
-
-            // Same field-matching scheme RoomList uses (number field vs name field).
+            // Match number text & name text fields
             TextMeshProUGUI numText = null;
             TextMeshProUGUI nameText = null;
             foreach (TextMeshProUGUI tmp in btnObj.GetComponentsInChildren<TextMeshProUGUI>(true))
@@ -196,16 +210,58 @@ public class GameListMenu : MonoBehaviour
                     nameText = tmp;
             }
 
-            if (numText != null) numText.text = number;
-            if (nameText != null) nameText.text = captured.displayName;
+            if (numText != null && nameText != null)
+            {
+                // Align number text cleanly inside the left margin of the button pill
+                numText.rectTransform.anchorMin = new Vector2(0f, 0f);
+                numText.rectTransform.anchorMax = new Vector2(0f, 1f);
+                numText.rectTransform.pivot = new Vector2(0f, 0.5f);
+                numText.rectTransform.anchoredPosition = new Vector2(20f, 0f);
+                numText.rectTransform.sizeDelta = new Vector2(35f, 0f);
+                numText.alignment = TextAlignmentOptions.MidlineLeft;
+                numText.text = $"{index}.";
+                numText.enableAutoSizing = true;
+                numText.fontSizeMin = 12f;
+                numText.fontSizeMax = 18f;
+
+                // Align title text cleanly beside the number inside the button pill
+                nameText.rectTransform.anchorMin = new Vector2(0f, 0f);
+                nameText.rectTransform.anchorMax = new Vector2(1f, 1f);
+                nameText.rectTransform.pivot = new Vector2(0f, 0.5f);
+                nameText.rectTransform.offsetMin = new Vector2(55f, 0f);
+                nameText.rectTransform.offsetMax = new Vector2(-20f, 0f);
+                nameText.alignment = TextAlignmentOptions.MidlineLeft;
+                nameText.text = captured.displayName;
+                nameText.enableAutoSizing = true;
+                nameText.fontSizeMin = 11f;
+                nameText.fontSizeMax = 18f;
+            }
             else
             {
-                TextMeshProUGUI[] all = btnObj.GetComponentsInChildren<TextMeshProUGUI>(true);
-                if (all.Length > 0 && all[0] != numText) all[0].text = captured.displayName;
+                // Fallback: single formatted label
+                if (numText != null) numText.gameObject.SetActive(false);
+                TextMeshProUGUI mainText = nameText ?? btnObj.GetComponentInChildren<TextMeshProUGUI>(true);
+                if (mainText != null)
+                {
+                    mainText.rectTransform.anchorMin = new Vector2(0f, 0f);
+                    mainText.rectTransform.anchorMax = new Vector2(1f, 1f);
+                    mainText.rectTransform.offsetMin = new Vector2(20f, 0f);
+                    mainText.rectTransform.offsetMax = new Vector2(-20f, 0f);
+                    mainText.alignment = TextAlignmentOptions.MidlineLeft;
+                    mainText.text = $"{index}.  {captured.displayName}";
+                    mainText.enableAutoSizing = true;
+                    mainText.fontSizeMin = 11f;
+                    mainText.fontSizeMax = 18f;
+                }
             }
 
             WireButton(btnObj, () => OnGameSelected(captured.gameId));
             index++;
+        }
+
+        if (createdTemporaryTemplate && templateObj != null)
+        {
+            Destroy(templateObj);
         }
     }
 
@@ -228,7 +284,9 @@ public class GameListMenu : MonoBehaviour
 
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         grid.constraintCount = 1;
-        grid.cellSize = new Vector2(fullWidth, grid.cellSize.y);
+        grid.cellSize = new Vector2(fullWidth, 54f);
+        grid.spacing = new Vector2(grid.spacing.x, 12f);
+        grid.childAlignment = TextAnchor.MiddleCenter;
     }
 
     private void OnGameSelected(string gameId)

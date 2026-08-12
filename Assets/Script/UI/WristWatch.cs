@@ -468,10 +468,13 @@ public class WristWatch : MonoBehaviour
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
         {
+            if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
+
+            bool hideWatchButton = !MainMenu.IsExplorationStarted || forceHidden || optionsPanelActive || (optionsPanelObj != null && optionsPanelObj.activeInHierarchy) || IsContentPanelActive();
+            SetWatchButtonVisualsVisible(!hideWatchButton);
+
             if (!MainMenu.IsExplorationStarted || forceHidden)
             {
-                if (wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(false);
-
                 if (optionsPanelObj != null && optionsPanelObj.activeSelf)
                 {
                     optionsPanelObj.SetActive(false);
@@ -484,9 +487,6 @@ public class WristWatch : MonoBehaviour
             }
             else
             {
-                // Once exploration is started, the wrist watch menu button ALWAYS stays active and visible on the left hand
-                if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
-
                 if (hasAnchorPose)
                 {
                     Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
@@ -823,6 +823,101 @@ public class WristWatch : MonoBehaviour
             wristWatchButtonObj.SetActive(true);
         }
         Debug.Log("WristWatch: Options Panel Closed.");
+    }
+
+    /// <summary>
+    /// Checks if any content UI panel (Senarai Ruang / Room list panel, Room detail panel, 
+    /// Games panel, History panel, Artifact panel, etc.) is currently open and active in the scene.
+    /// Excludes the wrist options menu itself so tapping the watch button can open the options panel.
+    /// </summary>
+    public bool IsContentPanelActive()
+    {
+        if (gamesPanel != null && gamesPanel.activeInHierarchy) return true;
+        if (roomListPanel != null && roomListPanel.activeInHierarchy) return true;
+
+        if (roomHudCanvas != null && roomHudCanvas.activeInHierarchy)
+        {
+            for (int i = 0; i < roomHudCanvas.transform.childCount; i++)
+            {
+                Transform child = roomHudCanvas.transform.GetChild(i);
+                if (child != null && child.gameObject.activeInHierarchy)
+                {
+                    if (optionsPanelObj != null && (child.gameObject == optionsPanelObj || child.IsChildOf(optionsPanelObj.transform)))
+                        continue;
+                    return true;
+                }
+            }
+        }
+
+        if (HistoryListPanel.Instance != null && HistoryListPanel.Instance.gameObject.activeInHierarchy) return true;
+        if (HistoryPanel.Instance != null && HistoryPanel.Instance.gameObject.activeInHierarchy) return true;
+        if (LeaderboardPanel.Instance != null && LeaderboardPanel.Instance.gameObject.activeInHierarchy) return true;
+        if (GameListMenu.Instance != null)
+        {
+            if (GameListMenu.Instance.gameListPanel != null && GameListMenu.Instance.gameListPanel.activeInHierarchy) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Smoothly toggles only the visual graphics/renderers of the wrist watch button icon
+    /// without disabling WristMenuCanvas or affecting child panels (optionsPanelObj, roomHudCanvas, gamesPanel).
+    /// </summary>
+    private void SetWatchButtonVisualsVisible(bool visible)
+    {
+        if (wristWatchButtonObj == null) return;
+
+        if (!wristWatchButtonObj.activeSelf)
+        {
+            wristWatchButtonObj.SetActive(true);
+        }
+
+        // Ensure CanvasGroup on wristWatchButtonObj does not force 0 alpha onto child panels
+        CanvasGroup cg = wristWatchButtonObj.GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            cg.alpha = 1f;
+            cg.interactable = true;
+            cg.blocksRaycasts = true;
+        }
+
+        // Toggle Graphic components (Images, Text, Icons) belonging ONLY to the watch button icon
+        UnityEngine.UI.Graphic[] graphics = wristWatchButtonObj.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
+        foreach (UnityEngine.UI.Graphic g in graphics)
+        {
+            if (g == null) continue;
+            if (optionsPanelObj != null && g.transform.IsChildOf(optionsPanelObj.transform)) continue;
+            if (roomHudCanvas != null && g.transform.IsChildOf(roomHudCanvas.transform)) continue;
+            if (gamesPanel != null && g.transform.IsChildOf(gamesPanel.transform)) continue;
+
+            g.enabled = visible;
+        }
+
+        // Toggle Renderer components belonging ONLY to the watch button icon
+        Renderer[] renderers = wristWatchButtonObj.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer r in renderers)
+        {
+            if (r == null) continue;
+            if (optionsPanelObj != null && r.transform.IsChildOf(optionsPanelObj.transform)) continue;
+            if (roomHudCanvas != null && r.transform.IsChildOf(roomHudCanvas.transform)) continue;
+            if (gamesPanel != null && r.transform.IsChildOf(gamesPanel.transform)) continue;
+
+            r.enabled = visible;
+        }
+
+        // Disable button interactions on watch button icon when hidden
+        UnityEngine.UI.Button[] buttons = wristWatchButtonObj.GetComponents<UnityEngine.UI.Button>();
+        foreach (UnityEngine.UI.Button b in buttons)
+        {
+            if (b != null) b.enabled = visible;
+        }
+
+        XRButtonSelection[] xrButtons = wristWatchButtonObj.GetComponents<XRButtonSelection>();
+        foreach (XRButtonSelection xr in xrButtons)
+        {
+            if (xr != null) xr.enabled = visible;
+        }
     }
 
     public void EnsureWatchButtonVisible()
