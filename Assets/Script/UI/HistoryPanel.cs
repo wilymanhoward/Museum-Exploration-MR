@@ -433,6 +433,8 @@ public class HistoryPanel : MonoBehaviour
 
         if (data == null) return;
 
+        EnsureMediaLoaded(data);
+
         // Header Title & Subtitle - capped at 2 lines (long titles like "Infrastruktur &
         // Pembangunan Terengganu" wrap once, then ellipsise, instead of running past the box).
         if (topTitleText != null) SetCappedTwoLineText(topTitleText, string.IsNullOrEmpty(data.topTitle) ? "Sejarah" : data.topTitle, 20f);
@@ -501,6 +503,61 @@ public class HistoryPanel : MonoBehaviour
         // Rule 1: Always start off hiding the video panel and revealing static image
         ResetMediaToImageState();
         UpdatePlayPauseIcons();
+    }
+
+    /// <summary>
+    /// Fallback loader: ensures photo Sprite and VideoClip are loaded from Resources or
+    /// AssetDatabase if serialized asset references are null or failed to deserialize.
+    /// </summary>
+    private void EnsureMediaLoaded(HistoryData data)
+    {
+        if (data == null) return;
+
+        bool hasValidPhoto = (data.images != null && data.images.Length > 0 && data.images[0].sprite != null) || data.displaySprite != null;
+        bool hasValidVideo = data.videoClip != null;
+
+        if (!hasValidPhoto || !hasValidVideo)
+        {
+            string id = data.historyId != null ? data.historyId.ToLower() : "";
+            string name = data.name != null ? data.name.ToLower() : "";
+            string title = data.eventTitle != null ? data.eventTitle.ToLower() : "";
+
+            if (id.Contains("megat") || name.Contains("megat") || title.Contains("megat"))
+            {
+                if (!hasValidPhoto)
+                {
+                    Sprite loadedSprite = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+                    if (loadedSprite == null) loadedSprite = Resources.Load<Sprite>("Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+#if UNITY_EDITOR
+                    if (loadedSprite == null)
+                    {
+                        loadedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/eFOTO-EF-260812-4E656F-24351.jpg");
+                    }
+#endif
+                    if (loadedSprite != null)
+                    {
+                        data.displaySprite = loadedSprite;
+                        data.images = new HistoryImage[] { new HistoryImage { sprite = loadedSprite, caption = "" } };
+                    }
+                }
+
+                if (!hasValidVideo)
+                {
+                    VideoClip loadedVideo = Resources.Load<VideoClip>("MuseumData/DataSejarah/Media/MegatPanjiAlam/PixVerse_V6_Image_Text_540P_Cinematic_animatio");
+                    if (loadedVideo == null) loadedVideo = Resources.Load<VideoClip>("Media/MegatPanjiAlam/PixVerse_V6_Image_Text_540P_Cinematic_animatio");
+#if UNITY_EDITOR
+                    if (loadedVideo == null)
+                    {
+                        loadedVideo = UnityEditor.AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/PixVerse_V6_Image_Text_540P_Cinematic_animatio.mp4");
+                    }
+#endif
+                    if (loadedVideo != null)
+                    {
+                        data.videoClip = loadedVideo;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -759,7 +816,8 @@ public class HistoryPanel : MonoBehaviour
     private HistoryImage[] GetCurrentImages()
     {
         if (activeHistoryData == null) return System.Array.Empty<HistoryImage>();
-        if (activeHistoryData.images != null && activeHistoryData.images.Length > 0) return activeHistoryData.images;
+        EnsureMediaLoaded(activeHistoryData);
+        if (activeHistoryData.images != null && activeHistoryData.images.Length > 0 && activeHistoryData.images[0].sprite != null) return activeHistoryData.images;
         if (activeHistoryData.displaySprite != null)
         {
             return new[] { new HistoryImage { sprite = activeHistoryData.displaySprite, caption = "" } };
@@ -981,6 +1039,8 @@ public class HistoryPanel : MonoBehaviour
     // Accepts BoxCollider directly for videoTriggerArea
     private void WireVideoTriggerArea()
     {
+        AutoWireMediaFields();
+
         GameObject targetArea = videoTriggerArea != null ? videoTriggerArea.gameObject : (displayImage != null ? displayImage.gameObject : null);
         if (targetArea != null)
         {
@@ -992,16 +1052,62 @@ public class HistoryPanel : MonoBehaviour
             if (triggerImg != null) triggerImg.raycastTarget = true;
         }
 
-        if (videoPlayer == null)
-        {
-            videoPlayer = GetComponentInChildren<VideoPlayer>(true);
-        }
-
         if (videoPlayer != null)
         {
             videoPlayer.playOnAwake = false;
             videoPlayer.loopPointReached -= OnVideoLoopPointReached;
             videoPlayer.loopPointReached += OnVideoLoopPointReached;
+        }
+    }
+
+    private void AutoWireMediaFields()
+    {
+        if (displayImage == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "DisplayImage");
+            if (t != null) displayImage = t.GetComponent<Image>();
+            if (displayImage == null)
+            {
+                Image[] imgs = GetComponentsInChildren<Image>(true);
+                foreach (var img in imgs)
+                {
+                    if (img.gameObject.name.ToLower().Contains("display") || img.gameObject.name.ToLower().Contains("photo") || img.gameObject.name.ToLower().Contains("image"))
+                    {
+                        displayImage = img;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (videoPanel == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "VideoPanel") ?? FindDeepChildTransform(transform, "VideoContainer") ?? FindDeepChildTransform(transform, "Video");
+            if (t != null) videoPanel = t.gameObject;
+        }
+
+        if (displayVideoRawImage == null)
+        {
+            if (videoPanel != null) displayVideoRawImage = videoPanel.GetComponentInChildren<RawImage>(true);
+            if (displayVideoRawImage == null) displayVideoRawImage = GetComponentInChildren<RawImage>(true);
+        }
+
+        if (videoPlayer == null)
+        {
+            if (videoPanel != null) videoPlayer = videoPanel.GetComponentInChildren<VideoPlayer>(true);
+            if (videoPlayer == null) videoPlayer = GetComponentInChildren<VideoPlayer>(true);
+        }
+
+        if (noImageTextObj == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "NoImageTextObj") ?? FindDeepChildTransform(transform, "NoImageText");
+            if (t != null) noImageTextObj = t.gameObject;
+        }
+
+        if (videoTriggerArea == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "VideoTriggerArea");
+            if (t != null) videoTriggerArea = t.GetComponent<BoxCollider>();
         }
     }
 
