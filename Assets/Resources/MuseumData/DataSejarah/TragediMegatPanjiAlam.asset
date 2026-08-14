@@ -27,7 +27,9 @@ MonoBehaviour:
     tunang Tun Teja, mengetahui bahawa tunangnya telah dilarikan, baginda pergi
     ke Pahang untuk menentang Hang Tuah. Namun begitu, Megat Panji Alam akhirnya
     ditikam oleh Hang Jebat dan Hang Kasturi di tangga istana.'
-  images: []
-  displaySprite: {fileID: 0}
-  videoClip: {fileID: 0}
+  images:
+  - sprite: {fileID: 21300000, guid: 65d0c381467383748aa3324d95c6ccd1, type: 3}
+    caption: ''
+  displaySprite: {fileID: 21300000, guid: 65d0c381467383748aa3324d95c6ccd1, type: 3}
+  videoClip: {fileID: 32900000, guid: 883a0242699e9ff4e9896d2f917db7ef, type: 3}
   narrationClip: {fileID: 0}

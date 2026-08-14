@@ -99,6 +99,11 @@ public class HistoryPanel : MonoBehaviour
     private Action onCloseCallback;
     private Coroutine holdCheckCoroutine;
     private bool isHoldingTrigger = false;
+    private bool isStaringOrHolding = false;
+    private bool isVideoPlaying = false;
+    private CanvasGroup displayImageCanvasGroup;
+    private CanvasGroup videoPanelCanvasGroup;
+    private Coroutine crossfadeCoroutine;
     private int currentImageIndex = 0;
     private GameObject builtGalleryNavRoot;
     private ScrollRect descriptionScrollRect;
@@ -548,49 +553,98 @@ public class HistoryPanel : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Trigger Hold-To-Play Video Logic
+    // Trigger Hold / Gaze-Stare Video Logic & Smooth Crossfade Transition
     // ─────────────────────────────────────────────────────────────────────────
+
+    private void EnsureCanvasGroups()
+    {
+        if (displayImage != null && displayImageCanvasGroup == null)
+        {
+            displayImageCanvasGroup = displayImage.GetComponent<CanvasGroup>();
+            if (displayImageCanvasGroup == null)
+            {
+                displayImageCanvasGroup = displayImage.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+
+        if (videoPanel != null && videoPanelCanvasGroup == null)
+        {
+            videoPanelCanvasGroup = videoPanel.GetComponent<CanvasGroup>();
+            if (videoPanelCanvasGroup == null)
+            {
+                videoPanelCanvasGroup = videoPanel.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+    }
+
+    public void OnPointerEnterTrigger()
+    {
+        if (activeHistoryData == null || activeHistoryData.videoClip == null) return;
+        if (isVideoPlaying) return;
+
+        isStaringOrHolding = true;
+        if (holdCheckCoroutine != null) StopCoroutine(holdCheckCoroutine);
+        holdCheckCoroutine = StartCoroutine(StareTimerCoroutine());
+    }
+
+    public void OnPointerExitTrigger()
+    {
+        if (!isVideoPlaying)
+        {
+            isStaringOrHolding = false;
+            if (holdCheckCoroutine != null)
+            {
+                StopCoroutine(holdCheckCoroutine);
+                holdCheckCoroutine = null;
+            }
+        }
+    }
 
     public void OnPointerDownTrigger()
     {
         if (activeHistoryData == null || activeHistoryData.videoClip == null) return;
+        if (isVideoPlaying) return;
 
-        isHoldingTrigger = true;
+        isStaringOrHolding = true;
         if (holdCheckCoroutine != null) StopCoroutine(holdCheckCoroutine);
-        holdCheckCoroutine = StartCoroutine(HoldTimerCoroutine());
+        holdCheckCoroutine = StartCoroutine(StareTimerCoroutine());
     }
 
     public void OnPointerUpTrigger()
     {
-        isHoldingTrigger = false;
-        if (holdCheckCoroutine != null)
+        if (!isVideoPlaying)
         {
-            StopCoroutine(holdCheckCoroutine);
-            holdCheckCoroutine = null;
-        }
-
-        // Rule 3: Immediately return to image when letting go of trigger
-        ResetMediaToImageState();
-    }
-
-    // Rule 2: If held for more than 1 second, hide image and reveal video panel to play video
-    private IEnumerator HoldTimerCoroutine()
-    {
-        yield return new WaitForSeconds(1.0f);
-
-        if (isHoldingTrigger && activeHistoryData != null && activeHistoryData.videoClip != null)
-        {
-            PlayVideoClip();
+            isStaringOrHolding = false;
+            if (holdCheckCoroutine != null)
+            {
+                StopCoroutine(holdCheckCoroutine);
+                holdCheckCoroutine = null;
+            }
         }
     }
 
-    private void PlayVideoClip()
+    private IEnumerator StareTimerCoroutine()
     {
-        // Hide display image (and gallery controls) and reveal video panel
-        if (displayImage != null) displayImage.gameObject.SetActive(false);
-        if (noImageTextObj != null) noImageTextObj.SetActive(false);
+        yield return new WaitForSeconds(1.5f);
+
+        if (isStaringOrHolding && activeHistoryData != null && activeHistoryData.videoClip != null && !isVideoPlaying)
+        {
+            PlayVideoClipWithTransition();
+        }
+    }
+
+    private void PlayVideoClipWithTransition()
+    {
+        if (activeHistoryData == null || activeHistoryData.videoClip == null) return;
+
+        isVideoPlaying = true;
         SetGalleryNavVisible(false);
-        if (videoPanel != null) videoPanel.SetActive(true);
+        EnsureCanvasGroups();
+
+        if (videoPanel != null)
+        {
+            videoPanel.SetActive(true);
+        }
 
         if (videoPlayer != null)
         {
@@ -599,12 +653,20 @@ public class HistoryPanel : MonoBehaviour
             videoPlayer.time = 0;
             videoPlayer.Play();
         }
+
+        if (crossfadeCoroutine != null) StopCoroutine(crossfadeCoroutine);
+        crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(displayImageCanvasGroup, videoPanelCanvasGroup, 0.5f, () =>
+        {
+            if (displayImage != null) displayImage.gameObject.SetActive(false);
+            if (noImageTextObj != null) noImageTextObj.SetActive(false);
+        }));
     }
 
-    // Rule 1 & Rule 3: Hide video panel and immediately reveal display image
-    public void ResetMediaToImageState()
+    public void ResetMediaToImageState(bool animate = false)
     {
         isHoldingTrigger = false;
+        isStaringOrHolding = false;
+        isVideoPlaying = false;
 
         if (holdCheckCoroutine != null)
         {
@@ -612,16 +674,77 @@ public class HistoryPanel : MonoBehaviour
             holdCheckCoroutine = null;
         }
 
-        if (videoPlayer != null && videoPlayer.isPlaying)
+        EnsureCanvasGroups();
+
+        if (animate && videoPanel != null && videoPanel.activeSelf)
         {
-            videoPlayer.Stop();
+            if (displayImage != null) displayImage.gameObject.SetActive(true);
+            if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = 0f;
+            UpdateImageUI();
+            SetGalleryNavVisible(false);
+
+            if (crossfadeCoroutine != null) StopCoroutine(crossfadeCoroutine);
+            crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(videoPanelCanvasGroup, displayImageCanvasGroup, 0.5f, () =>
+            {
+                if (videoPlayer != null && videoPlayer.isPlaying)
+                {
+                    videoPlayer.Stop();
+                }
+                if (videoPanel != null) videoPanel.SetActive(false);
+                UpdateImageUI();
+            }));
+        }
+        else
+        {
+            if (crossfadeCoroutine != null)
+            {
+                StopCoroutine(crossfadeCoroutine);
+                crossfadeCoroutine = null;
+            }
+
+            if (videoPlayer != null && videoPlayer.isPlaying)
+            {
+                videoPlayer.Stop();
+            }
+
+            if (videoPanel != null) videoPanel.SetActive(false);
+            if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = 1f;
+            if (videoPanelCanvasGroup != null) videoPanelCanvasGroup.alpha = 0f;
+
+            UpdateImageUI();
+        }
+    }
+
+    private IEnumerator CrossfadeMediaCoroutine(CanvasGroup fadeOutGroup, CanvasGroup fadeInGroup, float duration, Action onComplete = null)
+    {
+        float elapsed = 0f;
+
+        if (fadeInGroup != null)
+        {
+            fadeInGroup.gameObject.SetActive(true);
         }
 
-        // Hide video panel
-        if (videoPanel != null) videoPanel.SetActive(false);
+        float startFadeOutAlpha = fadeOutGroup != null ? fadeOutGroup.alpha : 1f;
+        float startFadeInAlpha = fadeInGroup != null ? fadeInGroup.alpha : 0f;
 
-        // Reveal the current gallery photo (or the "no image" placeholder if this topic has none)
-        UpdateImageUI();
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            // Smoothstep curve (ease-in-out)
+            t = t * t * (3f - 2f * t);
+
+            if (fadeOutGroup != null) fadeOutGroup.alpha = Mathf.Lerp(startFadeOutAlpha, 0f, t);
+            if (fadeInGroup != null) fadeInGroup.alpha = Mathf.Lerp(startFadeInAlpha, 1f, t);
+
+            yield return null;
+        }
+
+        if (fadeOutGroup != null) fadeOutGroup.alpha = 0f;
+        if (fadeInGroup != null) fadeInGroup.alpha = 1f;
+
+        onComplete?.Invoke();
+        crossfadeCoroutine = null;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -851,8 +974,8 @@ public class HistoryPanel : MonoBehaviour
 
     private void OnVideoLoopPointReached(VideoPlayer source)
     {
-        // Rule 3: When video finishes, immediately return to image
-        ResetMediaToImageState();
+        // Smoothly return to photo when video finishes
+        ResetMediaToImageState(animate: true);
     }
 
     // Accepts BoxCollider directly for videoTriggerArea
@@ -1000,15 +1123,25 @@ public class HistoryPanel : MonoBehaviour
 
 /// <summary>
 /// Attached to VideoTriggerArea BoxCollider.
-/// Captures press & release triggers for mouse, touch, and XR pointers.
+/// Captures press & release triggers, as well as gaze/ray hover triggers.
 /// </summary>
-public class HoldMediaClipTrigger : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+public class HoldMediaClipTrigger : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private HistoryPanel panel;
 
     public void Setup(HistoryPanel historyPanel)
     {
         panel = historyPanel;
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        panel?.OnPointerEnterTrigger();
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        panel?.OnPointerExitTrigger();
     }
 
     public void OnPointerDown(PointerEventData eventData)
