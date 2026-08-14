@@ -513,27 +513,61 @@ public class HistoryPanel : MonoBehaviour
     {
         if (data == null) return;
 
-        bool hasValidPhoto = (data.images != null && data.images.Length > 0 && data.images[0].sprite != null) || data.displaySprite != null;
+        bool hasValidPhoto = false;
+        if (data.images != null && data.images.Length > 0 && data.images[0].sprite != null)
+        {
+            try { hasValidPhoto = data.images[0].sprite.texture != null; } catch { hasValidPhoto = false; }
+        }
+        if (!hasValidPhoto && data.displaySprite != null)
+        {
+            try { hasValidPhoto = data.displaySprite.texture != null; } catch { hasValidPhoto = false; }
+        }
+
         bool hasValidVideo = data.videoClip != null;
 
         if (!hasValidPhoto || !hasValidVideo)
         {
-            string id = data.historyId != null ? data.historyId.ToLower() : "";
-            string name = data.name != null ? data.name.ToLower() : "";
-            string title = data.eventTitle != null ? data.eventTitle.ToLower() : "";
+            string id = (data.historyId ?? "").ToLower();
+            string name = (data.name ?? "").ToLower();
+            string title = (data.eventTitle ?? "").ToLower();
 
             if (id.Contains("megat") || name.Contains("megat") || title.Contains("megat"))
             {
                 if (!hasValidPhoto)
                 {
-                    Sprite loadedSprite = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+                    Sprite loadedSprite = null;
+
+                    // 1. Load Sprite directly from Resources
+                    loadedSprite = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
                     if (loadedSprite == null) loadedSprite = Resources.Load<Sprite>("Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+
+                    // 2. Load Texture2D from Resources and dynamically create Sprite
+                    if (loadedSprite == null)
+                    {
+                        Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+                        if (tex == null) tex = Resources.Load<Texture2D>("Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+                        if (tex != null)
+                        {
+                            loadedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+
 #if UNITY_EDITOR
+                    // 3. Load from AssetDatabase in Unity Editor
                     if (loadedSprite == null)
                     {
                         loadedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/eFOTO-EF-260812-4E656F-24351.jpg");
                     }
+                    if (loadedSprite == null)
+                    {
+                        Texture2D edTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/eFOTO-EF-260812-4E656F-24351.jpg");
+                        if (edTex != null)
+                        {
+                            loadedSprite = Sprite.Create(edTex, new Rect(0, 0, edTex.width, edTex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
 #endif
+
                     if (loadedSprite != null)
                     {
                         data.displaySprite = loadedSprite;
@@ -817,11 +851,32 @@ public class HistoryPanel : MonoBehaviour
     {
         if (activeHistoryData == null) return System.Array.Empty<HistoryImage>();
         EnsureMediaLoaded(activeHistoryData);
-        if (activeHistoryData.images != null && activeHistoryData.images.Length > 0 && activeHistoryData.images[0].sprite != null) return activeHistoryData.images;
+
+        if (activeHistoryData.images != null && activeHistoryData.images.Length > 0)
+        {
+            if (activeHistoryData.images[0].sprite != null)
+            {
+                try
+                {
+                    if (activeHistoryData.images[0].sprite.texture != null)
+                        return activeHistoryData.images;
+                }
+                catch { }
+            }
+        }
+
         if (activeHistoryData.displaySprite != null)
         {
-            return new[] { new HistoryImage { sprite = activeHistoryData.displaySprite, caption = "" } };
+            try
+            {
+                if (activeHistoryData.displaySprite.texture != null)
+                {
+                    return new[] { new HistoryImage { sprite = activeHistoryData.displaySprite, caption = "" } };
+                }
+            }
+            catch { }
         }
+
         return System.Array.Empty<HistoryImage>();
     }
 
