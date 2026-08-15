@@ -11,7 +11,12 @@ public class BaseGame : MonoBehaviour
     [Tooltip("Button that returns the player to the mini-game menu.")]
     public Button closeButton;
 
+    [Header("Timer UI (auto-created or auto-found by name)")]
+    [Tooltip("TMP_Text displaying the live elapsed time during gameplay.")]
+    public TMPro.TMP_Text timerText;
+
     protected float gameStartTime = 0f;
+    protected bool isTimerRunning = false;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unity
@@ -21,6 +26,7 @@ public class BaseGame : MonoBehaviour
     {
         ResolveCloseButton();
         WireCloseButton();
+        EnsureTimerUI();
     }
 
     protected virtual void OnEnable()
@@ -31,6 +37,14 @@ public class BaseGame : MonoBehaviour
     protected virtual void OnDisable()
     {
         OnGameEnd();
+    }
+
+    protected virtual void Update()
+    {
+        if (isTimerRunning)
+        {
+            UpdateTimerDisplay();
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -44,6 +58,9 @@ public class BaseGame : MonoBehaviour
     public virtual void OnGameStart()
     {
         gameStartTime = Time.time;
+        isTimerRunning = true;
+        EnsureTimerUI();
+        UpdateTimerDisplay();
         Debug.Log($"{GetType().Name}: OnGameStart at t={gameStartTime}");
     }
 
@@ -53,12 +70,24 @@ public class BaseGame : MonoBehaviour
     /// </summary>
     public virtual void OnGameEnd()
     {
+        isTimerRunning = false;
         Debug.Log($"{GetType().Name}: OnGameEnd");
     }
 
     public float GetElapsedTimeSeconds()
     {
-        return Mathf.Max(0.1f, Time.time - gameStartTime);
+        return Mathf.Max(0f, Time.time - gameStartTime);
+    }
+
+    protected void UpdateTimerDisplay()
+    {
+        if (timerText != null)
+        {
+            float elapsed = GetElapsedTimeSeconds();
+            int mins = Mathf.FloorToInt(elapsed / 60f);
+            int secs = Mathf.FloorToInt(elapsed % 60f);
+            timerText.text = $"<color=#FFD54F>⏱</color> {mins:D2}:{secs:D2}";
+        }
     }
 
     /// <summary>
@@ -141,6 +170,64 @@ public class BaseGame : MonoBehaviour
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(OnClose);
         }
+    }
+
+    private void EnsureTimerUI()
+    {
+        if (timerText != null) return;
+
+        // 1. Try finding existing timer text in hierarchy
+        string[] candidates = { "TimerText", "Timer", "TimeText", "TimeDisplay", "Waktu", "TimerBadge" };
+        foreach (string n in candidates)
+        {
+            Transform found = FindDeepChild(transform, n);
+            if (found != null)
+            {
+                timerText = found.GetComponent<TMPro.TMP_Text>();
+                if (timerText != null) return;
+            }
+        }
+
+        // 2. Dynamically create a sleek TimerBadge at top of panel
+        GameObject badgeObj = new GameObject("TimerBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        badgeObj.transform.SetParent(transform, false);
+
+        RectTransform badgeRect = badgeObj.GetComponent<RectTransform>();
+        badgeRect.anchorMin = new Vector2(0.5f, 1f);
+        badgeRect.anchorMax = new Vector2(0.5f, 1f);
+        badgeRect.pivot = new Vector2(0.5f, 1f);
+        badgeRect.anchoredPosition = new Vector2(0f, -12f);
+        badgeRect.sizeDelta = new Vector2(105f, 30f);
+
+        Image bgImage = badgeObj.GetComponent<Image>();
+        bgImage.color = new Color(0.06f, 0.09f, 0.14f, 0.85f);
+        bgImage.raycastTarget = false;
+
+        // Create TextMeshProUGUI inside badge
+        GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+        textObj.transform.SetParent(badgeObj.transform, false);
+
+        RectTransform textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.sizeDelta = Vector2.zero;
+        textRect.anchoredPosition = Vector2.zero;
+
+        TMPro.TextMeshProUGUI tmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
+        tmp.fontSize = 15;
+        tmp.fontStyle = TMPro.FontStyles.Bold;
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.color = Color.white;
+        tmp.raycastTarget = false;
+
+        // Borrow font asset from an existing TMP in this panel
+        TMPro.TMP_Text sampleText = GetComponentInChildren<TMPro.TMP_Text>(true);
+        if (sampleText != null && sampleText.font != null)
+        {
+            tmp.font = sampleText.font;
+        }
+
+        timerText = tmp;
     }
 
     private static Transform FindDeepChild(Transform root, string childName)
