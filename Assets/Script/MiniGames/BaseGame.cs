@@ -70,7 +70,9 @@ public class BaseGame : MonoBehaviour
         Debug.Log($"{GetType().Name}: Completed '{gameName}' ({gameId}) in {totalTime:F2} seconds!");
 
         // 1. Save Player Completion Time
-        LeaderboardPanel.SavePlayerTime(gameId, "Anda", totalTime);
+        string playerName = PlayerPrefs.GetString("PlayerName", "Pengunjung");
+        if (string.IsNullOrWhiteSpace(playerName)) playerName = "Pengunjung";
+        LeaderboardPanel.SavePlayerTime(gameId, playerName, totalTime);
 
         // 2. Hide game panel & open Leaderboard panel
         gameObject.SetActive(false);

@@ -197,6 +197,29 @@ public class HistoryListPanel : MonoBehaviour
                 }
             }
 
+            // Set thumbnail photo (left side only, exclude background and right-side icon)
+            Sprite thumbSprite = GetHistoryThumbnail(data);
+            Image[] itemImages = itemObj.GetComponentsInChildren<Image>(true);
+            foreach (Image img in itemImages)
+            {
+                if (img == null || img.gameObject == itemObj) continue;
+                string imgName = img.gameObject.name.ToLower();
+                if (imgName.Contains("bg") || imgName.Contains("background")) continue;
+                if (imgName.Contains("icon") || imgName.Contains("arrow") || imgName.Contains("chevron")) continue;
+
+                if (thumbSprite != null)
+                {
+                    img.sprite = thumbSprite;
+                    img.color = Color.white;
+                    img.preserveAspect = true;
+                    img.gameObject.SetActive(true);
+                }
+                else
+                {
+                    img.gameObject.SetActive(false);
+                }
+            }
+
             // Wire click event to open detail panel
             Button btn = itemObj.GetComponent<Button>();
             if (btn == null) btn = itemObj.AddComponent<Button>();
@@ -212,6 +235,40 @@ public class HistoryListPanel : MonoBehaviour
                 xr.onClick.AddListener(() => OnHistoryItemClicked(capturedData));
             }
         }
+    }
+
+    private Sprite GetHistoryThumbnail(HistoryData data)
+    {
+        if (data == null) return null;
+
+        if (data.displaySprite != null)
+        {
+            try
+            {
+                if (data.displaySprite.texture != null) return data.displaySprite;
+            }
+            catch { }
+        }
+
+        if (data.images != null && data.images.Length > 0 && data.images[0].sprite != null)
+        {
+            try
+            {
+                if (data.images[0].sprite.texture != null) return data.images[0].sprite;
+            }
+            catch { }
+        }
+
+        string id = (data.historyId ?? data.name ?? "").ToLower();
+        if (id.Contains("megat") || id.Contains("panji"))
+        {
+            Sprite s = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+            if (s != null) return s;
+            Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+            if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+        }
+
+        return null;
     }
 
     public void OnHistoryItemClicked(HistoryData data)
