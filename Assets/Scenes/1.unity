@@ -22325,7 +22325,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 0}
+  m_Texture: {fileID: 8400000, guid: 5beeca2c420911d45ad9e0d20f848d2b, type: 2}
   m_UVRect:
     serializedVersion: 2
     x: 0
@@ -23572,7 +23572,7 @@ MonoBehaviour:
   categoryText: {fileID: 1202104479}
   holdToPlayText: {fileID: 1514920571}
   displayImage: {fileID: 927065189}
-  videoPanel: {fileID: 0}
+  videoPanel: {fileID: 1811061522}
   displayVideoRawImage: {fileID: 1811061524}
   videoPlayer: {fileID: 1378655982}
   videoTriggerArea: {fileID: 475083661}

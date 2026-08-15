@@ -101,9 +101,12 @@ public class HistoryPanel : MonoBehaviour
     private bool isHoldingTrigger = false;
     private bool isStaringOrHolding = false;
     private bool isVideoPlaying = false;
+    private float currentGazeTimer = 0f;
+    private const float RequiredGazeDuration = 2.0f;
     private CanvasGroup displayImageCanvasGroup;
     private CanvasGroup videoPanelCanvasGroup;
     private Coroutine crossfadeCoroutine;
+    private Coroutine videoMonitorCoroutine;
     private int currentImageIndex = 0;
     private GameObject builtGalleryNavRoot;
     private ScrollRect descriptionScrollRect;
@@ -412,6 +415,80 @@ public class HistoryPanel : MonoBehaviour
         {
             UpdatePlayPauseIcons();
         }
+
+        UpdateGazeDetection();
+    }
+
+    private void UpdateGazeDetection()
+    {
+        if (activeHistoryData == null || activeHistoryData.videoClip == null)
+        {
+            currentGazeTimer = 0f;
+            return;
+        }
+
+        if (isVideoPlaying)
+        {
+            currentGazeTimer = 0f;
+            return;
+        }
+
+        if (IsUserGazingAtPhoto())
+        {
+            currentGazeTimer += Time.deltaTime;
+            if (currentGazeTimer >= RequiredGazeDuration)
+            {
+                currentGazeTimer = 0f;
+                PlayVideoClipWithTransition();
+            }
+        }
+        else
+        {
+            currentGazeTimer = Mathf.Max(0f, currentGazeTimer - Time.deltaTime * 2f);
+        }
+    }
+
+    private bool IsUserGazingAtPhoto()
+    {
+        if (isStaringOrHolding) return true;
+
+        if (displayImage == null || !displayImage.gameObject.activeInHierarchy) return false;
+
+        Camera cam = Camera.main;
+        if (cam == null) return false;
+
+        Ray headRay = new Ray(cam.transform.position, cam.transform.forward);
+
+        // Check against videoTriggerArea BoxCollider
+        if (videoTriggerArea != null && videoTriggerArea.Raycast(headRay, out _, 4f))
+        {
+            return true;
+        }
+
+        // Check against displayImage BoxCollider
+        BoxCollider imgBox = displayImage.GetComponent<BoxCollider>();
+        if (imgBox != null && imgBox.Raycast(headRay, out _, 4f))
+        {
+            return true;
+        }
+
+        // Check against displayImage RectTransform plane in world space
+        RectTransform rect = displayImage.rectTransform;
+        if (rect != null)
+        {
+            Plane imgPlane = new Plane(-rect.forward, rect.position);
+            if (imgPlane.Raycast(headRay, out float enterDist) && enterDist > 0.1f && enterDist <= 4f)
+            {
+                Vector3 hitPoint = headRay.GetPoint(enterDist);
+                Vector3 localPoint = rect.InverseTransformPoint(hitPoint);
+                if (rect.rect.Contains(localPoint))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -716,7 +793,7 @@ public class HistoryPanel : MonoBehaviour
 
     private IEnumerator StareTimerCoroutine()
     {
-        yield return new WaitForSeconds(1.5f);
+        yield return new WaitForSeconds(2.0f);
 
         if (isStaringOrHolding && activeHistoryData != null && activeHistoryData.videoClip != null && !isVideoPlaying)
         {
@@ -729,12 +806,26 @@ public class HistoryPanel : MonoBehaviour
         if (activeHistoryData == null || activeHistoryData.videoClip == null) return;
 
         isVideoPlaying = true;
+        currentGazeTimer = 0f;
         SetGalleryNavVisible(false);
         EnsureCanvasGroups();
+
+        AutoWireMediaFields();
 
         if (videoPanel != null)
         {
             videoPanel.SetActive(true);
+        }
+
+        if (displayVideoRawImage != null)
+        {
+            if (displayVideoRawImage.texture == null)
+            {
+                RenderTexture rt = (videoPlayer != null && videoPlayer.targetTexture != null) ? videoPlayer.targetTexture : Resources.Load<RenderTexture>("SejarahVideo/Video");
+                if (rt != null) displayVideoRawImage.texture = rt;
+            }
+            displayVideoRawImage.color = Color.white;
+            displayVideoRawImage.enabled = true;
         }
 
         if (videoPlayer != null)
@@ -745,12 +836,30 @@ public class HistoryPanel : MonoBehaviour
             videoPlayer.Play();
         }
 
+        if (videoMonitorCoroutine != null) StopCoroutine(videoMonitorCoroutine);
+        videoMonitorCoroutine = StartCoroutine(VideoMonitorCoroutine());
+
         if (crossfadeCoroutine != null) StopCoroutine(crossfadeCoroutine);
-        crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(displayImageCanvasGroup, videoPanelCanvasGroup, 0.5f, () =>
+        crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(displayImageCanvasGroup, videoPanelCanvasGroup, 0.6f, () =>
         {
             if (displayImage != null) displayImage.gameObject.SetActive(false);
             if (noImageTextObj != null) noImageTextObj.SetActive(false);
         }));
+    }
+
+    private IEnumerator VideoMonitorCoroutine()
+    {
+        yield return new WaitForSeconds(0.5f);
+
+        while (isVideoPlaying && videoPlayer != null && (videoPlayer.isPlaying || videoPlayer.isPrepared))
+        {
+            if (videoPlayer.length > 0 && videoPlayer.time >= videoPlayer.length - 0.2f)
+            {
+                OnVideoLoopPointReached(videoPlayer);
+                yield break;
+            }
+            yield return null;
+        }
     }
 
     public void ResetMediaToImageState(bool animate = false)
@@ -765,6 +874,12 @@ public class HistoryPanel : MonoBehaviour
             holdCheckCoroutine = null;
         }
 
+        if (videoMonitorCoroutine != null)
+        {
+            StopCoroutine(videoMonitorCoroutine);
+            videoMonitorCoroutine = null;
+        }
+
         EnsureCanvasGroups();
 
         if (animate && videoPanel != null && videoPanel.activeSelf)
@@ -775,7 +890,7 @@ public class HistoryPanel : MonoBehaviour
             SetGalleryNavVisible(false);
 
             if (crossfadeCoroutine != null) StopCoroutine(crossfadeCoroutine);
-            crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(videoPanelCanvasGroup, displayImageCanvasGroup, 0.5f, () =>
+            crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(videoPanelCanvasGroup, displayImageCanvasGroup, 0.6f, () =>
             {
                 if (videoPlayer != null && videoPlayer.isPlaying)
                 {
@@ -926,8 +1041,12 @@ public class HistoryPanel : MonoBehaviour
             displayImage.gameObject.SetActive(hasImage);
             if (hasImage)
             {
+                AspectRatioFitter fitter = displayImage.GetComponent<AspectRatioFitter>();
+                if (fitter != null) Destroy(fitter);
+
                 displayImage.sprite = images[currentImageIndex].sprite;
                 displayImage.color = Color.white;
+                displayImage.preserveAspect = true;
             }
         }
         if (noImageTextObj != null) noImageTextObj.SetActive(!hasImage);
@@ -1096,15 +1215,19 @@ public class HistoryPanel : MonoBehaviour
     {
         AutoWireMediaFields();
 
-        GameObject targetArea = videoTriggerArea != null ? videoTriggerArea.gameObject : (displayImage != null ? displayImage.gameObject : null);
-        if (targetArea != null)
+        if (displayImage != null)
         {
-            HoldMediaClipTrigger trigger = targetArea.GetComponent<HoldMediaClipTrigger>();
-            if (trigger == null) trigger = targetArea.AddComponent<HoldMediaClipTrigger>();
-            trigger.Setup(this);
+            AttachMediaTrigger(displayImage.gameObject);
+        }
 
-            Image triggerImg = targetArea.GetComponent<Image>();
-            if (triggerImg != null) triggerImg.raycastTarget = true;
+        if (videoTriggerArea != null && videoTriggerArea.gameObject != displayImage?.gameObject)
+        {
+            AttachMediaTrigger(videoTriggerArea.gameObject);
+        }
+
+        if (videoPanel != null && videoPanel != displayImage?.gameObject && videoPanel != videoTriggerArea?.gameObject)
+        {
+            AttachMediaTrigger(videoPanel);
         }
 
         if (videoPlayer != null)
@@ -1113,6 +1236,31 @@ public class HistoryPanel : MonoBehaviour
             videoPlayer.loopPointReached -= OnVideoLoopPointReached;
             videoPlayer.loopPointReached += OnVideoLoopPointReached;
         }
+    }
+
+    private void AttachMediaTrigger(GameObject targetObj)
+    {
+        if (targetObj == null) return;
+
+        HoldMediaClipTrigger trigger = targetObj.GetComponent<HoldMediaClipTrigger>();
+        if (trigger == null) trigger = targetObj.AddComponent<HoldMediaClipTrigger>();
+        trigger.Setup(this);
+
+        BoxCollider box = targetObj.GetComponent<BoxCollider>();
+        if (box == null)
+        {
+            box = targetObj.AddComponent<BoxCollider>();
+            RectTransform rect = targetObj.GetComponent<RectTransform>();
+            float w = (rect != null && rect.rect.width > 10f) ? rect.rect.width : 250f;
+            float h = (rect != null && rect.rect.height > 10f) ? rect.rect.height : 250f;
+            box.size = new Vector3(w, h, 10f);
+        }
+
+        Image img = targetObj.GetComponent<Image>();
+        if (img != null) img.raycastTarget = true;
+
+        RawImage rawImg = targetObj.GetComponent<RawImage>();
+        if (rawImg != null) rawImg.raycastTarget = true;
     }
 
     private void AutoWireMediaFields()
@@ -1147,10 +1295,38 @@ public class HistoryPanel : MonoBehaviour
             if (displayVideoRawImage == null) displayVideoRawImage = GetComponentInChildren<RawImage>(true);
         }
 
+        if (videoPanel == null && displayVideoRawImage != null)
+        {
+            videoPanel = displayVideoRawImage.gameObject;
+        }
+
         if (videoPlayer == null)
         {
             if (videoPanel != null) videoPlayer = videoPanel.GetComponentInChildren<VideoPlayer>(true);
             if (videoPlayer == null) videoPlayer = GetComponentInChildren<VideoPlayer>(true);
+        }
+
+        // Connect the existing project RenderTexture (SejarahVideo/Video.renderTexture)
+        RenderTexture videoRT = null;
+        if (videoPlayer != null && videoPlayer.targetTexture != null)
+        {
+            videoRT = videoPlayer.targetTexture;
+        }
+        else
+        {
+            videoRT = Resources.Load<RenderTexture>("SejarahVideo/Video");
+            if (videoPlayer != null && videoRT != null)
+            {
+                videoPlayer.renderMode = VideoRenderMode.RenderTexture;
+                videoPlayer.targetTexture = videoRT;
+            }
+        }
+
+        if (displayVideoRawImage != null && videoRT != null)
+        {
+            displayVideoRawImage.texture = videoRT;
+            displayVideoRawImage.color = Color.white;
+            displayVideoRawImage.enabled = true;
         }
 
         if (noImageTextObj == null)
@@ -1283,16 +1459,40 @@ public class HistoryPanel : MonoBehaviour
 }
 
 /// <summary>
-/// Attached to VideoTriggerArea BoxCollider.
-/// Captures press & release triggers, as well as gaze/ray hover triggers.
+/// Attached to displayImage, videoTriggerArea, and videoPanel.
+/// Captures press & release triggers, UGUI hover, as well as XR Ray / Head Gaze interactors via XRSimpleInteractable.
 /// </summary>
-public class HoldMediaClipTrigger : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
+public class HoldMediaClipTrigger : XRSimpleInteractable, IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private HistoryPanel panel;
 
     public void Setup(HistoryPanel historyPanel)
     {
         panel = historyPanel;
+    }
+
+    protected override void OnHoverEntered(HoverEnterEventArgs args)
+    {
+        base.OnHoverEntered(args);
+        panel?.OnPointerEnterTrigger();
+    }
+
+    protected override void OnHoverExited(HoverExitEventArgs args)
+    {
+        base.OnHoverExited(args);
+        panel?.OnPointerExitTrigger();
+    }
+
+    protected override void OnSelectEntered(SelectEnterEventArgs args)
+    {
+        base.OnSelectEntered(args);
+        panel?.OnPointerDownTrigger();
+    }
+
+    protected override void OnSelectExited(SelectExitEventArgs args)
+    {
+        base.OnSelectExited(args);
+        panel?.OnPointerUpTrigger();
     }
 
     public void OnPointerEnter(PointerEventData eventData)
