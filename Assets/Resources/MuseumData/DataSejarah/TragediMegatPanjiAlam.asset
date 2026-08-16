@@ -18,15 +18,15 @@ MonoBehaviour:
   eventTitle: Tragedi Megat Panji Alam
   timePeriod: Zaman Kesultanan Melaka (Legenda)
   location: Pahang & Melaka
-  description: 'Kisah ini merupakan sebahagian daripada cerita rakyat yang dikaitkan
-    dengan Hikayat Hang Tuah, seperti yang dipaparkan dalam permainan "Susunkan
-    Garis Masa" di muzium ini.
+  description: 'Tragedi Megat Panji Alam merupakan sebuah kisah bersejarah yang masyhur dalam sastera Melayu klasik dan Hikayat Hang Tuah:
 
+    • Utusan Peminangan Diraja: Peristiwa bermula apabila Laksamana Hang Tuah ditugaskan meminang Tun Teja bagi pihak Sultan Melaka, lalu bertindak membawa Tun Teja berlayar dari Pahang ke Melaka.
 
-    Hang Tuah membawa Tun Teja dari Pahang ke Melaka. Apabila Megat Panji Alam,
-    tunang Tun Teja, mengetahui bahawa tunangnya telah dilarikan, baginda pergi
-    ke Pahang untuk menentang Hang Tuah. Namun begitu, Megat Panji Alam akhirnya
-    ditikam oleh Hang Jebat dan Hang Kasturi di tangga istana.'
+    • Perkhabaran Tunang Dilarikan: Apabila berita tersebut sampai ke Terengganu dan Megat Panji Alam mengetahui bahawa tunangnya telah dilarikan, kemurkaan menyelubungi dirinya.
+
+    • Ekspedisi Menuntut Bela: Tanpa berlengah, beliau segera memimpin angkatan dan belayar ke Pahang untuk menentang Hang Tuah serta menuntut bela atas maruahnya.
+
+    • Pertembungan Tragis: Namun dalam pertembungan di istana, Megat Panji Alam akhirnya gugur secara tragis apabila beliau ditikam oleh Hang Jebat dan Hang Kasturi di anak tangga istana.'
   images:
   - sprite: {fileID: 21300000, guid: 65d0c381467383748aa3324d95c6ccd1, type: 3}
     caption: ''

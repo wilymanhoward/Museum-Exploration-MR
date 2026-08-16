@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e8c5dd542f197a40a8e49868a21bb1f, type: 3}
+  m_Name: AsalUsulTaringAnu
+  m_EditorClassIdentifier: 
+  historyId: sejarah_asal_usul_taring_anu
+  topTitle: Sejarah Terengganu
+  category: Asal Usul Nama
+  eventTitle: 'Asal Usul: Kisah "Taring Anu"'
+  timePeriod: Legenda Lisan Tradisi
+  location: Hulu Terengganu
+  description: 'Asal usul nama Terengganu mempunyai beberapa versi cerita lisan yang masyhur, antaranya kisah yang dikaitkan dengan penemuan taring haiwan:
+
+    • Pemburuan di Pedalaman: Kisah bermula apabila sekumpulan pemburu dari negeri jiran, Pahang, menjelajah masuk untuk berburu di hutan belantara Hulu Terengganu.
+
+    • Penemuan Taring Misteri: Semasa menyusuri tebing anak sungai, mereka terjumpa sebatang taring haiwan misteri bersaiz amat besar yang belum pernah dilihat sebelumnya.
+
+    • Gelaran Kawasan: Oleh kerana tidak mengetahui nama haiwan pemiliknya, para pemburu menggelar tempat penemuan tersebut sebagai kawasan "Taring Anu" (anu merujuk kepada sesuatu yang tidak diketahui namanya).
+
+    • Sebutan Lokasi: Apabila pulang dan ditanya oleh rakan taulan tentang tempat mereka berburu dan mendapat hasil, mereka selalu menyebut kawasan "Taring Anu".
+
+    • Perubahan Nama: Lama-kelamaan, ungkapan "Taring Anu" kerap diulang dalam perbualan masyarakat sehingga akhirnya berubah bunyi sebutan menjadi "Terengganu".'
+  images: []
+  displaySprite: {fileID: 0}
+  videoClip: {fileID: 0}
+  narrationClip: {fileID: 0}

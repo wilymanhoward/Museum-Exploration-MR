@@ -18,19 +18,17 @@ MonoBehaviour:
   eventTitle: Ekonomi Terengganu
   timePeriod: Abad ke-12 – Kini
   location: Terengganu
-  description: 'Sejarah Perkembangan Ekonomi Terengganu merangkumi fasa utama:
+  description: 'Sejarah perkembangan ekonomi Terengganu berkembang menerusi beberapa fasa penting:
 
+    • Era Pelabuhan Awal & Sumber Hutan: Sejak zaman kuno, kedudukan strategik bandar pelabuhan persinggahan di muara serta perdagangan hasil hutan seperti gaharu, damar, dan rotan menjadi nadi utama yang merancakkan ekonomi tempatan.
 
-    • Ekonomi Tradisi & Sumber Alam: Dipelopori kegiatan perikanan, pertanian, penternakan, serta hasil hutan (rotan, gaharu, damar) dan kayu-kayuan bagi pembinaan perahu dan rumah.
+    • Era Kemuncak Lada Hitam (Abad ke-18–19): Sektor pertanian komersial melonjak pesat apabila Terengganu muncul sebagai antara pengeluar utama lada hitam yang dieksport ke pasaran serantau dan antarabangsa.
 
+    • Kepelbagaian Komoditi Sultan Baginda: Bagi memperluas sumber pendapatan negeri, kerajaan giat memberikan galakan penanaman kopi dan tebu, di samping menggiatkan aktiviti mendulang galian emas dan timah di kawasan pedalaman.
 
-    • Pelabuhan & Perdagangan (Abad ke-12–19): Tercatat sejak abad ke-12 sebagai pelabuhan persinggahan (Foloan, Kole, Primula). Abad ke-18 & 19 berkembang pesat di bawah pentadbiran Syahbandar dengan penubuhan Pasar Tanjung & Pasar Payang serta eksport lada hitam, tebu, dan perahu besar ke Siam.
+    • Era Perindustrian Perlombongan: Memasuki awal abad ke-20, sektor perlombongan moden berkembang dengan pembukaan tambang bijih timah di Kemaman serta perlombongan bijih besi di Bukit Besi yang mula dibuka secara besar-besaran.
 
-
-    • Perlombongan Bijih Timah & Besi (1920-an–1970-an): Pembukaan lombong bijih timah di Kemaman dan bijih besi di Bukit Besi (Dungun) menjadi komoditi eksport utama negeri.
-
-
-    • Penemuan Minyak & Industri Moden (1978–Kini): Penemuan petroleum di perairan Terengganu pada tahun 1978 memacu transformasi ekonomi moden di samping industri pelancongan dan warisan.'
+    • Era Petroleum & Kemajuan Moden: Menjelang akhir abad ke-20 (1978), penemuan telaga minyak di luar pesisir pantai membawa transformasi besar yang memperkukuh dan meningkatkan ekonomi negeri Terengganu sehingga kini.'
   images: []
   displaySprite: {fileID: 0}
   videoClip: {fileID: 0}
