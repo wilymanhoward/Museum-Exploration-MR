@@ -193,6 +193,7 @@ public class RoomList : MonoBehaviour
                 sejarahObj.transform.SetParent(listContainer, false);
                 sejarahObj.transform.SetAsLastSibling();
                 ApplySejarahButtonLabel();
+                WireSejarahButton();
             }
 
             // The instantiate loop above already wired every new button. The fallback pass
@@ -205,6 +206,7 @@ public class RoomList : MonoBehaviour
 
         // Scene-authored buttons only (no prefab): wire whatever is in the hierarchy.
         WireExistingChildButtons();
+        WireSejarahButton();
     }
 
     private void WireExistingChildButtons()
@@ -216,13 +218,6 @@ public class RoomList : MonoBehaviour
         {
             Transform child = listContainer.GetChild(i);
             if (child == null || !child.gameObject.activeSelf) continue;
-
-            // Skip if this child is explicitly assigned as sejarahRoomButton
-            if (sejarahRoomButton != null && child.gameObject == sejarahRoomButton.gameObject)
-            {
-                index++;
-                continue;
-            }
 
             TMP_Text nameTxt = child.Find("RoomName")?.GetComponent<TMP_Text>();
             TMP_Text numTxt = child.Find("Room Number")?.GetComponent<TMP_Text>();
@@ -278,20 +273,34 @@ public class RoomList : MonoBehaviour
 
     private void OpenHistoryFromRoomList(string title, string subtitle)
     {
-        if (HistoryManager.Instance != null)
+        // 1. Hide RoomListPanel completely
+        gameObject.SetActive(false);
+        if (transform.parent != null && transform.parent.name == "RoomListPanel")
+        {
+            transform.parent.gameObject.SetActive(false);
+        }
+
+        // 2. Hide standard RoomPanel if active
+        if (roomPanel != null)
+        {
+            roomPanel.gameObject.SetActive(false);
+        }
+
+        // 3. Show HistoryListPanel with full 7 items
+        if (historyListPanel == null)
+        {
+            historyListPanel = FindObjectOfType<HistoryListPanel>(true);
+        }
+
+        if (historyListPanel != null)
+        {
+            historyListPanel.gameObject.SetActive(true);
+            historyListPanel.ShowList(null, title, subtitle);
+        }
+        else if (HistoryManager.Instance != null)
         {
             HistoryManager.Instance.ShowHistoryList(title, subtitle);
         }
-        else
-        {
-            if (historyListPanel == null) historyListPanel = FindObjectOfType<HistoryListPanel>(true);
-            if (historyListPanel != null)
-            {
-                historyListPanel.ShowList(null, title, subtitle);
-            }
-        }
-
-        gameObject.SetActive(false);
     }
 
     private void OnRoomSelected(RoomData room)
