@@ -4,11 +4,10 @@ using UnityEngine.UI;
 using TMPro;
 
 /// <summary>
-/// Controls the HistoryListPanel UI hierarchy shown in the editor screenshot:
-/// RoomTitleText ("Ruang Sejarah"), RoomSubtitleText ("Sejarah Terengganu"), SectionHeader ("Informasi Sejarah di Ruangan ini"),
-/// ArtifactCountText ("Jumlah: 5"), and populates ArtifactList with item buttons.
-/// Clicking an item in the list opens HistoryDetailPanel (HistoryPanel).
-/// Automatically auto-detects and populates HistoryData assets if historyItems is empty in Inspector.
+/// Controls the HistoryListPanel UI hierarchy:
+/// Displays the 7 Sejarah Terengganu topics in a compact, balanced 2-column grid layout.
+/// Clicking any topic opens the HistoryDetailPanel (HistoryPanel).
+/// Automatically auto-loads all HistoryData assets from Resources/MuseumData/DataSejarah.
 /// </summary>
 public class HistoryListPanel : MonoBehaviour
 {
@@ -24,7 +23,7 @@ public class HistoryListPanel : MonoBehaviour
     [Tooltip("Section header text (e.g. 'Informasi Sejarah di Ruangan ini').")]
     public TMP_Text sectionHeaderText;
 
-    [Tooltip("Item count text (e.g. 'Jumlah: 5').")]
+    [Tooltip("Item count text (e.g. 'Jumlah: 7').")]
     public TMP_Text artifactCountText;
 
     [Header("Hierarchy References")]
@@ -45,7 +44,7 @@ public class HistoryListPanel : MonoBehaviour
     public XRButtonSelection backButtonXR;
 
     [Header("History Entries Data (Auto-populated if empty)")]
-    [Tooltip("Leave empty to automatically auto-load all HistoryData entries from HistoryManager / Resources.")]
+    [Tooltip("Leave empty to automatically auto-load all HistoryData entries from Resources.")]
     public List<HistoryData> historyItems = new List<HistoryData>();
 
     private void Awake()
@@ -53,12 +52,14 @@ public class HistoryListPanel : MonoBehaviour
         if (Instance == null) Instance = this;
         AutoFindUIReferences();
         WireControlButtons();
+        SetupTwoColumnLayout();
     }
 
     private void OnEnable()
     {
         AutoFindUIReferences();
         WireControlButtons();
+        SetupTwoColumnLayout();
         PopulateHistoryList();
     }
 
@@ -76,12 +77,19 @@ public class HistoryListPanel : MonoBehaviour
             EnsureHistoryItems();
         }
 
-        // Activate BEFORE measuring wrapped line counts below (ApplyCappedTwoLineStyle uses
-        // TMP's ForceMeshUpdate, which needs the object live to lay text out correctly).
         gameObject.SetActive(true);
+        SetupTwoColumnLayout();
 
-        if (roomTitleText != null) ApplyCappedTwoLineStyle(roomTitleText, title, 20f);
-        if (roomSubtitleText != null) ApplyCappedTwoLineStyle(roomSubtitleText, subtitle, 14f);
+        if (roomTitleText != null)
+        {
+            roomTitleText.text = title;
+            roomTitleText.fontSize = 18f;
+        }
+        if (roomSubtitleText != null)
+        {
+            roomSubtitleText.text = subtitle;
+            roomSubtitleText.fontSize = 13f;
+        }
 
         PopulateHistoryList();
     }
@@ -115,24 +123,38 @@ public class HistoryListPanel : MonoBehaviour
     }
 
     /// <summary>
-    /// Instantiate item buttons inside artifactListContainer for each HistoryData entry.
+    /// Instantiate item buttons inside artifactListContainer for each HistoryData entry in 2 columns.
     /// </summary>
     public void PopulateHistoryList()
     {
         EnsureHistoryItems();
+        SetupTwoColumnLayout();
 
         if (artifactCountText != null)
         {
             int count = historyItems != null ? historyItems.Count : 0;
-            ApplyCappedTwoLineStyle(artifactCountText, $"Jumlah: {count}", 13f);
+            artifactCountText.text = $"Jumlah: {count}";
+            artifactCountText.fontSize = 12f;
         }
 
         if (artifactListContainer == null) return;
 
-        // Clear existing spawned items
-        foreach (Transform child in artifactListContainer)
+        // Clear existing spawned items immediately to avoid layout ghosting
+        for (int i = artifactListContainer.childCount - 1; i >= 0; i--)
         {
-            Destroy(child.gameObject);
+            Transform child = artifactListContainer.GetChild(i);
+            if (child != null)
+            {
+                child.gameObject.SetActive(false);
+                if (Application.isPlaying)
+                {
+                    Destroy(child.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(child.gameObject);
+                }
+            }
         }
 
         if (historyItems == null || historyItems.Count == 0) return;
@@ -142,99 +164,244 @@ public class HistoryListPanel : MonoBehaviour
             HistoryData data = historyItems[i];
             if (data == null) continue;
 
+            string formattedNum = (i + 1).ToString("D2");
+            string displayText = string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle;
+            Sprite thumbSprite = GetHistoryThumbnail(data);
+
             GameObject itemObj = null;
             if (historyItemPrefab != null)
             {
                 itemObj = Instantiate(historyItemPrefab, artifactListContainer);
+                FormatHistoryCardItem(itemObj, data, i);
             }
             else
             {
-                itemObj = CreateDefaultListItem(data.eventTitle);
+                itemObj = CreateProceduralCard(displayText, formattedNum, thumbSprite);
                 itemObj.transform.SetParent(artifactListContainer, false);
+                WireCardEvents(itemObj, data);
             }
+        }
+    }
 
-            // Set button text. historyItemPrefab is the same ArtifactItem prefab the
-            // regular artifact rooms use, which has TWO text fields: NumText ("01") and
-            // NameText ("Mona Lisa" placeholder). Grabbing only the first TMP_Text (as
-            // this used to do) lands on NumText and leaves NameText's "Mona Lisa"
-            // placeholder showing untouched on every button - mirror Room.cs's matching
-            // logic so both fields (and any other stray placeholder) get handled properly.
-            string displayText = string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle;
-            string formattedNum = (i + 1).ToString("D2");
+    /// <summary>
+    /// Formats an instantiated item card to fit cleanly into the 2-column grid.
+    /// </summary>
+    private void FormatHistoryCardItem(GameObject itemObj, HistoryData data, int index)
+    {
+        if (itemObj == null) return;
+        itemObj.SetActive(true);
+        itemObj.transform.localScale = Vector3.one;
 
-            bool titleUpdated = false;
-            foreach (TMP_Text tmp in itemObj.GetComponentsInChildren<TMP_Text>(true))
+        RectTransform itemRt = itemObj.GetComponent<RectTransform>();
+        if (itemRt != null)
+        {
+            itemRt.sizeDelta = new Vector2(260f, 52f);
+        }
+
+        LayoutElement le = itemObj.GetComponent<LayoutElement>();
+        if (le == null) le = itemObj.AddComponent<LayoutElement>();
+        le.preferredWidth = 260f;
+        le.preferredHeight = 52f;
+        le.minWidth = 240f;
+        le.minHeight = 48f;
+
+        string displayText = string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle;
+        string formattedNum = (index + 1).ToString("D2");
+
+        // 1. Locate text fields
+        TMP_Text numTmp = null;
+        TMP_Text nameTmp = null;
+
+        foreach (TMP_Text tmp in itemObj.GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (tmp == null) continue;
+            string n = tmp.name.ToLower();
+            string t = (tmp.text ?? "").ToLower();
+
+            if (n.Contains("num") || n.Contains("number") || n.Contains("index") || t == "01" || t == "02")
             {
-                if (tmp == null) continue;
-                string nameLower = tmp.name.ToLower();
-                string textLower = (tmp.text ?? "").ToLower();
-
-                if (!titleUpdated && (nameLower.Contains("name") || nameLower.Contains("title") || textLower.Contains("mona") || textLower.Contains("lisa")))
-                {
-                    tmp.gameObject.SetActive(true);
-                    ApplyCappedTwoLineStyle(tmp, displayText, 12f);
-                    titleUpdated = true;
-                }
-                else if (nameLower.Contains("num") || nameLower.Contains("number") || nameLower.Contains("index"))
-                {
-                    tmp.text = formattedNum;
-                    tmp.enableAutoSizing = false;
-                    tmp.fontSize = 12f;
-                }
-                else if (textLower.Contains("mona") || textLower.Contains("lisa"))
-                {
-                    // Any other leftover placeholder text object - hide it.
-                    tmp.gameObject.SetActive(false);
-                }
+                numTmp = tmp;
             }
-
-            if (!titleUpdated)
+            else if (n.Contains("name") || n.Contains("title") || t.Contains("mona") || t.Contains("lisa") || n.Contains("text"))
             {
-                TMP_Text fallback = itemObj.GetComponentInChildren<TMP_Text>(true);
-                if (fallback != null)
-                {
-                    ApplyCappedTwoLineStyle(fallback, displayText, 12f);
-                }
+                nameTmp = tmp;
             }
+        }
 
-            // Set thumbnail photo (left side only, exclude background and right-side icon)
-            Sprite thumbSprite = GetHistoryThumbnail(data);
-            Image[] itemImages = itemObj.GetComponentsInChildren<Image>(true);
-            foreach (Image img in itemImages)
+        // Align NumText ("01", "02") on the left
+        if (numTmp != null)
+        {
+            numTmp.gameObject.SetActive(true);
+            numTmp.text = formattedNum;
+            numTmp.fontSize = 13f;
+            numTmp.fontStyle = FontStyles.Bold;
+            numTmp.color = new Color(0.95f, 0.85f, 0.45f, 1f); // Gold tint
+            numTmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+            RectTransform nRt = numTmp.rectTransform;
+            nRt.anchorMin = new Vector2(0f, 0.5f);
+            nRt.anchorMax = new Vector2(0f, 0.5f);
+            nRt.pivot = new Vector2(0f, 0.5f);
+            nRt.anchoredPosition = new Vector2(10f, 0f);
+            nRt.sizeDelta = new Vector2(24f, 30f);
+        }
+
+        // Align Thumbnail Image and Right Arrow Icon
+        Sprite thumbSprite = GetHistoryThumbnail(data);
+        bool hasThumb = (thumbSprite != null);
+        float textLeft = hasThumb ? 76f : 38f;
+
+        foreach (Image img in itemObj.GetComponentsInChildren<Image>(true))
+        {
+            if (img == null || img.gameObject == itemObj) continue;
+            string n = img.gameObject.name.ToLower();
+
+            if (n.Contains("icon") || n.Contains("arrow") || n.Contains("chevron"))
             {
-                if (img == null || img.gameObject == itemObj) continue;
-                string imgName = img.gameObject.name.ToLower();
-                if (imgName.Contains("bg") || imgName.Contains("background")) continue;
-                if (imgName.Contains("icon") || imgName.Contains("arrow") || imgName.Contains("chevron")) continue;
-
-                if (thumbSprite != null)
+                img.gameObject.SetActive(true);
+                RectTransform aRt = img.rectTransform;
+                aRt.anchorMin = new Vector2(1f, 0.5f);
+                aRt.anchorMax = new Vector2(1f, 0.5f);
+                aRt.pivot = new Vector2(1f, 0.5f);
+                aRt.anchoredPosition = new Vector2(-8f, 0f);
+                aRt.sizeDelta = new Vector2(16f, 16f);
+            }
+            else if (!n.Contains("bg") && !n.Contains("background"))
+            {
+                if (hasThumb)
                 {
                     img.sprite = thumbSprite;
                     img.color = Color.white;
                     img.preserveAspect = true;
                     img.gameObject.SetActive(true);
+
+                    RectTransform tRt = img.rectTransform;
+                    tRt.anchorMin = new Vector2(0f, 0.5f);
+                    tRt.anchorMax = new Vector2(0f, 0.5f);
+                    tRt.pivot = new Vector2(0f, 0.5f);
+                    tRt.anchoredPosition = new Vector2(36f, 0f);
+                    tRt.sizeDelta = new Vector2(34f, 34f);
                 }
                 else
                 {
                     img.gameObject.SetActive(false);
                 }
             }
-
-            // Wire click event to open detail panel
-            Button btn = itemObj.GetComponent<Button>();
-            if (btn == null) btn = itemObj.AddComponent<Button>();
-
-            HistoryData capturedData = data;
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => OnHistoryItemClicked(capturedData));
-
-            XRButtonSelection xr = itemObj.GetComponent<XRButtonSelection>();
-            if (xr != null)
-            {
-                xr.onClick.RemoveAllListeners();
-                xr.onClick.AddListener(() => OnHistoryItemClicked(capturedData));
-            }
         }
+
+        // Align NameText (Title) in the center with 2-line wrapping
+        if (nameTmp != null)
+        {
+            nameTmp.gameObject.SetActive(true);
+            nameTmp.text = displayText;
+            nameTmp.fontSize = 11.5f;
+            nameTmp.enableWordWrapping = true;
+            nameTmp.alignment = TextAlignmentOptions.MidlineLeft;
+            nameTmp.color = Color.white;
+
+            RectTransform nameRt = nameTmp.rectTransform;
+            nameRt.anchorMin = new Vector2(0f, 0.5f);
+            nameRt.anchorMax = new Vector2(1f, 0.5f);
+            nameRt.pivot = new Vector2(0f, 0.5f);
+            nameRt.anchoredPosition = new Vector2(textLeft, 0f);
+            nameRt.sizeDelta = new Vector2(-(textLeft + 26f), 48f);
+        }
+
+        WireCardEvents(itemObj, data);
+    }
+
+    private void WireCardEvents(GameObject itemObj, HistoryData data)
+    {
+        Button btn = itemObj.GetComponent<Button>();
+        if (btn == null) btn = itemObj.AddComponent<Button>();
+
+        HistoryData captured = data;
+        btn.onClick.RemoveAllListeners();
+        btn.onClick.AddListener(() => OnHistoryItemClicked(captured));
+
+        XRButtonSelection xr = itemObj.GetComponent<XRButtonSelection>();
+        if (xr != null)
+        {
+            xr.scaleTarget = itemObj.GetComponent<RectTransform>();
+            xr.onClick.RemoveAllListeners();
+            xr.onClick.AddListener(() => OnHistoryItemClicked(captured));
+        }
+    }
+
+    private GameObject CreateProceduralCard(string displayText, string formattedNum, Sprite thumbSprite)
+    {
+        GameObject card = new GameObject("HistoryCard", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button), typeof(XRButtonSelection));
+        RectTransform rt = card.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(260f, 52f);
+
+        Image bg = card.GetComponent<Image>();
+        bg.color = new Color(0.15f, 0.17f, 0.22f, 0.95f);
+
+        // Num text
+        GameObject numObj = new GameObject("NumText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        numObj.transform.SetParent(card.transform, false);
+        TextMeshProUGUI numTmp = numObj.GetComponent<TextMeshProUGUI>();
+        numTmp.text = formattedNum;
+        numTmp.fontSize = 13f;
+        numTmp.fontStyle = FontStyles.Bold;
+        numTmp.color = new Color(0.95f, 0.85f, 0.45f, 1f);
+        numTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        RectTransform nRt = numObj.GetComponent<RectTransform>();
+        nRt.anchorMin = new Vector2(0f, 0.5f);
+        nRt.anchorMax = new Vector2(0f, 0.5f);
+        nRt.pivot = new Vector2(0f, 0.5f);
+        nRt.anchoredPosition = new Vector2(10f, 0f);
+        nRt.sizeDelta = new Vector2(24f, 30f);
+
+        float textLeft = (thumbSprite != null) ? 76f : 38f;
+
+        if (thumbSprite != null)
+        {
+            GameObject imgObj = new GameObject("ThumbImage", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            imgObj.transform.SetParent(card.transform, false);
+            Image img = imgObj.GetComponent<Image>();
+            img.sprite = thumbSprite;
+            img.preserveAspect = true;
+            RectTransform iRt = imgObj.GetComponent<RectTransform>();
+            iRt.anchorMin = new Vector2(0f, 0.5f);
+            iRt.anchorMax = new Vector2(0f, 0.5f);
+            iRt.pivot = new Vector2(0f, 0.5f);
+            iRt.anchoredPosition = new Vector2(36f, 0f);
+            iRt.sizeDelta = new Vector2(34f, 34f);
+        }
+
+        // Title text
+        GameObject txtObj = new GameObject("NameText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        txtObj.transform.SetParent(card.transform, false);
+        TextMeshProUGUI nameTmp = txtObj.GetComponent<TextMeshProUGUI>();
+        nameTmp.text = displayText;
+        nameTmp.fontSize = 11.5f;
+        nameTmp.enableWordWrapping = true;
+        nameTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        nameTmp.color = Color.white;
+        RectTransform tRt = txtObj.GetComponent<RectTransform>();
+        tRt.anchorMin = new Vector2(0f, 0.5f);
+        tRt.anchorMax = new Vector2(1f, 0.5f);
+        tRt.pivot = new Vector2(0f, 0.5f);
+        tRt.anchoredPosition = new Vector2(textLeft, 0f);
+        tRt.sizeDelta = new Vector2(-(textLeft + 26f), 48f);
+
+        // Arrow icon text
+        GameObject arrowObj = new GameObject("ArrowText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        arrowObj.transform.SetParent(card.transform, false);
+        TextMeshProUGUI arrowTmp = arrowObj.GetComponent<TextMeshProUGUI>();
+        arrowTmp.text = "›";
+        arrowTmp.fontSize = 18f;
+        arrowTmp.color = new Color(0.8f, 0.8f, 0.9f, 0.7f);
+        arrowTmp.alignment = TextAlignmentOptions.Center;
+        RectTransform aRt = arrowObj.GetComponent<RectTransform>();
+        aRt.anchorMin = new Vector2(1f, 0.5f);
+        aRt.anchorMax = new Vector2(1f, 0.5f);
+        aRt.pivot = new Vector2(1f, 0.5f);
+        aRt.anchoredPosition = new Vector2(-10f, 0f);
+        aRt.sizeDelta = new Vector2(16f, 24f);
+
+        return card;
     }
 
     private Sprite GetHistoryThumbnail(HistoryData data)
@@ -285,7 +452,6 @@ public class HistoryListPanel : MonoBehaviour
             gameObject.SetActive(false);
             historyDetailPanel.Setup(data, () =>
             {
-                // On detail panel close -> return to list panel
                 gameObject.SetActive(true);
             });
             historyDetailPanel.OpenPanel();
@@ -300,38 +466,6 @@ public class HistoryListPanel : MonoBehaviour
     public void OnBackPressed()
     {
         ClosePanel();
-    }
-
-    /// <summary>
-    /// Wraps long text to at most 2 lines, ellipsising anything beyond that ("Infrastruktur
-    /// &amp; Pembangunan Terengganu…"). Deliberately does NOT use TMP's maxVisibleLines/
-    /// Ellipsis overflow mode - both need a real positive box HEIGHT to know how much text
-    /// fits, and this prefab's text fields have a degenerate (negative/near-zero) height
-    /// baked in, which made maxVisibleLines compute "zero lines fit" and hide the text
-    /// completely. Instead this measures the WIDTH-based wrap result directly (via
-    /// ForceMeshUpdate + textInfo.lineCount, which don't care about box height) and manually
-    /// truncates the string to the first 2 lines' worth of characters - so it can never
-    /// disappear regardless of whatever the container's height happens to be.
-    /// </summary>
-    private static void ApplyCappedTwoLineStyle(TMP_Text label, string text, float fontSize)
-    {
-        label.enableAutoSizing = false;
-        label.fontSize = fontSize;
-        label.enableWordWrapping = true;
-        label.overflowMode = TextOverflowModes.Overflow;
-        label.maxVisibleLines = int.MaxValue;
-        label.text = text ?? "";
-
-        label.ForceMeshUpdate();
-        TMP_TextInfo info = label.textInfo;
-        if (info != null && info.lineCount > 2 && !string.IsNullOrEmpty(text))
-        {
-            int lastCharOfSecondLine = info.lineInfo[1].lastCharacterIndex;
-            string clipped = text.Substring(0, Mathf.Clamp(lastCharOfSecondLine + 1, 0, text.Length)).TrimEnd();
-            if (clipped.Length > 1) clipped = clipped.Substring(0, clipped.Length - 1).TrimEnd();
-            label.text = clipped + "…";
-            label.ForceMeshUpdate();
-        }
     }
 
     private void WireControlButtons()
@@ -390,31 +524,171 @@ public class HistoryListPanel : MonoBehaviour
         }
     }
 
-    private GameObject CreateDefaultListItem(string labelText)
+    /// <summary>
+    /// Configures the HistoryListPanel and its children into a clean 2-column grid layout.
+    /// </summary>
+    private void SetupTwoColumnLayout()
     {
-        GameObject item = new GameObject("HistoryListItem");
-        RectTransform rt = item.AddComponent<RectTransform>();
-        rt.sizeDelta = new Vector2(480f, 45f);
+        if (artifactListContainer == null) return;
 
-        Image img = item.AddComponent<Image>();
-        img.color = new Color(0.18f, 0.20f, 0.22f, 0.9f);
-        item.AddComponent<Button>();
+        // 1. HistoryListPanel root RectTransform
+        RectTransform panelRt = GetComponent<RectTransform>();
+        if (panelRt != null)
+        {
+            panelRt.anchorMin = new Vector2(0.5f, 0.5f);
+            panelRt.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRt.pivot = new Vector2(0.5f, 0.5f);
+            panelRt.sizeDelta = new Vector2(580f, 360f);
+            panelRt.anchoredPosition = Vector2.zero;
+            panelRt.localScale = Vector3.one;
+        }
 
-        GameObject txtObj = new GameObject("Text (TMP)");
-        txtObj.transform.SetParent(item.transform, false);
-        RectTransform txtRt = txtObj.AddComponent<RectTransform>();
-        txtRt.anchorMin = Vector2.zero;
-        txtRt.anchorMax = Vector2.one;
-        txtRt.sizeDelta = Vector2.zero;
+        // 2. Panel background image
+        Transform bgTransform = transform.Find("Background");
+        if (bgTransform != null)
+        {
+            RectTransform bgRt = bgTransform.GetComponent<RectTransform>();
+            if (bgRt != null)
+            {
+                bgRt.anchorMin = Vector2.zero;
+                bgRt.anchorMax = Vector2.one;
+                bgRt.pivot = new Vector2(0.5f, 0.5f);
+                bgRt.offsetMin = Vector2.zero;
+                bgRt.offsetMax = Vector2.zero;
+                bgRt.localScale = Vector3.one;
+            }
+        }
 
-        TMP_Text txt = txtObj.AddComponent<TMP_Text>();
-        txt.text = labelText;
-        txt.fontSize = 15;
-        txt.alignment = TextAlignmentOptions.MidlineLeft;
-        txt.margin = new Vector4(20f, 0f, 0f, 0f);
-        txt.color = Color.white;
+        // 3. Disable VerticalLayoutGroup if present
+        VerticalLayoutGroup vlg = artifactListContainer.GetComponent<VerticalLayoutGroup>();
+        if (vlg != null)
+        {
+            vlg.enabled = false;
+        }
 
-        return item;
+        // 4. Configure GridLayoutGroup for 2 columns
+        GridLayoutGroup grid = artifactListContainer.GetComponent<GridLayoutGroup>();
+        if (grid == null)
+        {
+            grid = artifactListContainer.gameObject.AddComponent<GridLayoutGroup>();
+        }
+
+        grid.enabled = true;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = 2;
+        grid.cellSize = new Vector2(260f, 52f);
+        grid.spacing = new Vector2(10f, 6f);
+        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        grid.startAxis = GridLayoutGroup.Axis.Horizontal;
+        grid.childAlignment = TextAnchor.UpperCenter;
+        grid.padding = new RectOffset(0, 0, 2, 2);
+
+        // 5. Container RectTransform
+        RectTransform listRt = artifactListContainer.GetComponent<RectTransform>();
+        if (listRt != null)
+        {
+            listRt.anchorMin = Vector2.zero;
+            listRt.anchorMax = Vector2.one;
+            listRt.pivot = new Vector2(0.5f, 0.5f);
+            listRt.offsetMin = new Vector2(18f, 14f);
+            listRt.offsetMax = new Vector2(-18f, -78f);
+            listRt.localScale = Vector3.one;
+        }
+
+        // 6. Header elements positions
+        Transform headerIcon = transform.Find("HeaderIcon");
+        if (headerIcon != null)
+        {
+            RectTransform rt = headerIcon.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(0f, 1f);
+                rt.pivot = new Vector2(0f, 1f);
+                rt.anchoredPosition = new Vector2(18f, -12f);
+                rt.sizeDelta = new Vector2(30f, 30f);
+            }
+        }
+
+        if (roomTitleText != null)
+        {
+            RectTransform rt = roomTitleText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(55f, -10f);
+            rt.sizeDelta = new Vector2(320f, 28f);
+        }
+
+        if (roomSubtitleText != null)
+        {
+            RectTransform rt = roomSubtitleText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(55f, -34f);
+            rt.sizeDelta = new Vector2(320f, 20f);
+        }
+
+        if (closeButton != null)
+        {
+            RectTransform rt = closeButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(1f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(1f, 1f);
+                rt.anchoredPosition = new Vector2(-18f, -12f);
+                rt.sizeDelta = new Vector2(30f, 30f);
+            }
+        }
+
+        if (backButton != null)
+        {
+            RectTransform rt = backButton.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(1f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(1f, 1f);
+                rt.anchoredPosition = new Vector2(-54f, -12f);
+                rt.sizeDelta = new Vector2(30f, 30f);
+            }
+        }
+
+        Transform separator = transform.Find("SeparatorLine");
+        if (separator != null)
+        {
+            RectTransform rt = separator.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(0.5f, 1f);
+                rt.offsetMin = new Vector2(18f, -58f);
+                rt.offsetMax = new Vector2(-18f, -56f);
+            }
+        }
+
+        if (sectionHeaderText != null)
+        {
+            RectTransform rt = sectionHeaderText.rectTransform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(18f, -62f);
+            rt.sizeDelta = new Vector2(320f, 18f);
+        }
+
+        if (artifactCountText != null)
+        {
+            RectTransform rt = artifactCountText.rectTransform;
+            rt.anchorMin = new Vector2(1f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-18f, -62f);
+            rt.sizeDelta = new Vector2(140f, 18f);
+        }
     }
 
     private static T FindDeepChild<T>(Transform parent, string childName) where T : Component
