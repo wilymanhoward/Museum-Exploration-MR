@@ -110,27 +110,20 @@ public class HistoryPanel : MonoBehaviour
     private int currentImageIndex = 0;
     private GameObject builtGalleryNavRoot;
     private ScrollRect descriptionScrollRect;
+    private ScrollRect photoScrollRect;
+    private RectTransform photoContentRect;
+    private PhotoSnapScroller photoSnapScroller;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
 
-        // This is a DETAIL view (one topic's full content) - like the Artifact Detail
-        // Panel, it must stay fixed in world space and be movable by the player, not get
-        // dragged around by the wrist. It was placed under ExplorationCanvas in the Editor
-        // (alongside the room/topic LIST panels, which SHOULD follow the wrist), and
-        // WristWatch.LateUpdate drags that whole canvas to the wrist every frame - its only
-        // exemption checks for child names containing "ArtifactDetail"/"ArtifactUI", which
-        // this panel doesn't match. Same fix WristWatch already uses for its own watch
-        // button: detach at runtime so nothing above can drag it around.
+        // Detach from wrist canvas at runtime so panel stays fixed and draggable in world space
         if (transform.parent != null)
         {
             transform.SetParent(null, true);
         }
 
-        // ExplorationCanvas (the panel's former parent) was the only Canvas in its
-        // ancestry - detaching leaves it with nothing to render/raycast through unless it
-        // gets its own, exactly like the standalone ArtifactPanelPrefab does.
         Canvas canvas = GetComponent<Canvas>();
         if (canvas == null)
         {
@@ -154,9 +147,9 @@ public class HistoryPanel : MonoBehaviour
 
         WireVideoTriggerArea();
         AutoWireButtons();
-        EnsureGalleryNavUI();
-        EnsureGrabbablePanel();
+        EnsurePhotoScrollView();
         EnsureDescriptionScrollView();
+        EnsureGrabbablePanel();
     }
 
     /// <summary>
@@ -174,6 +167,229 @@ public class HistoryPanel : MonoBehaviour
         if (GetComponent<ArtifactPanelDragger>() == null)
         {
             gameObject.AddComponent<ArtifactPanelDragger>();
+        }
+    }
+
+    /// <summary>
+    /// Converts the photo container into a horizontal snapping photo gallery (PhotoScrollView)
+    /// with a horizontal scrollbar, full-mode pictures, and automatic page snapping.
+    /// </summary>
+    private void EnsurePhotoScrollView()
+    {
+        if (photoScrollRect != null) return;
+
+        Transform parentSlot = null;
+        if (displayImage != null)
+        {
+            parentSlot = displayImage.transform.parent;
+            displayImage.gameObject.SetActive(false); // Hide single legacy image component
+        }
+        if (parentSlot == null) parentSlot = transform;
+
+        // Clean up all stray BoxColliders and XRSimpleInteractables in photo area so XR Raycast targets UGUI directly
+        Collider[] allColliders = parentSlot.GetComponentsInChildren<Collider>(true);
+        foreach (var col in allColliders)
+        {
+            Destroy(col);
+        }
+        XRSimpleInteractable[] allInteractables = parentSlot.GetComponentsInChildren<XRSimpleInteractable>(true);
+        foreach (var inter in allInteractables)
+        {
+            if (!(inter is PhotoSnapScroller) && !(inter is ScrollbarSnapHook))
+            {
+                Destroy(inter);
+            }
+        }
+
+        // 1. Root ScrollView container
+        GameObject scrollGo = new GameObject("PhotoScrollView");
+        RectTransform scrollRootRect = scrollGo.AddComponent<RectTransform>();
+        scrollGo.transform.SetParent(parentSlot, false);
+        scrollRootRect.anchorMin = new Vector2(0.02f, 0.02f);
+        scrollRootRect.anchorMax = new Vector2(0.98f, 0.98f);
+        scrollRootRect.anchoredPosition = Vector2.zero;
+        scrollRootRect.sizeDelta = Vector2.zero;
+        scrollRootRect.pivot = new Vector2(0.5f, 0.5f);
+
+        Image scrollBg = scrollGo.AddComponent<Image>();
+        scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
+        scrollBg.raycastTarget = true;
+
+        // 2. Viewport - leaves 16px bottom margin for the horizontal scrollbar
+        GameObject viewportGo = new GameObject("Viewport");
+        RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
+        viewportGo.transform.SetParent(scrollGo.transform, false);
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.offsetMin = new Vector2(0f, 16f);
+        viewportRect.offsetMax = Vector2.zero;
+        viewportGo.AddComponent<RectMask2D>();
+        Image viewportImg = viewportGo.AddComponent<Image>();
+        viewportImg.color = new Color(1f, 1f, 1f, 0.001f);
+        viewportImg.raycastTarget = true;
+
+        // 3. Content - horizontal layout
+        GameObject contentGo = new GameObject("Content");
+        photoContentRect = contentGo.AddComponent<RectTransform>();
+        contentGo.transform.SetParent(viewportGo.transform, false);
+        photoContentRect.anchorMin = new Vector2(0f, 0f);
+        photoContentRect.anchorMax = new Vector2(0f, 1f);
+        photoContentRect.pivot = new Vector2(0f, 0.5f);
+        photoContentRect.anchoredPosition = Vector2.zero;
+        photoContentRect.sizeDelta = Vector2.zero;
+
+        HorizontalLayoutGroup hlg = contentGo.AddComponent<HorizontalLayoutGroup>();
+        hlg.spacing = 0f;
+        hlg.childAlignment = TextAnchor.MiddleCenter;
+        hlg.childControlWidth = false;
+        hlg.childControlHeight = true;
+        hlg.childForceExpandWidth = false;
+        hlg.childForceExpandHeight = true;
+        hlg.padding = new RectOffset(0, 0, 0, 0);
+
+        ContentSizeFitter csf = contentGo.AddComponent<ContentSizeFitter>();
+        csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        // 4. ScrollRect - horizontal only with snappy deceleration
+        photoScrollRect = scrollGo.AddComponent<ScrollRect>();
+        photoScrollRect.content = photoContentRect;
+        photoScrollRect.viewport = viewportRect;
+        photoScrollRect.horizontal = true;
+        photoScrollRect.vertical = false;
+        photoScrollRect.movementType = ScrollRect.MovementType.Elastic;
+        photoScrollRect.elasticity = 0.1f;
+        photoScrollRect.inertia = true;
+        photoScrollRect.decelerationRate = 0.135f;
+        photoScrollRect.scrollSensitivity = 25f;
+
+        // 5. Page Snap Controller
+        photoSnapScroller = scrollGo.AddComponent<PhotoSnapScroller>();
+        photoSnapScroller.scrollRect = photoScrollRect;
+
+        // 6. Build horizontal scrollbar indicator
+        BuildHorizontalScrollbarForScrollRect(photoScrollRect);
+    }
+
+    /// <summary>
+    /// Populates the scrollable photo gallery with full-mode pictures and configures page snapping.
+    /// </summary>
+    private void PopulatePhotoScrollView(HistoryData data)
+    {
+        EnsurePhotoScrollView();
+        if (photoContentRect == null) return;
+
+        // Clear existing photo cards
+        for (int i = photoContentRect.childCount - 1; i >= 0; i--)
+        {
+            Destroy(photoContentRect.GetChild(i).gameObject);
+        }
+
+        HistoryImage[] images = GetCurrentImages();
+        bool hasImages = images != null && images.Length > 0;
+
+        if (noImageTextObj != null)
+        {
+            noImageTextObj.SetActive(!hasImages);
+        }
+
+        if (!hasImages)
+        {
+            if (photoSnapScroller != null) photoSnapScroller.totalPages = 1;
+            return;
+        }
+
+        RectTransform viewportRect = photoScrollRect != null ? photoScrollRect.viewport : null;
+        float viewportWidth = (viewportRect != null && viewportRect.rect.width > 50f) ? viewportRect.rect.width : 246f;
+
+        int validCount = 0;
+        foreach (var historyImg in images)
+        {
+            if (historyImg.sprite == null) continue;
+            validCount++;
+
+            Sprite s = historyImg.sprite;
+            GameObject cardGo = new GameObject("PhotoPage_" + validCount);
+            cardGo.transform.SetParent(photoContentRect, false);
+
+            RectTransform cardRect = cardGo.AddComponent<RectTransform>();
+            cardRect.anchorMin = new Vector2(0f, 0f);
+            cardRect.anchorMax = new Vector2(0f, 1f);
+            cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.sizeDelta = new Vector2(viewportWidth, 0f);
+
+            LayoutElement le = cardGo.AddComponent<LayoutElement>();
+            le.preferredWidth = viewportWidth;
+            le.flexibleHeight = 1f;
+
+            // Full-mode photo image container
+            GameObject imgGo = new GameObject("Photo");
+            imgGo.transform.SetParent(cardGo.transform, false);
+            RectTransform imgRt = imgGo.AddComponent<RectTransform>();
+            imgRt.anchorMin = Vector2.zero;
+            imgRt.anchorMax = Vector2.one;
+            imgRt.pivot = new Vector2(0.5f, 0.5f);
+            imgRt.offsetMin = Vector2.zero;
+            imgRt.offsetMax = Vector2.zero;
+
+            Image imgComp = imgGo.AddComponent<Image>();
+            imgComp.sprite = s;
+            imgComp.color = Color.white;
+            imgComp.preserveAspect = true;
+            imgComp.raycastTarget = true;
+
+            AspectRatioFitter fitter = imgGo.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            if (s.rect.height > 0f)
+            {
+                fitter.aspectRatio = (float)s.rect.width / (float)s.rect.height;
+            }
+
+            // Caption overlay (if present)
+            if (!string.IsNullOrEmpty(historyImg.caption))
+            {
+                GameObject capGo = new GameObject("Caption");
+                capGo.transform.SetParent(cardGo.transform, false);
+                RectTransform capRt = capGo.AddComponent<RectTransform>();
+                capRt.anchorMin = new Vector2(0f, 0f);
+                capRt.anchorMax = new Vector2(1f, 0f);
+                capRt.pivot = new Vector2(0.5f, 0f);
+                capRt.anchoredPosition = new Vector2(0f, 4f);
+                capRt.sizeDelta = new Vector2(-10f, 22f);
+
+                Image capBg = capGo.AddComponent<Image>();
+                capBg.color = new Color(0f, 0f, 0f, 0.55f);
+                capBg.raycastTarget = false;
+
+                GameObject capTextGo = new GameObject("Text");
+                capTextGo.transform.SetParent(capGo.transform, false);
+                RectTransform textRt = capTextGo.AddComponent<RectTransform>();
+                textRt.anchorMin = Vector2.zero;
+                textRt.anchorMax = Vector2.one;
+                textRt.sizeDelta = Vector2.zero;
+
+                TextMeshProUGUI capTmp = capTextGo.AddComponent<TextMeshProUGUI>();
+                capTmp.text = historyImg.caption;
+                capTmp.fontSize = 11f;
+                capTmp.alignment = TextAlignmentOptions.Center;
+                capTmp.color = Color.white;
+                capTmp.enableWordWrapping = false;
+                capTmp.overflowMode = TextOverflowModes.Ellipsis;
+                capTmp.raycastTarget = false;
+            }
+        }
+
+        if (photoSnapScroller != null)
+        {
+            photoSnapScroller.totalPages = Mathf.Max(1, validCount);
+            photoSnapScroller.currentPage = 0;
+        }
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(photoContentRect);
+
+        if (photoScrollRect != null)
+        {
+            photoScrollRect.horizontalNormalizedPosition = 0f;
         }
     }
 
@@ -402,6 +618,70 @@ public class HistoryPanel : MonoBehaviour
         scrollRect.verticalScrollbarSpacing = 4f;
     }
 
+    private void BuildHorizontalScrollbarForScrollRect(ScrollRect scrollRect)
+    {
+        if (scrollRect == null || scrollRect.gameObject == null) return;
+
+        Sprite roundedRect = GetOrCreateRoundedRectSprite();
+
+        Scrollbar existingSb = scrollRect.gameObject.GetComponentInChildren<Scrollbar>(true);
+        if (existingSb != null)
+        {
+            scrollRect.horizontalScrollbar = existingSb;
+            scrollRect.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            return;
+        }
+
+        GameObject scrollbarGo = new GameObject("ScrollbarHorizontal");
+        scrollbarGo.transform.SetParent(scrollRect.transform, false);
+
+        RectTransform sbRect = scrollbarGo.AddComponent<RectTransform>();
+        sbRect.anchorMin = new Vector2(0.12f, 0f);
+        sbRect.anchorMax = new Vector2(0.88f, 0f);
+        sbRect.pivot = new Vector2(0.5f, 0f);
+        sbRect.anchoredPosition = new Vector2(0f, 2f);
+        sbRect.sizeDelta = new Vector2(0f, 6f); // Sleek 6px tall horizontal bar
+
+        Image trackImg = scrollbarGo.AddComponent<Image>();
+        trackImg.sprite = roundedRect;
+        trackImg.type = Image.Type.Sliced;
+        trackImg.color = new Color(1f, 1f, 1f, 0.15f); // Translucent track
+        trackImg.raycastTarget = true;
+
+        Scrollbar sbComp = scrollbarGo.AddComponent<Scrollbar>();
+        sbComp.direction = Scrollbar.Direction.LeftToRight;
+
+        GameObject slidingAreaGo = new GameObject("Sliding Area");
+        slidingAreaGo.transform.SetParent(scrollbarGo.transform, false);
+        RectTransform slidingRect = slidingAreaGo.AddComponent<RectTransform>();
+        slidingRect.anchorMin = Vector2.zero;
+        slidingRect.anchorMax = Vector2.one;
+        slidingRect.sizeDelta = Vector2.zero;
+
+        GameObject handleGo = new GameObject("Handle");
+        handleGo.transform.SetParent(slidingAreaGo.transform, false);
+        RectTransform handleRect = handleGo.AddComponent<RectTransform>();
+        handleRect.anchorMin = Vector2.zero;
+        handleRect.anchorMax = Vector2.one;
+        handleRect.sizeDelta = Vector2.zero;
+
+        Image handleImg = handleGo.AddComponent<Image>();
+        handleImg.sprite = roundedRect;
+        handleImg.type = Image.Type.Sliced;
+        handleImg.color = new Color(0.90f, 0.93f, 0.63f, 0.85f); // Pale lime yellow accent (#E5EE9C)
+        handleImg.raycastTarget = true;
+
+        sbComp.targetGraphic = handleImg;
+        sbComp.handleRect = handleRect;
+
+        scrollRect.horizontalScrollbar = sbComp;
+        scrollRect.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        scrollRect.horizontalScrollbarSpacing = 2f;
+
+        ScrollbarSnapHook sbHook = scrollbarGo.AddComponent<ScrollbarSnapHook>();
+        sbHook.snapScroller = photoSnapScroller;
+    }
+
     private void OnEnable()
     {
         AutoWireButtons();
@@ -451,31 +731,18 @@ public class HistoryPanel : MonoBehaviour
     private bool IsUserGazingAtPhoto()
     {
         if (isStaringOrHolding) return true;
-
-        if (displayImage == null || !displayImage.gameObject.activeInHierarchy) return false;
+        if (activeHistoryData == null || activeHistoryData.videoClip == null) return false;
 
         Camera cam = Camera.main;
         if (cam == null) return false;
 
-        Ray headRay = new Ray(cam.transform.position, cam.transform.forward);
+        Transform targetT = photoScrollRect != null ? photoScrollRect.transform : (displayImage != null ? displayImage.transform : null);
+        if (targetT == null || !targetT.gameObject.activeInHierarchy) return false;
 
-        // Check against videoTriggerArea BoxCollider
-        if (videoTriggerArea != null && videoTriggerArea.Raycast(headRay, out _, 4f))
-        {
-            return true;
-        }
-
-        // Check against displayImage BoxCollider
-        BoxCollider imgBox = displayImage.GetComponent<BoxCollider>();
-        if (imgBox != null && imgBox.Raycast(headRay, out _, 4f))
-        {
-            return true;
-        }
-
-        // Check against displayImage RectTransform plane in world space
-        RectTransform rect = displayImage.rectTransform;
+        RectTransform rect = targetT as RectTransform;
         if (rect != null)
         {
+            Ray headRay = new Ray(cam.transform.position, cam.transform.forward);
             Plane imgPlane = new Plane(-rect.forward, rect.position);
             if (imgPlane.Raycast(headRay, out float enterDist) && enterDist > 0.1f && enterDist <= 4f)
             {
@@ -511,6 +778,7 @@ public class HistoryPanel : MonoBehaviour
         if (data == null) return;
 
         EnsureMediaLoaded(data);
+        PopulatePhotoScrollView(data);
 
         // Header Title & Subtitle - capped at 2 lines (long titles like "Infrastruktur &
         // Pembangunan Terengganu" wrap once, then ellipsise, instead of running past the box).
@@ -1064,186 +1332,19 @@ public class HistoryPanel : MonoBehaviour
     private float lastNextImageTime = -10f;
     private float lastPreviousImageTime = -10f;
 
-    public void ShowNextImage()
-    {
-        if (Time.unscaledTime - lastNextImageTime < GalleryNavDebounceSeconds) return;
-        lastNextImageTime = Time.unscaledTime;
-
-        HistoryImage[] images = GetCurrentImages();
-        if (images.Length == 0) return;
-        currentImageIndex = (currentImageIndex + 1) % images.Length;
-        UpdateImageUI();
-    }
-
-    public void ShowPreviousImage()
-    {
-        if (Time.unscaledTime - lastPreviousImageTime < GalleryNavDebounceSeconds) return;
-        lastPreviousImageTime = Time.unscaledTime;
-
-        HistoryImage[] images = GetCurrentImages();
-        if (images.Length == 0) return;
-        currentImageIndex = (currentImageIndex - 1 + images.Length) % images.Length;
-        UpdateImageUI();
-    }
-
-    /// <summary>
-    /// Shows the current gallery photo XOR the "no image" placeholder - never both, and
-    /// never a blank box. Gallery arrows/counter only appear when there's more than one
-    /// photo to page through; a single photo (or zero) shows no navigation chrome at all.
-    /// </summary>
     private void UpdateImageUI()
     {
-        HistoryImage[] images = GetCurrentImages();
-        bool hasImage = images.Length > 0 && currentImageIndex >= 0 && currentImageIndex < images.Length
-                        && images[currentImageIndex].sprite != null;
-
-        if (displayImage != null)
+        // Handled dynamically by PopulatePhotoScrollView
+        if (activeHistoryData != null)
         {
-            displayImage.gameObject.SetActive(hasImage);
-            if (hasImage)
-            {
-                Sprite sprite = images[currentImageIndex].sprite;
-                displayImage.sprite = sprite;
-                displayImage.color = Color.white;
-                displayImage.preserveAspect = true;
-
-                if (sprite != null && sprite.rect.height > 0f)
-                {
-                    AspectRatioFitter fitter = displayImage.GetComponent<AspectRatioFitter>();
-                    if (fitter == null) fitter = displayImage.gameObject.AddComponent<AspectRatioFitter>();
-                    fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-                    fitter.aspectRatio = (float)sprite.rect.width / (float)sprite.rect.height;
-                }
-            }
-        }
-        if (noImageTextObj != null) noImageTextObj.SetActive(!hasImage);
-
-        SetGalleryNavVisible(hasImage && images.Length > 1);
-        if (imageCounterText != null && images.Length > 1)
-        {
-            imageCounterText.text = $"{currentImageIndex + 1} / {images.Length}";
+            PopulatePhotoScrollView(activeHistoryData);
         }
     }
 
     private void SetGalleryNavVisible(bool visible)
     {
-        if (previousImageButton != null) previousImageButton.gameObject.SetActive(visible);
-        if (nextImageButton != null) nextImageButton.gameObject.SetActive(visible);
-        if (imageCounterText != null) imageCounterText.gameObject.SetActive(visible);
-    }
-
-    /// <summary>
-    /// Finds PreviousImageButton/NextImageButton/ImageCounterText by name if the scene
-    /// already has them (so a designer can customise their look), otherwise builds small
-    /// chevron buttons and a counter label next to the display image at runtime. Either
-    /// way the gallery works without any scene wiring.
-    /// </summary>
-    private void EnsureGalleryNavUI()
-    {
-        if (previousImageButton == null)
-        {
-            Transform t = FindDeepChildTransform(transform, "PreviousImageButton");
-            if (t != null) previousImageButton = t.GetComponent<Button>();
-        }
-        if (nextImageButton == null)
-        {
-            Transform t = FindDeepChildTransform(transform, "NextImageButton");
-            if (t != null) nextImageButton = t.GetComponent<Button>();
-        }
-        if (imageCounterText == null)
-        {
-            Transform t = FindDeepChildTransform(transform, "ImageCounterText");
-            if (t != null) imageCounterText = t.GetComponent<TMP_Text>();
-        }
-        if (previousImageButtonXR == null && previousImageButton != null)
-        {
-            previousImageButtonXR = previousImageButton.GetComponent<XRButtonSelection>();
-        }
-        if (nextImageButtonXR == null && nextImageButton != null)
-        {
-            nextImageButtonXR = nextImageButton.GetComponent<XRButtonSelection>();
-        }
-
-        if ((previousImageButton == null || nextImageButton == null) && displayImage != null)
-        {
-            BuildGalleryNavFallback();
-        }
-
-        WireButton(previousImageButton, previousImageButtonXR, ShowPreviousImage);
-        WireButton(nextImageButton, nextImageButtonXR, ShowNextImage);
-        EnsureSwipeGesture();
-    }
-
-    /// <summary>
-    /// Attaches horizontal swipe gesture recognition to the display photo and its container
-    /// so players can swipe left / right with their hands, ray, or controller to page through photos.
-    /// </summary>
-    private void EnsureSwipeGesture()
-    {
-        if (displayImage != null)
-        {
-            PhotoSwipeHandler swipe = displayImage.GetComponent<PhotoSwipeHandler>();
-            if (swipe == null) swipe = displayImage.gameObject.AddComponent<PhotoSwipeHandler>();
-            swipe.onSwipeLeft = ShowNextImage;
-            swipe.onSwipeRight = ShowPreviousImage;
-        }
-
-        Transform parent = displayImage != null ? displayImage.transform.parent : null;
-        if (parent != null && parent.gameObject != displayImage.gameObject)
-        {
-            PhotoSwipeHandler pSwipe = parent.GetComponent<PhotoSwipeHandler>();
-            if (pSwipe == null) pSwipe = parent.gameObject.AddComponent<PhotoSwipeHandler>();
-            pSwipe.onSwipeLeft = ShowNextImage;
-            pSwipe.onSwipeRight = ShowPreviousImage;
-        }
-    }
-
-    /// <summary>
-    /// Small "‹"/"›" chevron buttons straddling the display image, plus a counter label
-    /// under it. Parented next to the image (not inside it) so they don't get hidden along
-    /// with it when the image itself is toggled off.
-    /// </summary>
-    private void BuildGalleryNavFallback()
-    {
-        Transform parent = displayImage.transform.parent != null ? displayImage.transform.parent : transform;
-
-        builtGalleryNavRoot = new GameObject("GalleryNav");
-        builtGalleryNavRoot.transform.SetParent(parent, false);
-        RectTransform navRect = builtGalleryNavRoot.AddComponent<RectTransform>();
-        RectTransform imgRect = displayImage.rectTransform;
-        navRect.anchorMin = imgRect.anchorMin;
-        navRect.anchorMax = imgRect.anchorMax;
-        navRect.anchoredPosition = imgRect.anchoredPosition;
-        navRect.sizeDelta = imgRect.sizeDelta;
-        navRect.pivot = imgRect.pivot;
-
-        if (previousImageButton == null)
-        {
-            previousImageButton = BuildChevronButton(builtGalleryNavRoot.transform, "PreviousImageButton", "‹",
-                new Vector2(0f, 0.5f), new Vector2(-18f, 0f));
-            previousImageButtonXR = previousImageButton.GetComponent<XRButtonSelection>();
-        }
-        if (nextImageButton == null)
-        {
-            nextImageButton = BuildChevronButton(builtGalleryNavRoot.transform, "NextImageButton", "›",
-                new Vector2(1f, 0.5f), new Vector2(18f, 0f));
-            nextImageButtonXR = nextImageButton.GetComponent<XRButtonSelection>();
-        }
-        if (imageCounterText == null)
-        {
-            GameObject counterGo = new GameObject("ImageCounterText");
-            counterGo.transform.SetParent(builtGalleryNavRoot.transform, false);
-            imageCounterText = counterGo.AddComponent<TextMeshProUGUI>();
-            imageCounterText.fontSize = 16f;
-            imageCounterText.alignment = TextAlignmentOptions.Center;
-            imageCounterText.color = new Color(1f, 1f, 1f, 0.85f);
-            RectTransform counterRect = counterGo.GetComponent<RectTransform>();
-            counterRect.anchorMin = new Vector2(0.5f, 0f);
-            counterRect.anchorMax = new Vector2(0.5f, 0f);
-            counterRect.pivot = new Vector2(0.5f, 1f);
-            counterRect.anchoredPosition = new Vector2(0f, -6f);
-            counterRect.sizeDelta = new Vector2(120f, 28f);
-        }
+        if (previousImageButton != null) previousImageButton.gameObject.SetActive(false);
+        if (nextImageButton != null) nextImageButton.gameObject.SetActive(false);
     }
 
     private static Button BuildChevronButton(Transform parent, string name, string glyph, Vector2 anchor, Vector2 offset)
@@ -1302,25 +1403,9 @@ public class HistoryPanel : MonoBehaviour
         ResetMediaToImageState(animate: true);
     }
 
-    // Accepts BoxCollider directly for videoTriggerArea
     private void WireVideoTriggerArea()
     {
         AutoWireMediaFields();
-
-        if (displayImage != null)
-        {
-            AttachMediaTrigger(displayImage.gameObject);
-        }
-
-        if (videoTriggerArea != null && videoTriggerArea.gameObject != displayImage?.gameObject)
-        {
-            AttachMediaTrigger(videoTriggerArea.gameObject);
-        }
-
-        if (videoPanel != null && videoPanel != displayImage?.gameObject && videoPanel != videoTriggerArea?.gameObject)
-        {
-            AttachMediaTrigger(videoPanel);
-        }
 
         if (videoPlayer != null)
         {
@@ -1328,31 +1413,6 @@ public class HistoryPanel : MonoBehaviour
             videoPlayer.loopPointReached -= OnVideoLoopPointReached;
             videoPlayer.loopPointReached += OnVideoLoopPointReached;
         }
-    }
-
-    private void AttachMediaTrigger(GameObject targetObj)
-    {
-        if (targetObj == null) return;
-
-        HoldMediaClipTrigger trigger = targetObj.GetComponent<HoldMediaClipTrigger>();
-        if (trigger == null) trigger = targetObj.AddComponent<HoldMediaClipTrigger>();
-        trigger.Setup(this);
-
-        BoxCollider box = targetObj.GetComponent<BoxCollider>();
-        if (box == null)
-        {
-            box = targetObj.AddComponent<BoxCollider>();
-            RectTransform rect = targetObj.GetComponent<RectTransform>();
-            float w = (rect != null && rect.rect.width > 10f) ? rect.rect.width : 250f;
-            float h = (rect != null && rect.rect.height > 10f) ? rect.rect.height : 250f;
-            box.size = new Vector3(w, h, 10f);
-        }
-
-        Image img = targetObj.GetComponent<Image>();
-        if (img != null) img.raycastTarget = true;
-
-        RawImage rawImg = targetObj.GetComponent<RawImage>();
-        if (rawImg != null) rawImg.raycastTarget = true;
     }
 
     private void AutoWireMediaFields()
@@ -1551,140 +1611,85 @@ public class HistoryPanel : MonoBehaviour
 }
 
 /// <summary>
-/// Attached to displayImage, videoTriggerArea, and videoPanel.
-/// Captures press & release triggers, UGUI hover, as well as XR Ray / Head Gaze interactors via XRSimpleInteractable.
+/// Handles smooth snapping to each full-mode photo page so the picture never stops halfway between 2 images.
 /// </summary>
-public class HoldMediaClipTrigger : XRSimpleInteractable, IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
+public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IPointerUpHandler
 {
-    private HistoryPanel panel;
-
-    public void Setup(HistoryPanel historyPanel)
-    {
-        panel = historyPanel;
-    }
-
-    protected override void OnHoverEntered(HoverEnterEventArgs args)
-    {
-        base.OnHoverEntered(args);
-        panel?.OnPointerEnterTrigger();
-    }
-
-    protected override void OnHoverExited(HoverExitEventArgs args)
-    {
-        base.OnHoverExited(args);
-        panel?.OnPointerExitTrigger();
-    }
-
-    protected override void OnSelectEntered(SelectEnterEventArgs args)
-    {
-        base.OnSelectEntered(args);
-        panel?.OnPointerDownTrigger();
-    }
-
-    protected override void OnSelectExited(SelectExitEventArgs args)
-    {
-        base.OnSelectExited(args);
-        panel?.OnPointerUpTrigger();
-    }
-
-    public void OnPointerEnter(PointerEventData eventData)
-    {
-        panel?.OnPointerEnterTrigger();
-    }
-
-    public void OnPointerExit(PointerEventData eventData)
-    {
-        panel?.OnPointerExitTrigger();
-    }
-
-    public void OnPointerDown(PointerEventData eventData)
-    {
-        panel?.OnPointerDownTrigger();
-    }
-
-    public void OnPointerUp(PointerEventData eventData)
-    {
-        panel?.OnPointerUpTrigger();
-    }
-}
-
-/// <summary>
-/// Handles swipe left and swipe right drag gestures on photo containers in HistoryPanel
-/// to navigate between multiple images smoothly on Meta Quest (controllers, hand tracking, or mouse).
-/// </summary>
-public class PhotoSwipeHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerDownHandler, IPointerUpHandler
-{
-    public Action onSwipeLeft;
-    public Action onSwipeRight;
-
-    private Vector2 pointerDownPosition;
-    private float pointerDownTime;
-    private bool hasTriggeredSwipe = false;
-    private const float MinSwipeDistance = 30f;
-
-    public void OnPointerDown(PointerEventData eventData)
-    {
-        pointerDownPosition = eventData.position;
-        pointerDownTime = Time.unscaledTime;
-        hasTriggeredSwipe = false;
-    }
+    public ScrollRect scrollRect;
+    public int totalPages = 1;
+    public int currentPage = 0;
+    private Coroutine snapCoroutine;
+    private bool isDragging = false;
 
     public void OnBeginDrag(PointerEventData eventData)
     {
-        // Drag began
-    }
-
-    public void OnDrag(PointerEventData eventData)
-    {
-        if (hasTriggeredSwipe) return;
-
-        float deltaX = eventData.position.x - pointerDownPosition.x;
-        float deltaY = eventData.position.y - pointerDownPosition.y;
-
-        if (Mathf.Abs(deltaX) > MinSwipeDistance && Mathf.Abs(deltaX) > Mathf.Abs(deltaY) * 1.1f)
+        isDragging = true;
+        if (snapCoroutine != null)
         {
-            hasTriggeredSwipe = true;
-            if (deltaX < 0)
-            {
-                onSwipeLeft?.Invoke();
-            }
-            else
-            {
-                onSwipeRight?.Invoke();
-            }
+            StopCoroutine(snapCoroutine);
+            snapCoroutine = null;
         }
     }
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        CheckSwipe(eventData);
+        isDragging = false;
+        SnapToNearestPage();
     }
 
     public void OnPointerUp(PointerEventData eventData)
     {
-        CheckSwipe(eventData);
+        if (!isDragging)
+        {
+            SnapToNearestPage();
+        }
     }
 
-    private void CheckSwipe(PointerEventData eventData)
+    public void SnapToNearestPage()
     {
-        if (hasTriggeredSwipe) return;
+        if (totalPages <= 1 || scrollRect == null) return;
 
-        float deltaX = eventData.position.x - pointerDownPosition.x;
-        float deltaY = eventData.position.y - pointerDownPosition.y;
-        float duration = Time.unscaledTime - pointerDownTime;
+        float pos = Mathf.Clamp01(scrollRect.horizontalNormalizedPosition);
+        float step = 1f / (totalPages - 1);
+        int targetPage = Mathf.RoundToInt(pos / step);
+        targetPage = Mathf.Clamp(targetPage, 0, totalPages - 1);
+        currentPage = targetPage;
 
-        if (duration < 0.7f && Mathf.Abs(deltaX) > MinSwipeDistance && Mathf.Abs(deltaX) > Mathf.Abs(deltaY) * 1.1f)
+        float targetPos = targetPage * step;
+        if (snapCoroutine != null) StopCoroutine(snapCoroutine);
+        snapCoroutine = StartCoroutine(LerpToPage(targetPos));
+    }
+
+    private IEnumerator LerpToPage(float targetPos)
+    {
+        float startPos = scrollRect.horizontalNormalizedPosition;
+        float duration = 0.22f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
         {
-            hasTriggeredSwipe = true;
-            if (deltaX < 0)
-            {
-                onSwipeLeft?.Invoke();
-            }
-            else
-            {
-                onSwipeRight?.Invoke();
-            }
+            if (isDragging) yield break;
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.SmoothStep(0f, 1f, elapsed / duration);
+            scrollRect.horizontalNormalizedPosition = Mathf.Lerp(startPos, targetPos, t);
+            yield return null;
         }
+
+        scrollRect.horizontalNormalizedPosition = targetPos;
+        snapCoroutine = null;
+    }
+}
+
+/// <summary>
+/// Catches pointer release events on the horizontal scrollbar to trigger page snapping.
+/// </summary>
+public class ScrollbarSnapHook : MonoBehaviour, IPointerUpHandler
+{
+    public PhotoSnapScroller snapScroller;
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        snapScroller?.SnapToNearestPage();
     }
 }
 
