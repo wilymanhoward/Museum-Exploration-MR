@@ -31,7 +31,9 @@ MonoBehaviour:
 
 
     • Pendudukan Jepun & Thai (1942–1945): Pentadbiran tentera Jepun (1942) dan penyerahan kuasa kepada Thai (1943) sehingga Perang Dunia Ke-2 tamat (1945).'
-  images: []
-  displaySprite: {fileID: 0}
+  images:
+  - sprite: {fileID: 21300000, guid: ba547355269d2544782a2b5aefda3fea, type: 3}
+    caption: 'Zaman Penjajahan di Terengganu'
+  displaySprite: {fileID: 21300000, guid: ba547355269d2544782a2b5aefda3fea, type: 3}
   videoClip: {fileID: 0}
   narrationClip: {fileID: 0}

@@ -453,12 +453,48 @@ public class HistoryListPanel : MonoBehaviour
             catch { }
         }
 
-        string id = (data.historyId ?? data.name ?? "").ToLower();
-        if (id.Contains("megat") || id.Contains("panji"))
+        string id = (data.historyId ?? "").ToLower();
+        string name = (data.name ?? "").ToLower();
+        string title = (data.eventTitle ?? "").ToLower();
+
+        if (id.Contains("zaman") || name.Contains("zaman") || title.Contains("zaman"))
+        {
+            Sprite s = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/ZamanPenjajahan/Zaman Penjajahan");
+            if (s == null) s = Resources.Load<Sprite>("Media/ZamanPenjajahan/Zaman Penjajahan");
+            if (s != null) return s;
+
+            Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/ZamanPenjajahan/Zaman Penjajahan");
+            if (tex == null) tex = Resources.Load<Texture2D>("Media/ZamanPenjajahan/Zaman Penjajahan");
+            if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+        }
+        else if (id.Contains("tani") || name.Contains("tani") || title.Contains("tani") || id.Contains("pemberontakan") || title.Contains("pemberontakan"))
+        {
+            Sprite s = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/PemberontakanTani/Pemberontakan Tani");
+            if (s == null) s = Resources.Load<Sprite>("Media/PemberontakanTani/Pemberontakan Tani");
+            if (s != null) return s;
+
+            Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/PemberontakanTani/Pemberontakan Tani");
+            if (tex == null) tex = Resources.Load<Texture2D>("Media/PemberontakanTani/Pemberontakan Tani");
+            if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+        }
+        else if (id.Contains("megat") || name.Contains("megat") || title.Contains("megat"))
         {
             Sprite s = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+            if (s == null) s = Resources.Load<Sprite>("Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
             if (s != null) return s;
+
             Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+            if (tex == null) tex = Resources.Load<Texture2D>("Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
+            if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+        }
+        else if (id.Contains("infrastruktur") || name.Contains("infrastruktur") || title.Contains("infrastruktur") || id.Contains("pembangunan") || title.Contains("pembangunan"))
+        {
+            Sprite s = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/InfrastrukturPembangunan/Infrastruktur & Pembangunan Terengganu 1");
+            if (s == null) s = Resources.Load<Sprite>("Media/InfrastrukturPembangunan/Infrastruktur & Pembangunan Terengganu 1");
+            if (s != null) return s;
+
+            Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/InfrastrukturPembangunan/Infrastruktur & Pembangunan Terengganu 1");
+            if (tex == null) tex = Resources.Load<Texture2D>("Media/InfrastrukturPembangunan/Infrastruktur & Pembangunan Terengganu 1");
             if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
         }
 

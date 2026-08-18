@@ -608,64 +608,125 @@ public class HistoryPanel : MonoBehaviour
             string name = (data.name ?? "").ToLower();
             string title = (data.eventTitle ?? "").ToLower();
 
-            if (id.Contains("megat") || name.Contains("megat") || title.Contains("megat"))
+            if (!hasValidPhoto)
             {
-                if (!hasValidPhoto)
-                {
-                    Sprite loadedSprite = null;
+                Sprite loadedSprite = null;
 
-                    // 1. Load Sprite directly from Resources
+                if (id.Contains("zaman") || name.Contains("zaman") || title.Contains("zaman"))
+                {
+                    loadedSprite = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/ZamanPenjajahan/Zaman Penjajahan");
+                    if (loadedSprite == null) loadedSprite = Resources.Load<Sprite>("Media/ZamanPenjajahan/Zaman Penjajahan");
+                    if (loadedSprite == null)
+                    {
+                        Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/ZamanPenjajahan/Zaman Penjajahan");
+                        if (tex == null) tex = Resources.Load<Texture2D>("Media/ZamanPenjajahan/Zaman Penjajahan");
+                        if (tex != null) loadedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    }
+#if UNITY_EDITOR
+                    if (loadedSprite == null) loadedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Photo/Zaman Penjajahan.jpg");
+                    if (loadedSprite == null)
+                    {
+                        Texture2D edTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Asset/Artifak Photo/Zaman Penjajahan.jpg");
+                        if (edTex != null) loadedSprite = Sprite.Create(edTex, new Rect(0, 0, edTex.width, edTex.height), new Vector2(0.5f, 0.5f));
+                    }
+#endif
+                }
+                else if (id.Contains("tani") || name.Contains("tani") || title.Contains("tani") || id.Contains("pemberontakan") || title.Contains("pemberontakan"))
+                {
+                    loadedSprite = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/PemberontakanTani/Pemberontakan Tani");
+                    if (loadedSprite == null) loadedSprite = Resources.Load<Sprite>("Media/PemberontakanTani/Pemberontakan Tani");
+                    if (loadedSprite == null)
+                    {
+                        Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/PemberontakanTani/Pemberontakan Tani");
+                        if (tex == null) tex = Resources.Load<Texture2D>("Media/PemberontakanTani/Pemberontakan Tani");
+                        if (tex != null) loadedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                    }
+#if UNITY_EDITOR
+                    if (loadedSprite == null) loadedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Photo/Pemberontakan Tani.jpg");
+                    if (loadedSprite == null)
+                    {
+                        Texture2D edTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Asset/Artifak Photo/Pemberontakan Tani.jpg");
+                        if (edTex != null) loadedSprite = Sprite.Create(edTex, new Rect(0, 0, edTex.width, edTex.height), new Vector2(0.5f, 0.5f));
+                    }
+#endif
+                }
+                else if (id.Contains("megat") || name.Contains("megat") || title.Contains("megat"))
+                {
                     loadedSprite = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
                     if (loadedSprite == null) loadedSprite = Resources.Load<Sprite>("Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
-
-                    // 2. Load Texture2D from Resources and dynamically create Sprite
                     if (loadedSprite == null)
                     {
                         Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
                         if (tex == null) tex = Resources.Load<Texture2D>("Media/MegatPanjiAlam/eFOTO-EF-260812-4E656F-24351");
-                        if (tex != null)
-                        {
-                            loadedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
-                        }
+                        if (tex != null) loadedSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
                     }
-
 #if UNITY_EDITOR
-                    // 3. Load from AssetDatabase in Unity Editor
-                    if (loadedSprite == null)
-                    {
-                        loadedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/eFOTO-EF-260812-4E656F-24351.jpg");
-                    }
+                    if (loadedSprite == null) loadedSprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/eFOTO-EF-260812-4E656F-24351.jpg");
                     if (loadedSprite == null)
                     {
                         Texture2D edTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/eFOTO-EF-260812-4E656F-24351.jpg");
-                        if (edTex != null)
-                        {
-                            loadedSprite = Sprite.Create(edTex, new Rect(0, 0, edTex.width, edTex.height), new Vector2(0.5f, 0.5f));
-                        }
+                        if (edTex != null) loadedSprite = Sprite.Create(edTex, new Rect(0, 0, edTex.width, edTex.height), new Vector2(0.5f, 0.5f));
                     }
 #endif
-
-                    if (loadedSprite != null)
+                }
+                else if (id.Contains("infrastruktur") || name.Contains("infrastruktur") || title.Contains("infrastruktur") || id.Contains("pembangunan") || title.Contains("pembangunan"))
+                {
+                    System.Collections.Generic.List<HistoryImage> imgList = new System.Collections.Generic.List<HistoryImage>();
+                    for (int i = 1; i <= 4; i++)
                     {
-                        data.displaySprite = loadedSprite;
-                        data.images = new HistoryImage[] { new HistoryImage { sprite = loadedSprite, caption = "" } };
+                        string resPath = $"MuseumData/DataSejarah/Media/InfrastrukturPembangunan/Infrastruktur & Pembangunan Terengganu {i}";
+                        string resPath2 = $"Media/InfrastrukturPembangunan/Infrastruktur & Pembangunan Terengganu {i}";
+                        string edPath = $"Assets/Asset/Artifak Photo/Infrastruktur & Pembangunan Terengganu {i}.jpg";
+
+                        Sprite s = Resources.Load<Sprite>(resPath);
+                        if (s == null) s = Resources.Load<Sprite>(resPath2);
+                        if (s == null)
+                        {
+                            Texture2D tex = Resources.Load<Texture2D>(resPath);
+                            if (tex == null) tex = Resources.Load<Texture2D>(resPath2);
+                            if (tex != null) s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+#if UNITY_EDITOR
+                        if (s == null) s = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(edPath);
+                        if (s == null)
+                        {
+                            Texture2D edTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(edPath);
+                            if (edTex != null) s = Sprite.Create(edTex, new Rect(0, 0, edTex.width, edTex.height), new Vector2(0.5f, 0.5f));
+                        }
+#endif
+                        if (s != null)
+                        {
+                            imgList.Add(new HistoryImage { sprite = s, caption = $"Infrastruktur & Pembangunan Terengganu {i}" });
+                        }
+                    }
+                    if (imgList.Count > 0)
+                    {
+                        data.images = imgList.ToArray();
+                        data.displaySprite = imgList[0].sprite;
+                        loadedSprite = imgList[0].sprite;
                     }
                 }
 
-                if (!hasValidVideo)
+                if (loadedSprite != null && (data.images == null || data.images.Length == 0))
                 {
-                    VideoClip loadedVideo = Resources.Load<VideoClip>("MuseumData/DataSejarah/Media/MegatPanjiAlam/PixVerse_V6_Image_Text_540P_Cinematic_animatio");
-                    if (loadedVideo == null) loadedVideo = Resources.Load<VideoClip>("Media/MegatPanjiAlam/PixVerse_V6_Image_Text_540P_Cinematic_animatio");
+                    data.displaySprite = loadedSprite;
+                    data.images = new HistoryImage[] { new HistoryImage { sprite = loadedSprite, caption = data.eventTitle } };
+                }
+            }
+
+            if (!hasValidVideo && (id.Contains("megat") || name.Contains("megat") || title.Contains("megat")))
+            {
+                VideoClip loadedVideo = Resources.Load<VideoClip>("MuseumData/DataSejarah/Media/MegatPanjiAlam/PixVerse_V6_Image_Text_540P_Cinematic_animatio");
+                if (loadedVideo == null) loadedVideo = Resources.Load<VideoClip>("Media/MegatPanjiAlam/PixVerse_V6_Image_Text_540P_Cinematic_animatio");
 #if UNITY_EDITOR
-                    if (loadedVideo == null)
-                    {
-                        loadedVideo = UnityEditor.AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/PixVerse_V6_Image_Text_540P_Cinematic_animatio.mp4");
-                    }
+                if (loadedVideo == null)
+                {
+                    loadedVideo = UnityEditor.AssetDatabase.LoadAssetAtPath<VideoClip>("Assets/Asset/Artifak Photo/Pembunuhan Megat Panji Alam/PixVerse_V6_Image_Text_540P_Cinematic_animatio.mp4");
+                }
 #endif
-                    if (loadedVideo != null)
-                    {
-                        data.videoClip = loadedVideo;
-                    }
+                if (loadedVideo != null)
+                {
+                    data.videoClip = loadedVideo;
                 }
             }
         }
@@ -1041,12 +1102,18 @@ public class HistoryPanel : MonoBehaviour
             displayImage.gameObject.SetActive(hasImage);
             if (hasImage)
             {
-                AspectRatioFitter fitter = displayImage.GetComponent<AspectRatioFitter>();
-                if (fitter != null) Destroy(fitter);
-
-                displayImage.sprite = images[currentImageIndex].sprite;
+                Sprite sprite = images[currentImageIndex].sprite;
+                displayImage.sprite = sprite;
                 displayImage.color = Color.white;
                 displayImage.preserveAspect = true;
+
+                if (sprite != null && sprite.rect.height > 0f)
+                {
+                    AspectRatioFitter fitter = displayImage.GetComponent<AspectRatioFitter>();
+                    if (fitter == null) fitter = displayImage.gameObject.AddComponent<AspectRatioFitter>();
+                    fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+                    fitter.aspectRatio = (float)sprite.rect.width / (float)sprite.rect.height;
+                }
             }
         }
         if (noImageTextObj != null) noImageTextObj.SetActive(!hasImage);
@@ -1104,6 +1171,31 @@ public class HistoryPanel : MonoBehaviour
 
         WireButton(previousImageButton, previousImageButtonXR, ShowPreviousImage);
         WireButton(nextImageButton, nextImageButtonXR, ShowNextImage);
+        EnsureSwipeGesture();
+    }
+
+    /// <summary>
+    /// Attaches horizontal swipe gesture recognition to the display photo and its container
+    /// so players can swipe left / right with their hands, ray, or controller to page through photos.
+    /// </summary>
+    private void EnsureSwipeGesture()
+    {
+        if (displayImage != null)
+        {
+            PhotoSwipeHandler swipe = displayImage.GetComponent<PhotoSwipeHandler>();
+            if (swipe == null) swipe = displayImage.gameObject.AddComponent<PhotoSwipeHandler>();
+            swipe.onSwipeLeft = ShowNextImage;
+            swipe.onSwipeRight = ShowPreviousImage;
+        }
+
+        Transform parent = displayImage != null ? displayImage.transform.parent : null;
+        if (parent != null && parent.gameObject != displayImage.gameObject)
+        {
+            PhotoSwipeHandler pSwipe = parent.GetComponent<PhotoSwipeHandler>();
+            if (pSwipe == null) pSwipe = parent.gameObject.AddComponent<PhotoSwipeHandler>();
+            pSwipe.onSwipeLeft = ShowNextImage;
+            pSwipe.onSwipeRight = ShowPreviousImage;
+        }
     }
 
     /// <summary>
@@ -1515,3 +1607,84 @@ public class HoldMediaClipTrigger : XRSimpleInteractable, IPointerDownHandler, I
         panel?.OnPointerUpTrigger();
     }
 }
+
+/// <summary>
+/// Handles swipe left and swipe right drag gestures on photo containers in HistoryPanel
+/// to navigate between multiple images smoothly on Meta Quest (controllers, hand tracking, or mouse).
+/// </summary>
+public class PhotoSwipeHandler : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerDownHandler, IPointerUpHandler
+{
+    public Action onSwipeLeft;
+    public Action onSwipeRight;
+
+    private Vector2 pointerDownPosition;
+    private float pointerDownTime;
+    private bool hasTriggeredSwipe = false;
+    private const float MinSwipeDistance = 30f;
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        pointerDownPosition = eventData.position;
+        pointerDownTime = Time.unscaledTime;
+        hasTriggeredSwipe = false;
+    }
+
+    public void OnBeginDrag(PointerEventData eventData)
+    {
+        // Drag began
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        if (hasTriggeredSwipe) return;
+
+        float deltaX = eventData.position.x - pointerDownPosition.x;
+        float deltaY = eventData.position.y - pointerDownPosition.y;
+
+        if (Mathf.Abs(deltaX) > MinSwipeDistance && Mathf.Abs(deltaX) > Mathf.Abs(deltaY) * 1.1f)
+        {
+            hasTriggeredSwipe = true;
+            if (deltaX < 0)
+            {
+                onSwipeLeft?.Invoke();
+            }
+            else
+            {
+                onSwipeRight?.Invoke();
+            }
+        }
+    }
+
+    public void OnEndDrag(PointerEventData eventData)
+    {
+        CheckSwipe(eventData);
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        CheckSwipe(eventData);
+    }
+
+    private void CheckSwipe(PointerEventData eventData)
+    {
+        if (hasTriggeredSwipe) return;
+
+        float deltaX = eventData.position.x - pointerDownPosition.x;
+        float deltaY = eventData.position.y - pointerDownPosition.y;
+        float duration = Time.unscaledTime - pointerDownTime;
+
+        if (duration < 0.7f && Mathf.Abs(deltaX) > MinSwipeDistance && Mathf.Abs(deltaX) > Mathf.Abs(deltaY) * 1.1f)
+        {
+            hasTriggeredSwipe = true;
+            if (deltaX < 0)
+            {
+                onSwipeLeft?.Invoke();
+            }
+            else
+            {
+                onSwipeRight?.Invoke();
+            }
+        }
+    }
+}
+

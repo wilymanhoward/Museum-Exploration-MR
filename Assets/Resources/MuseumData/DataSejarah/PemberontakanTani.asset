@@ -31,7 +31,9 @@ MonoBehaviour:
 
 
     • Pertempuran Kuala Telemong (23 Mei 1928): Pasukan polis di bawah Dato'' Seri Lela bertembung dengan perusuh. Arahan menembak dikeluarkan selepas rundingan gagal, menyebabkan 12 petani terkorban dan dikebumikan di Kampung Padang Kachong ("Kubur Dua Belas").'
-  images: []
-  displaySprite: {fileID: 0}
+  images:
+  - sprite: {fileID: 21300000, guid: ac9bc688afcc91a45ac0a744dcec0d00, type: 3}
+    caption: 'Pemberontakan Tani Terengganu'
+  displaySprite: {fileID: 21300000, guid: ac9bc688afcc91a45ac0a744dcec0d00, type: 3}
   videoClip: {fileID: 0}
   narrationClip: {fileID: 0}
