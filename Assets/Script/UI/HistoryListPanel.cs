@@ -93,12 +93,12 @@ public class HistoryListPanel : MonoBehaviour
         if (roomTitleText != null)
         {
             roomTitleText.text = title;
-            roomTitleText.fontSize = 18f;
+            roomTitleText.fontSize = 17f;
         }
         if (roomSubtitleText != null)
         {
             roomSubtitleText.text = subtitle;
-            roomSubtitleText.fontSize = 13f;
+            roomSubtitleText.fontSize = 12f;
         }
         if (sectionHeaderText != null)
         {
@@ -138,7 +138,6 @@ public class HistoryListPanel : MonoBehaviour
 
     /// <summary>
     /// Instantiate item buttons inside artifactListContainer for each HistoryData entry in 2 columns.
-    /// Explicitly calculates (col, row) coordinates so items NEVER stack or collide.
     /// </summary>
     public void PopulateHistoryList()
     {
@@ -189,7 +188,7 @@ public class HistoryListPanel : MonoBehaviour
             int col = i % 2;
             int row = i / 2;
             float posX = (col == 0) ? -135f : 135f;
-            float posY = 92f - (row * 60f);
+            float posY = 88f - (row * 58f);
 
             GameObject cardObj = null;
             if (historyItemPrefab != null)
@@ -221,7 +220,7 @@ public class HistoryListPanel : MonoBehaviour
             itemRt.anchorMax = new Vector2(0.5f, 0.5f);
             itemRt.pivot = new Vector2(0.5f, 0.5f);
             itemRt.anchoredPosition = new Vector2(posX, posY);
-            itemRt.sizeDelta = new Vector2(258f, 54f);
+            itemRt.sizeDelta = new Vector2(258f, 52f);
         }
 
         bool hasThumb = (thumbSprite != null);
@@ -352,7 +351,7 @@ public class HistoryListPanel : MonoBehaviour
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.pivot = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = new Vector2(posX, posY);
-        rt.sizeDelta = new Vector2(258f, 54f);
+        rt.sizeDelta = new Vector2(258f, 52f);
         rt.localScale = Vector3.one;
 
         Image bg = card.GetComponent<Image>();
@@ -560,6 +559,7 @@ public class HistoryListPanel : MonoBehaviour
 
     /// <summary>
     /// Configures the HistoryListPanel and its children into a clean 2-column layout container.
+    /// Refines corner roundness, aligns back/close buttons perfectly with matching 32x32 size.
     /// </summary>
     private void SetupTwoColumnLayout()
     {
@@ -577,7 +577,7 @@ public class HistoryListPanel : MonoBehaviour
                 panelRt.localScale = Vector3.one;
             }
 
-            // 2. Panel background image
+            // 2. Panel background image: subtle rounded edge (pixelsPerUnitMultiplier = 14f)
             Transform bgTransform = transform.Find("Background");
             if (bgTransform != null)
             {
@@ -590,6 +590,13 @@ public class HistoryListPanel : MonoBehaviour
                     bgRt.offsetMin = Vector2.zero;
                     bgRt.offsetMax = Vector2.zero;
                     bgRt.localScale = Vector3.one;
+                }
+
+                Image bgImg = bgTransform.GetComponent<Image>();
+                if (bgImg != null)
+                {
+                    bgImg.type = Image.Type.Sliced;
+                    bgImg.pixelsPerUnitMultiplier = 14f; // Clean, slight rounded corner (~16px) instead of giant curve
                 }
             }
 
@@ -609,7 +616,7 @@ public class HistoryListPanel : MonoBehaviour
                 listRt.anchorMax = new Vector2(0.5f, 0.5f);
                 listRt.pivot = new Vector2(0.5f, 0.5f);
                 listRt.anchoredPosition = new Vector2(0f, -32f);
-                listRt.sizeDelta = new Vector2(540f, 270f);
+                listRt.sizeDelta = new Vector2(540f, 260f);
                 listRt.localScale = Vector3.one;
             }
 
@@ -623,8 +630,8 @@ public class HistoryListPanel : MonoBehaviour
                     rt.anchorMin = new Vector2(0f, 1f);
                     rt.anchorMax = new Vector2(0f, 1f);
                     rt.pivot = new Vector2(0f, 1f);
-                    rt.anchoredPosition = new Vector2(18f, -12f);
-                    rt.sizeDelta = new Vector2(30f, 30f);
+                    rt.anchoredPosition = new Vector2(22f, -14f);
+                    rt.sizeDelta = new Vector2(28f, 28f);
                 }
             }
 
@@ -634,8 +641,8 @@ public class HistoryListPanel : MonoBehaviour
                 rt.anchorMin = new Vector2(0f, 1f);
                 rt.anchorMax = new Vector2(0f, 1f);
                 rt.pivot = new Vector2(0f, 1f);
-                rt.anchoredPosition = new Vector2(55f, -10f);
-                rt.sizeDelta = new Vector2(320f, 28f);
+                rt.anchoredPosition = new Vector2(56f, -12f);
+                rt.sizeDelta = new Vector2(320f, 26f);
             }
 
             if (roomSubtitleText != null)
@@ -644,10 +651,11 @@ public class HistoryListPanel : MonoBehaviour
                 rt.anchorMin = new Vector2(0f, 1f);
                 rt.anchorMax = new Vector2(0f, 1f);
                 rt.pivot = new Vector2(0f, 1f);
-                rt.anchoredPosition = new Vector2(55f, -34f);
-                rt.sizeDelta = new Vector2(320f, 20f);
+                rt.anchoredPosition = new Vector2(56f, -34f);
+                rt.sizeDelta = new Vector2(320f, 18f);
             }
 
+            // 6. Close Button and Back Button: Perfect identical size (32x32) & horizontal alignment
             if (closeButton != null)
             {
                 RectTransform rt = closeButton.GetComponent<RectTransform>();
@@ -655,9 +663,25 @@ public class HistoryListPanel : MonoBehaviour
                 {
                     rt.anchorMin = new Vector2(1f, 1f);
                     rt.anchorMax = new Vector2(1f, 1f);
-                    rt.pivot = new Vector2(1f, 1f);
-                    rt.anchoredPosition = new Vector2(-18f, -12f);
-                    rt.sizeDelta = new Vector2(30f, 30f);
+                    rt.pivot = new Vector2(0.5f, 0.5f);
+                    rt.anchoredPosition = new Vector2(-30f, -28f);
+                    rt.sizeDelta = new Vector2(32f, 32f);
+                    rt.localScale = Vector3.one;
+                }
+
+                // Standardize child icon scale/size
+                foreach (Transform child in closeButton.transform)
+                {
+                    RectTransform cRt = child.GetComponent<RectTransform>();
+                    if (cRt != null)
+                    {
+                        cRt.anchorMin = new Vector2(0.5f, 0.5f);
+                        cRt.anchorMax = new Vector2(0.5f, 0.5f);
+                        cRt.pivot = new Vector2(0.5f, 0.5f);
+                        cRt.anchoredPosition = Vector2.zero;
+                        cRt.sizeDelta = new Vector2(18f, 18f);
+                        cRt.localScale = Vector3.one;
+                    }
                 }
             }
 
@@ -668,9 +692,25 @@ public class HistoryListPanel : MonoBehaviour
                 {
                     rt.anchorMin = new Vector2(1f, 1f);
                     rt.anchorMax = new Vector2(1f, 1f);
-                    rt.pivot = new Vector2(1f, 1f);
-                    rt.anchoredPosition = new Vector2(-54f, -12f);
-                    rt.sizeDelta = new Vector2(30f, 30f);
+                    rt.pivot = new Vector2(0.5f, 0.5f);
+                    rt.anchoredPosition = new Vector2(-68f, -28f);
+                    rt.sizeDelta = new Vector2(32f, 32f);
+                    rt.localScale = Vector3.one;
+                }
+
+                // Standardize child icon scale/size
+                foreach (Transform child in backButton.transform)
+                {
+                    RectTransform cRt = child.GetComponent<RectTransform>();
+                    if (cRt != null)
+                    {
+                        cRt.anchorMin = new Vector2(0.5f, 0.5f);
+                        cRt.anchorMax = new Vector2(0.5f, 0.5f);
+                        cRt.pivot = new Vector2(0.5f, 0.5f);
+                        cRt.anchoredPosition = Vector2.zero;
+                        cRt.sizeDelta = new Vector2(18f, 18f);
+                        cRt.localScale = Vector3.one;
+                    }
                 }
             }
 
@@ -683,8 +723,8 @@ public class HistoryListPanel : MonoBehaviour
                     rt.anchorMin = new Vector2(0f, 1f);
                     rt.anchorMax = new Vector2(1f, 1f);
                     rt.pivot = new Vector2(0.5f, 1f);
-                    rt.offsetMin = new Vector2(18f, -58f);
-                    rt.offsetMax = new Vector2(-18f, -56f);
+                    rt.offsetMin = new Vector2(20f, -56f);
+                    rt.offsetMax = new Vector2(-20f, -54f);
                 }
             }
 
@@ -694,7 +734,7 @@ public class HistoryListPanel : MonoBehaviour
                 rt.anchorMin = new Vector2(0f, 1f);
                 rt.anchorMax = new Vector2(0f, 1f);
                 rt.pivot = new Vector2(0f, 1f);
-                rt.anchoredPosition = new Vector2(18f, -62f);
+                rt.anchoredPosition = new Vector2(22f, -64f);
                 rt.sizeDelta = new Vector2(320f, 18f);
             }
 
@@ -704,7 +744,7 @@ public class HistoryListPanel : MonoBehaviour
                 rt.anchorMin = new Vector2(1f, 1f);
                 rt.anchorMax = new Vector2(1f, 1f);
                 rt.pivot = new Vector2(1f, 1f);
-                rt.anchoredPosition = new Vector2(-18f, -62f);
+                rt.anchoredPosition = new Vector2(-22f, -64f);
                 rt.sizeDelta = new Vector2(140f, 18f);
             }
         }
