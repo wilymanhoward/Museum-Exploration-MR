@@ -114,6 +114,478 @@ public class HistoryPanel : MonoBehaviour
     private RectTransform photoContentRect;
     private PhotoSnapScroller photoSnapScroller;
 
+    private struct RectTransformSnapshot
+    {
+        public Vector2 anchorMin;
+        public Vector2 anchorMax;
+        public Vector2 anchoredPosition;
+        public Vector2 sizeDelta;
+        public Vector2 pivot;
+
+        public static RectTransformSnapshot Capture(RectTransform rt)
+        {
+            if (rt == null) return default;
+            return new RectTransformSnapshot
+            {
+                anchorMin = rt.anchorMin,
+                anchorMax = rt.anchorMax,
+                anchoredPosition = rt.anchoredPosition,
+                sizeDelta = rt.sizeDelta,
+                pivot = rt.pivot
+            };
+        }
+
+        public void Restore(RectTransform rt)
+        {
+            if (rt == null) return;
+            rt.anchorMin = anchorMin;
+            rt.anchorMax = anchorMax;
+            rt.anchoredPosition = anchoredPosition;
+            rt.sizeDelta = sizeDelta;
+            rt.pivot = pivot;
+        }
+    }
+
+    private bool hasCapturedOriginalLayout = false;
+    private RectTransformSnapshot origMediaSlot;
+    private RectTransformSnapshot origDetailCard;
+    private RectTransformSnapshot origDescCard;
+    private RectTransformSnapshot origEventTitle;
+    private RectTransform mediaSlotTransform;
+    private RectTransform detailCardTransform;
+    private RectTransform descCardTransform;
+
+    private void CaptureOriginalLayout()
+    {
+        if (hasCapturedOriginalLayout) return;
+
+        if (displayImage != null)
+        {
+            mediaSlotTransform = displayImage.transform.parent as RectTransform;
+        }
+        if (mediaSlotTransform == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "2DViewPanel");
+            if (t != null) mediaSlotTransform = t as RectTransform;
+        }
+
+        Transform detailT = FindDeepChildTransform(transform, "DetailArtefakCard");
+        if (detailT != null) detailCardTransform = detailT as RectTransform;
+        else if (timePeriodText != null) detailCardTransform = timePeriodText.transform.parent as RectTransform;
+
+        Transform descT = FindDeepChildTransform(transform, "TentangArtefakCard");
+        if (descT != null) descCardTransform = descT as RectTransform;
+
+        origMediaSlot = RectTransformSnapshot.Capture(mediaSlotTransform);
+        origDetailCard = RectTransformSnapshot.Capture(detailCardTransform);
+        origDescCard = RectTransformSnapshot.Capture(descCardTransform);
+        origEventTitle = RectTransformSnapshot.Capture(eventTitleText != null ? eventTitleText.rectTransform : null);
+
+        hasCapturedOriginalLayout = true;
+    }
+
+    private void UpdatePanelLayout(bool hasImages)
+    {
+        CaptureOriginalLayout();
+
+        // 1. Permanently hide "No Image" text placeholder
+        if (noImageTextObj != null)
+        {
+            noImageTextObj.SetActive(false);
+        }
+
+        // Hide any texts in the panel that contain "no image" / "tidak ada gambar"
+        TMP_Text[] allTexts = GetComponentsInChildren<TMP_Text>(true);
+        foreach (var t in allTexts)
+        {
+            if (t != null && t != eventTitleText && t != topTitleText && t != categoryText && t != timePeriodText && t != locationText && t != descriptionText)
+            {
+                string s = t.text.ToLower();
+                if (s.Contains("no image") || s.Contains("tidak ada gambar") || s.Contains("no images"))
+                {
+                    t.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        if (hasImages)
+        {
+            // --- 2-COLUMN LAYOUT (With Photo Gallery / Video) ---
+            if (mediaSlotTransform != null)
+            {
+                origMediaSlot.Restore(mediaSlotTransform);
+                mediaSlotTransform.gameObject.SetActive(true);
+            }
+            if (detailCardTransform != null)
+            {
+                origDetailCard.Restore(detailCardTransform);
+                detailCardTransform.gameObject.SetActive(true);
+            }
+            if (descCardTransform != null)
+            {
+                origDescCard.Restore(descCardTransform);
+                descCardTransform.gameObject.SetActive(true);
+            }
+            if (eventTitleText != null)
+            {
+                origEventTitle.Restore(eventTitleText.rectTransform);
+                eventTitleText.gameObject.SetActive(true);
+            }
+            if (photoScrollRect != null)
+            {
+                photoScrollRect.gameObject.SetActive(true);
+            }
+
+            AlignCardElements(false);
+        }
+        else
+        {
+            // --- FULL-WIDTH TEXT ONLY LAYOUT (e.g. Asal Usul Nama Terengganu) ---
+            // Hide left photo slot / media container completely
+            if (mediaSlotTransform != null)
+            {
+                mediaSlotTransform.gameObject.SetActive(false);
+            }
+            if (photoScrollRect != null)
+            {
+                photoScrollRect.gameObject.SetActive(false);
+            }
+            if (holdToPlayText != null)
+            {
+                holdToPlayText.gameObject.SetActive(false);
+            }
+            if (videoPanel != null)
+            {
+                videoPanel.SetActive(false);
+            }
+
+            // Expand DetailArtefakCard across full width under header
+            if (detailCardTransform != null)
+            {
+                detailCardTransform.gameObject.SetActive(true);
+                detailCardTransform.anchorMin = new Vector2(0.05f, 0.58f);
+                detailCardTransform.anchorMax = new Vector2(0.95f, 0.78f);
+                detailCardTransform.anchoredPosition = Vector2.zero;
+                detailCardTransform.sizeDelta = Vector2.zero;
+            }
+
+            // Expand TentangArtefakCard (Description Card) across full width and height
+            if (descCardTransform != null)
+            {
+                descCardTransform.gameObject.SetActive(true);
+                descCardTransform.anchorMin = new Vector2(0.05f, 0.05f);
+                descCardTransform.anchorMax = new Vector2(0.95f, 0.56f);
+                descCardTransform.anchoredPosition = Vector2.zero;
+                descCardTransform.sizeDelta = Vector2.zero;
+            }
+
+            // Position eventTitleText cleanly across top, aligning flush with Sejarah Terengganu
+            if (eventTitleText != null)
+            {
+                eventTitleText.gameObject.SetActive(true);
+                eventTitleText.rectTransform.anchorMin = new Vector2(0.13f, 0.79f);
+                eventTitleText.rectTransform.anchorMax = new Vector2(0.68f, 0.86f);
+                eventTitleText.rectTransform.pivot = new Vector2(0f, 0.5f);
+                eventTitleText.rectTransform.anchoredPosition = Vector2.zero;
+                eventTitleText.rectTransform.sizeDelta = Vector2.zero;
+                eventTitleText.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+
+            AlignCardElements(true);
+        }
+
+        Canvas.ForceUpdateCanvases();
+        if (descCardTransform != null) LayoutRebuilder.ForceRebuildLayoutImmediate(descCardTransform);
+        if (detailCardTransform != null) LayoutRebuilder.ForceRebuildLayoutImmediate(detailCardTransform);
+    }
+
+    /// <summary>
+    /// Aligns all icons, labels, values, and separator lines inside DetailArtefakCard and TentangArtefakCard
+    /// with deterministic top-anchored vertical rows so icons and lines never overlap.
+    /// </summary>
+    private void AlignCardElements(bool isFullText)
+    {
+        // 1. Align DetailArtefakCard child elements
+        if (detailCardTransform != null)
+        {
+            // Direct child lookups by name
+            Transform tSparkle = detailCardTransform.Find("Image (4)");
+            Transform tCalendar = detailCardTransform.Find("Image");
+            Transform tPin = detailCardTransform.Find("Image (1)");
+            Transform tHeader = detailCardTransform.Find("Header");
+            Transform tLabelTempoh = detailCardTransform.Find("Label_0");
+            Transform tValueTempoh = detailCardTransform.Find("Value_0");
+            Transform tLabelLokasi = detailCardTransform.Find("Label_1");
+            Transform tValueLokasi = detailCardTransform.Find("Value_1");
+            Transform tSeparators = detailCardTransform.Find("Separators");
+
+            // Fallback lookups if names changed
+            if (tHeader == null)
+            {
+                foreach (var t in detailCardTransform.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    if (t.text.ToLower().Contains("detail")) { tHeader = t.transform; break; }
+                }
+            }
+            if (tLabelTempoh == null)
+            {
+                foreach (var t in detailCardTransform.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    if (t.text.ToLower().Contains("tempoh") || t.text.ToLower().Contains("masa")) { tLabelTempoh = t.transform; break; }
+                }
+            }
+            if (tLabelLokasi == null)
+            {
+                foreach (var t in detailCardTransform.GetComponentsInChildren<TMP_Text>(true))
+                {
+                    if (t.text.ToLower().Contains("lokasi")) { tLabelLokasi = t.transform; break; }
+                }
+            }
+            if (tValueTempoh == null && timePeriodText != null) tValueTempoh = timePeriodText.transform;
+            if (tValueLokasi == null && locationText != null) tValueLokasi = locationText.transform;
+
+            // (a) Header Row: y = -14px
+            if (tSparkle != null)
+            {
+                RectTransform rt = tSparkle as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(0f, 1f);
+                    rt.pivot = new Vector2(0f, 0.5f);
+                    rt.anchoredPosition = new Vector2(16f, -14f);
+                    rt.sizeDelta = new Vector2(18f, 18f);
+                }
+            }
+            if (tHeader != null)
+            {
+                RectTransform rt = tHeader as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(1f, 1f);
+                    rt.pivot = new Vector2(0f, 0.5f);
+                    rt.anchoredPosition = new Vector2(40f, -14f);
+                    rt.sizeDelta = new Vector2(-56f, 24f);
+                }
+                TMP_Text tmp = tHeader.GetComponent<TMP_Text>();
+                if (tmp != null) tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+
+            // (b) Divider Lines
+            if (tSeparators != null)
+            {
+                RectTransform rtSep = tSeparators as RectTransform;
+                if (rtSep != null)
+                {
+                    rtSep.anchorMin = Vector2.zero;
+                    rtSep.anchorMax = Vector2.one;
+                    rtSep.pivot = new Vector2(0.5f, 0.5f);
+                    rtSep.anchoredPosition = Vector2.zero;
+                    rtSep.sizeDelta = Vector2.zero;
+                }
+
+                Transform tLine1 = tSeparators.Find("Separator") ?? (tSeparators.childCount > 0 ? tSeparators.GetChild(0) : null);
+                Transform tLine2 = tSeparators.Find("Line (1)") ?? (tSeparators.childCount > 1 ? tSeparators.GetChild(1) : null);
+
+                if (tLine1 != null)
+                {
+                    RectTransform rt = tLine1 as RectTransform;
+                    if (rt != null)
+                    {
+                        rt.anchorMin = new Vector2(0.02f, 1f);
+                        rt.anchorMax = new Vector2(0.98f, 1f);
+                        rt.pivot = new Vector2(0.5f, 0.5f);
+                        rt.anchoredPosition = new Vector2(0f, -28f);
+                        rt.sizeDelta = new Vector2(0f, 1.5f);
+                    }
+                }
+
+                if (tLine2 != null)
+                {
+                    RectTransform rt = tLine2 as RectTransform;
+                    if (rt != null)
+                    {
+                        rt.anchorMin = new Vector2(0.02f, 1f);
+                        rt.anchorMax = new Vector2(0.98f, 1f);
+                        rt.pivot = new Vector2(0.5f, 0.5f);
+                        rt.anchoredPosition = new Vector2(0f, -62f);
+                        rt.sizeDelta = new Vector2(0f, 1f);
+                    }
+                }
+            }
+
+            // (c) Row 1: Tempoh Masa (y = -45px)
+            if (tCalendar != null)
+            {
+                RectTransform rt = tCalendar as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(0f, 1f);
+                    rt.pivot = new Vector2(0f, 0.5f);
+                    rt.anchoredPosition = new Vector2(16f, -45f);
+                    rt.sizeDelta = new Vector2(18f, 18f);
+                }
+            }
+            if (tLabelTempoh != null)
+            {
+                RectTransform rt = tLabelTempoh as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(0.40f, 1f);
+                    rt.pivot = new Vector2(0f, 0.5f);
+                    rt.anchoredPosition = new Vector2(40f, -45f);
+                    rt.sizeDelta = new Vector2(-40f, 22f);
+                }
+                TMP_Text tmp = tLabelTempoh.GetComponent<TMP_Text>();
+                if (tmp != null) tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+            if (tValueTempoh != null)
+            {
+                RectTransform rt = tValueTempoh as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0.40f, 1f);
+                    rt.anchorMax = new Vector2(1f, 1f);
+                    rt.pivot = new Vector2(1f, 0.5f);
+                    rt.anchoredPosition = new Vector2(-16f, -45f);
+                    rt.sizeDelta = new Vector2(-16f, 22f);
+                }
+                TMP_Text tmp = tValueTempoh.GetComponent<TMP_Text>();
+                if (tmp != null) tmp.alignment = TextAlignmentOptions.MidlineRight;
+            }
+
+            // (d) Row 2: Lokasi (y = -78px)
+            if (tPin != null)
+            {
+                RectTransform rt = tPin as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(0f, 1f);
+                    rt.pivot = new Vector2(0f, 0.5f);
+                    rt.anchoredPosition = new Vector2(16f, -78f);
+                    rt.sizeDelta = new Vector2(18f, 18f);
+                }
+            }
+            if (tLabelLokasi != null)
+            {
+                RectTransform rt = tLabelLokasi as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0f, 1f);
+                    rt.anchorMax = new Vector2(0.40f, 1f);
+                    rt.pivot = new Vector2(0f, 0.5f);
+                    rt.anchoredPosition = new Vector2(40f, -78f);
+                    rt.sizeDelta = new Vector2(-40f, 22f);
+                }
+                TMP_Text tmp = tLabelLokasi.GetComponent<TMP_Text>();
+                if (tmp != null) tmp.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+            if (tValueLokasi != null)
+            {
+                RectTransform rt = tValueLokasi as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0.40f, 1f);
+                    rt.anchorMax = new Vector2(1f, 1f);
+                    rt.pivot = new Vector2(1f, 0.5f);
+                    rt.anchoredPosition = new Vector2(-16f, -78f);
+                    rt.sizeDelta = new Vector2(-16f, 22f);
+                }
+                TMP_Text tmp = tValueLokasi.GetComponent<TMP_Text>();
+                if (tmp != null) tmp.alignment = TextAlignmentOptions.MidlineRight;
+            }
+        }
+
+        // 2. Align TentangArtefakCard child elements
+        if (descCardTransform != null)
+        {
+            Transform tHeader = descCardTransform.Find("Header") ?? (descCardTransform.childCount > 0 ? descCardTransform.GetChild(0) : null);
+
+            if (tHeader != null)
+            {
+                RectTransform hRect = tHeader as RectTransform;
+                if (hRect != null)
+                {
+                    hRect.anchorMin = new Vector2(0f, 1f);
+                    hRect.anchorMax = new Vector2(1f, 1f);
+                    hRect.pivot = new Vector2(0.5f, 1f);
+                    hRect.anchoredPosition = Vector2.zero;
+                    hRect.sizeDelta = new Vector2(0f, 28f);
+                }
+
+                Transform tInfoIcon = tHeader.Find("HeaderIcon") ?? tHeader.Find("Image") ?? (tHeader.childCount > 0 ? tHeader.GetChild(0) : null);
+                Transform tInfoText = tHeader.Find("HeaderText") ?? tHeader.Find("Text") ?? (tHeader.childCount > 1 ? tHeader.GetChild(1) : null);
+
+                if (tInfoIcon != null)
+                {
+                    RectTransform rt = tInfoIcon as RectTransform;
+                    if (rt != null)
+                    {
+                        rt.anchorMin = new Vector2(0f, 0.5f);
+                        rt.anchorMax = new Vector2(0f, 0.5f);
+                        rt.pivot = new Vector2(0f, 0.5f);
+                        rt.anchoredPosition = new Vector2(16f, 0f);
+                        rt.sizeDelta = new Vector2(18f, 18f);
+                    }
+                }
+                if (tInfoText != null)
+                {
+                    RectTransform rt = tInfoText as RectTransform;
+                    if (rt != null)
+                    {
+                        rt.anchorMin = new Vector2(0f, 0f);
+                        rt.anchorMax = new Vector2(1f, 1f);
+                        rt.pivot = new Vector2(0f, 0.5f);
+                        rt.anchoredPosition = new Vector2(40f, 0f);
+                        rt.sizeDelta = new Vector2(-56f, 0f);
+                    }
+                    TMP_Text tmp = tInfoText.GetComponent<TMP_Text>();
+                    if (tmp != null) tmp.alignment = TextAlignmentOptions.MidlineLeft;
+                }
+            }
+
+            // Divider Line
+            Transform tLine = descCardTransform.Find("Line") ?? descCardTransform.Find("Separator") ?? descCardTransform.Find("Image (1)");
+            if (tLine != null)
+            {
+                RectTransform rt = tLine as RectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMin = new Vector2(0.02f, 1f);
+                    rt.anchorMax = new Vector2(0.98f, 1f);
+                    rt.pivot = new Vector2(0.5f, 0.5f);
+                    rt.anchoredPosition = new Vector2(0f, -28f);
+                    rt.sizeDelta = new Vector2(0f, 1.5f);
+                }
+            }
+
+            // DescriptionScrollView
+            if (descriptionScrollRect != null)
+            {
+                RectTransform sRect = descriptionScrollRect.transform as RectTransform;
+                if (sRect != null)
+                {
+                    sRect.anchorMin = new Vector2(0f, 0f);
+                    sRect.anchorMax = new Vector2(1f, 1f);
+                    sRect.pivot = new Vector2(0.5f, 0.5f);
+                    sRect.offsetMin = new Vector2(0f, 12f);
+                    sRect.offsetMax = new Vector2(0f, -36f);
+                }
+
+                if (descriptionScrollRect.viewport != null)
+                {
+                    RectTransform vRect = descriptionScrollRect.viewport;
+                    vRect.offsetMin = new Vector2(16f, 0f);
+                    vRect.offsetMax = new Vector2(-28f, 0f);
+                }
+            }
+        }
+    }
+
     private void Awake()
     {
         if (Instance == null) Instance = this;
@@ -279,24 +751,21 @@ public class HistoryPanel : MonoBehaviour
         EnsurePhotoScrollView();
         if (photoContentRect == null) return;
 
-        // Clear existing photo cards
-        for (int i = photoContentRect.childCount - 1; i >= 0; i--)
-        {
-            Destroy(photoContentRect.GetChild(i).gameObject);
-        }
-
         HistoryImage[] images = GetCurrentImages();
         bool hasImages = images != null && images.Length > 0;
 
-        if (noImageTextObj != null)
-        {
-            noImageTextObj.SetActive(!hasImages);
-        }
+        UpdatePanelLayout(hasImages);
 
         if (!hasImages)
         {
             if (photoSnapScroller != null) photoSnapScroller.totalPages = 1;
             return;
+        }
+
+        // Clear existing photo cards
+        for (int i = photoContentRect.childCount - 1; i >= 0; i--)
+        {
+            Destroy(photoContentRect.GetChild(i).gameObject);
         }
 
         RectTransform viewportRect = photoScrollRect != null ? photoScrollRect.viewport : null;
@@ -965,6 +1434,43 @@ public class HistoryPanel : MonoBehaviour
                         if (s != null)
                         {
                             imgList.Add(new HistoryImage { sprite = s, caption = $"Infrastruktur & Pembangunan Terengganu {i}" });
+                        }
+                    }
+                    if (imgList.Count > 0)
+                    {
+                        data.images = imgList.ToArray();
+                        data.displaySprite = imgList[0].sprite;
+                        loadedSprite = imgList[0].sprite;
+                    }
+                }
+                else if (id.Contains("ekonomi") || name.Contains("ekonomi") || title.Contains("ekonomi"))
+                {
+                    System.Collections.Generic.List<HistoryImage> imgList = new System.Collections.Generic.List<HistoryImage>();
+                    for (int i = 1; i <= 3; i++)
+                    {
+                        string resPath = $"MuseumData/DataSejarah/Media/Ekonomi/Ekonomi Terengganu {i}";
+                        string resPath2 = $"Media/Ekonomi/Ekonomi Terengganu {i}";
+                        string edPath = $"Assets/Asset/Artifak Photo/Ekonomi Terengganu {i}.jpg";
+
+                        Sprite s = Resources.Load<Sprite>(resPath);
+                        if (s == null) s = Resources.Load<Sprite>(resPath2);
+                        if (s == null)
+                        {
+                            Texture2D tex = Resources.Load<Texture2D>(resPath);
+                            if (tex == null) tex = Resources.Load<Texture2D>(resPath2);
+                            if (tex != null) s = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+#if UNITY_EDITOR
+                        if (s == null) s = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(edPath);
+                        if (s == null)
+                        {
+                            Texture2D edTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(edPath);
+                            if (edTex != null) s = Sprite.Create(edTex, new Rect(0, 0, edTex.width, edTex.height), new Vector2(0.5f, 0.5f));
+                        }
+#endif
+                        if (s != null)
+                        {
+                            imgList.Add(new HistoryImage { sprite = s, caption = $"Ekonomi Terengganu {i}" });
                         }
                     }
                     if (imgList.Count > 0)

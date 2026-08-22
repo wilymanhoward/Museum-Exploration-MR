@@ -65,6 +65,12 @@ public class WristWatchButtonGuard : MonoBehaviour, IPointerDownHandler, IPointe
 {
     public void OnPointerDown(PointerEventData eventData)
     {
+        if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden())
+        {
+            eventData.pointerPress = null;
+            eventData.rawPointerPress = null;
+            return;
+        }
         if (WristWatchFilterUtility.IsLeftHand(null, eventData))
         {
             eventData.pointerPress = null;
@@ -74,6 +80,12 @@ public class WristWatchButtonGuard : MonoBehaviour, IPointerDownHandler, IPointe
 
     public void OnPointerClick(PointerEventData eventData)
     {
+        if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden())
+        {
+            eventData.pointerPress = null;
+            eventData.rawPointerPress = null;
+            return;
+        }
         if (WristWatchFilterUtility.IsLeftHand(null, eventData))
         {
             eventData.pointerPress = null;
@@ -83,6 +95,10 @@ public class WristWatchButtonGuard : MonoBehaviour, IPointerDownHandler, IPointe
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden())
+        {
+            return;
+        }
         if (WristWatchFilterUtility.IsLeftHand(null, eventData))
         {
             // Do not highlight on left hand hover

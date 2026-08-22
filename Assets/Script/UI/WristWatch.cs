@@ -470,7 +470,7 @@ public class WristWatch : MonoBehaviour
         {
             if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
 
-            bool hideWatchButton = !MainMenu.IsExplorationStarted || forceHidden || optionsPanelActive || (optionsPanelObj != null && optionsPanelObj.activeInHierarchy) || IsContentPanelActive();
+            bool hideWatchButton = IsWatchButtonHidden();
             SetWatchButtonVisualsVisible(!hideWatchButton);
 
             if (!MainMenu.IsExplorationStarted || forceHidden)
@@ -777,9 +777,24 @@ public class WristWatch : MonoBehaviour
 
     /// <summary>
     /// Invoked when player taps the Wrist Watch button.
+    /// <summary>
+    /// Checks whether the wrist watch button icon is currently hidden (e.g. before exploration, during tutorials, while another panel is open).
+    /// </summary>
+    public bool IsWatchButtonHidden()
+    {
+        return !MainMenu.IsExplorationStarted || forceHidden || optionsPanelActive || (optionsPanelObj != null && optionsPanelObj.activeInHierarchy) || IsContentPanelActive();
+    }
+
+    /// <summary>
+    /// Toggles the main wrist options panel open/closed.
     /// </summary>
     public void ToggleOptionsPanel()
     {
+        if (IsWatchButtonHidden() && !optionsPanelActive)
+        {
+            return;
+        }
+
         // Debounce redundant click events so one physical click = one toggle.
         if (Time.unscaledTime - lastToggleTime < toggleDebounce) return;
         lastToggleTime = Time.unscaledTime;
@@ -861,7 +876,7 @@ public class WristWatch : MonoBehaviour
     }
 
     /// <summary>
-    /// Smoothly toggles only the visual graphics/renderers of the wrist watch button icon
+    /// Smoothly toggles the visual graphics, renderers, colliders, and interactables of the wrist watch button
     /// without disabling WristMenuCanvas or affecting child panels (optionsPanelObj, roomHudCanvas, gamesPanel).
     /// </summary>
     private void SetWatchButtonVisualsVisible(bool visible)
@@ -882,7 +897,21 @@ public class WristWatch : MonoBehaviour
             cg.blocksRaycasts = true;
         }
 
-        // Toggle Graphic components (Images, Text, Icons) belonging ONLY to the watch button icon
+        // Deactivate or activate the child Button object directly so all its graphics, colliders, and interactables are completely shut off
+        foreach (Transform child in wristWatchButtonObj.transform)
+        {
+            if (child == null) continue;
+            if (optionsPanelObj != null && (child.gameObject == optionsPanelObj || child.IsChildOf(optionsPanelObj.transform))) continue;
+            if (roomHudCanvas != null && (child.gameObject == roomHudCanvas || child.IsChildOf(roomHudCanvas.transform))) continue;
+            if (gamesPanel != null && (child.gameObject == gamesPanel || child.IsChildOf(gamesPanel.transform))) continue;
+
+            if (child.gameObject.activeSelf != visible)
+            {
+                child.gameObject.SetActive(visible);
+            }
+        }
+
+        // Toggle Graphic components belonging ONLY to the watch button icon
         UnityEngine.UI.Graphic[] graphics = wristWatchButtonObj.GetComponentsInChildren<UnityEngine.UI.Graphic>(true);
         foreach (UnityEngine.UI.Graphic g in graphics)
         {
@@ -892,6 +921,7 @@ public class WristWatch : MonoBehaviour
             if (gamesPanel != null && g.transform.IsChildOf(gamesPanel.transform)) continue;
 
             g.enabled = visible;
+            g.raycastTarget = visible;
         }
 
         // Toggle Renderer components belonging ONLY to the watch button icon
@@ -907,16 +937,49 @@ public class WristWatch : MonoBehaviour
         }
 
         // Disable button interactions on watch button icon when hidden
-        UnityEngine.UI.Button[] buttons = wristWatchButtonObj.GetComponents<UnityEngine.UI.Button>();
+        UnityEngine.UI.Button[] buttons = wristWatchButtonObj.GetComponentsInChildren<UnityEngine.UI.Button>(true);
         foreach (UnityEngine.UI.Button b in buttons)
         {
-            if (b != null) b.enabled = visible;
+            if (b == null) continue;
+            if (optionsPanelObj != null && b.transform.IsChildOf(optionsPanelObj.transform)) continue;
+            if (roomHudCanvas != null && b.transform.IsChildOf(roomHudCanvas.transform)) continue;
+            if (gamesPanel != null && b.transform.IsChildOf(gamesPanel.transform)) continue;
+
+            b.enabled = visible;
+            b.interactable = visible;
         }
 
-        XRButtonSelection[] xrButtons = wristWatchButtonObj.GetComponents<XRButtonSelection>();
+        XRButtonSelection[] xrButtons = wristWatchButtonObj.GetComponentsInChildren<XRButtonSelection>(true);
         foreach (XRButtonSelection xr in xrButtons)
         {
-            if (xr != null) xr.enabled = visible;
+            if (xr == null) continue;
+            if (optionsPanelObj != null && xr.transform.IsChildOf(optionsPanelObj.transform)) continue;
+            if (roomHudCanvas != null && xr.transform.IsChildOf(roomHudCanvas.transform)) continue;
+            if (gamesPanel != null && xr.transform.IsChildOf(gamesPanel.transform)) continue;
+
+            xr.enabled = visible;
+        }
+
+        UnityEngine.XR.Interaction.Toolkit.XRBaseInteractable[] xrInteractables = wristWatchButtonObj.GetComponentsInChildren<UnityEngine.XR.Interaction.Toolkit.XRBaseInteractable>(true);
+        foreach (var xrInt in xrInteractables)
+        {
+            if (xrInt == null) continue;
+            if (optionsPanelObj != null && xrInt.transform.IsChildOf(optionsPanelObj.transform)) continue;
+            if (roomHudCanvas != null && xrInt.transform.IsChildOf(roomHudCanvas.transform)) continue;
+            if (gamesPanel != null && xrInt.transform.IsChildOf(gamesPanel.transform)) continue;
+
+            xrInt.enabled = visible;
+        }
+
+        Collider[] colliders = wristWatchButtonObj.GetComponentsInChildren<Collider>(true);
+        foreach (Collider c in colliders)
+        {
+            if (c == null) continue;
+            if (optionsPanelObj != null && c.transform.IsChildOf(optionsPanelObj.transform)) continue;
+            if (roomHudCanvas != null && c.transform.IsChildOf(roomHudCanvas.transform)) continue;
+            if (gamesPanel != null && c.transform.IsChildOf(gamesPanel.transform)) continue;
+
+            c.enabled = visible;
         }
     }
 

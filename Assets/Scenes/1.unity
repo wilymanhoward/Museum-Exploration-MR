@@ -2200,6 +2200,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   closeButton: {fileID: 284869623}
+  timerText: {fileID: 0}
   questions:
   - questionTitle: Ekonomi Trengganu
     timelineItems:

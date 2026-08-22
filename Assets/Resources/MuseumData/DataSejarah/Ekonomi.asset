@@ -29,7 +29,14 @@ MonoBehaviour:
     • Era Perindustrian Perlombongan: Memasuki awal abad ke-20, sektor perlombongan moden berkembang dengan pembukaan tambang bijih timah di Kemaman serta perlombongan bijih besi di Bukit Besi yang mula dibuka secara besar-besaran.
 
     • Era Petroleum & Kemajuan Moden: Menjelang akhir abad ke-20 (1978), penemuan telaga minyak di luar pesisir pantai membawa transformasi besar yang memperkukuh dan meningkatkan ekonomi negeri Terengganu sehingga kini.'
-  images: []
-  displaySprite: {fileID: 0}
+  images:
+  - sprite: {fileID: 21300000, guid: 9f1a23847b2c5e019348d71629fa8211, type: 3}
+    caption: 'Ekonomi Terengganu 1'
+  - sprite: {fileID: 21300000, guid: 1a4e59f83b27cd016847a92841bc6322, type: 3}
+    caption: 'Ekonomi Terengganu 2'
+  - sprite: {fileID: 21300000, guid: 6d8b92c417ea5801f9284b3759ad7433, type: 3}
+    caption: 'Ekonomi Terengganu 3'
+  displaySprite: {fileID: 21300000, guid: 9f1a23847b2c5e019348d71629fa8211, type: 3}
   videoClip: {fileID: 0}
   narrationClip: {fileID: 0}
+

@@ -49,6 +49,10 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         {
             if (gameObject == WristWatch.Instance.wristWatchButtonObj || transform.IsChildOf(WristWatch.Instance.wristWatchButtonObj.transform))
             {
+                if (WristWatch.Instance.optionsPanelObj != null && transform.IsChildOf(WristWatch.Instance.optionsPanelObj.transform))
+                {
+                    return false;
+                }
                 return true;
             }
         }
@@ -58,18 +62,34 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
 
     public override bool IsSelectableBy(IXRSelectInteractor interactor)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(interactor))
+        if (!isActiveAndEnabled) return false;
+        if (IsWristWatchButton())
         {
-            return false;
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden())
+            {
+                return false;
+            }
+            if (WristWatchFilterUtility.IsLeftHand(interactor))
+            {
+                return false;
+            }
         }
         return base.IsSelectableBy(interactor);
     }
 
     public override bool IsHoverableBy(IXRHoverInteractor interactor)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(interactor))
+        if (!isActiveAndEnabled) return false;
+        if (IsWristWatchButton())
         {
-            return false;
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden())
+            {
+                return false;
+            }
+            if (WristWatchFilterUtility.IsLeftHand(interactor))
+            {
+                return false;
+            }
         }
         return base.IsHoverableBy(interactor);
     }
@@ -114,7 +134,11 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
 
     protected override void OnHoverEntered(HoverEnterEventArgs args)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
+        }
         base.OnHoverEntered(args);
         
         targetScale = originalScale * hoverScaleMultiplier;
@@ -128,7 +152,11 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
 
     protected override void OnHoverExited(HoverExitEventArgs args)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
+        }
         base.OnHoverExited(args);
         
         targetScale = originalScale;
@@ -137,7 +165,11 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
 
     protected override void OnSelectEntered(SelectEnterEventArgs args)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(args.interactorObject)) return;
+        }
         base.OnSelectEntered(args);
         
         Debug.Log($"Button Selected/Pressed: {gameObject.name}");
@@ -153,21 +185,33 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
     #region UI Pointer Handlers (For Graphic Raycasting / Pinching)
     public void OnPointerEnter(PointerEventData eventData)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        }
         targetScale = originalScale * hoverScaleMultiplier;
         targetColor = hoverColor;
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        }
         targetScale = originalScale;
         targetColor = normalColor;
     }
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        }
         Debug.Log($"Button UI Clicked/Pressed: {gameObject.name}");
         ButtonClickAudio.PlayClickSound();
         InvokeClickOnce();

@@ -497,6 +497,16 @@ public class HistoryListPanel : MonoBehaviour
             if (tex == null) tex = Resources.Load<Texture2D>("Media/InfrastrukturPembangunan/Infrastruktur & Pembangunan Terengganu 1");
             if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
         }
+        else if (id.Contains("ekonomi") || name.Contains("ekonomi") || title.Contains("ekonomi"))
+        {
+            Sprite s = Resources.Load<Sprite>("MuseumData/DataSejarah/Media/Ekonomi/Ekonomi Terengganu 1");
+            if (s == null) s = Resources.Load<Sprite>("Media/Ekonomi/Ekonomi Terengganu 1");
+            if (s != null) return s;
+
+            Texture2D tex = Resources.Load<Texture2D>("MuseumData/DataSejarah/Media/Ekonomi/Ekonomi Terengganu 1");
+            if (tex == null) tex = Resources.Load<Texture2D>("Media/Ekonomi/Ekonomi Terengganu 1");
+            if (tex != null) return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100.0f);
+        }
 
         return null;
     }

@@ -44,7 +44,11 @@ public class UIButtonAudio : MonoBehaviour, IPointerClickHandler, ISubmitHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        }
         if (button != null && button.interactable)
         {
             ButtonClickAudio.PlayClickSound();
@@ -53,7 +57,11 @@ public class UIButtonAudio : MonoBehaviour, IPointerClickHandler, ISubmitHandler
 
     public void OnSubmit(BaseEventData eventData)
     {
-        if (IsWristWatchButton() && WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        }
         if (button != null && button.interactable)
         {
             ButtonClickAudio.PlayClickSound();
@@ -62,7 +70,11 @@ public class UIButtonAudio : MonoBehaviour, IPointerClickHandler, ISubmitHandler
 
     private void OnButtonClick()
     {
-        if (IsWristWatchButton()) return;
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            return;
+        }
         ButtonClickAudio.PlayClickSound();
     }
 }
