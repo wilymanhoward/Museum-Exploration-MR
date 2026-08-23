@@ -56,6 +56,18 @@ public class TutorialAudioFeedback : MonoBehaviour
         narrationSource.volume = narrationVolume;
     }
 
+    private bool wasNarrationPlaying = false;
+
+    private void Update()
+    {
+        bool isPlaying = narrationSource != null && narrationSource.isPlaying;
+        if (isPlaying != wasNarrationPlaying)
+        {
+            wasNarrationPlaying = isPlaying;
+            BGMManager.Instance?.SetDucked(isPlaying);
+        }
+    }
+
     /// <summary>Plays a narration line, stopping whichever line was still playing.</summary>
     public void PlayNarration(AudioClip clip)
     {
@@ -64,12 +76,19 @@ public class TutorialAudioFeedback : MonoBehaviour
         narrationSource.clip = clip;
         narrationSource.volume = narrationVolume;
         narrationSource.Play();
+        wasNarrationPlaying = true;
+        BGMManager.Instance?.SetDucked(true);
     }
 
     /// <summary>Stops the current narration line immediately (e.g. tutorial skipped).</summary>
     public void StopNarration()
     {
         if (narrationSource != null) narrationSource.Stop();
+        if (wasNarrationPlaying)
+        {
+            wasNarrationPlaying = false;
+            BGMManager.Instance?.SetDucked(false);
+        }
     }
 
     public bool IsNarrationPlaying => narrationSource != null && narrationSource.isPlaying;

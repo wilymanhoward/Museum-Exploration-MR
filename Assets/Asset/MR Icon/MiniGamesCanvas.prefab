@@ -9997,8 +9997,8 @@ MonoBehaviour:
     nameText: {fileID: 2035816474407611714}
     scoreText: {fileID: 6844599579006129287}
   thirdPlaceSlot:
-    nameText: {fileID: 2035816474407611714}
-    scoreText: {fileID: 6844599579006129287}
+    nameText: {fileID: 3467490319970251611}
+    scoreText: {fileID: 6797492579930776652}
   rowSlots:
   - nameText: {fileID: 1904511401898504946}
     scoreText: {fileID: 1441572183380654025}

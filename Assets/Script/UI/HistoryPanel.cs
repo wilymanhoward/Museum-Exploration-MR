@@ -2031,12 +2031,20 @@ public class HistoryPanel : MonoBehaviour
         UpdatePlayPauseIcons();
     }
 
+    private bool wasAudioPlaying = false;
+
     private void UpdatePlayPauseIcons()
     {
         bool isPlaying = audioSource != null && audioSource.isPlaying;
 
         if (playIconObj != null) playIconObj.SetActive(!isPlaying);
         if (pauseIconObj != null) pauseIconObj.SetActive(isPlaying);
+
+        if (isPlaying != wasAudioPlaying)
+        {
+            wasAudioPlaying = isPlaying;
+            BGMManager.Instance?.SetDucked(isPlaying);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

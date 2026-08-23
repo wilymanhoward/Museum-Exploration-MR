@@ -1156,6 +1156,11 @@ public class Artifact : MonoBehaviour
         // "only one at a time" tracker from pointing at a gone panel. (An inactive GameObject's
         // AudioSource stops on its own.)
         if (s_activeNarration == this) s_activeNarration = null;
+        if (wasNarrationPlaying)
+        {
+            wasNarrationPlaying = false;
+            BGMManager.Instance?.SetDucked(false);
+        }
     }
 
     private void PlayInstrumentAudio()
@@ -1175,6 +1180,8 @@ public class Artifact : MonoBehaviour
         UpdateAudioUI();
     }
 
+    private bool wasNarrationPlaying = false;
+
     private void UpdateAudioUI()
     {
         bool isPlaying = audioSource != null && audioSource.isPlaying;
@@ -1185,6 +1192,12 @@ public class Artifact : MonoBehaviour
         if (pauseIconObj != null)
         {
             pauseIconObj.SetActive(isPlaying);
+        }
+
+        if (isPlaying != wasNarrationPlaying)
+        {
+            wasNarrationPlaying = isPlaying;
+            BGMManager.Instance?.SetDucked(isPlaying);
         }
     }
 

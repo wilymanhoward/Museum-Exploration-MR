@@ -577,11 +577,11 @@ public class LeaderboardPanel : MonoBehaviour
         {
             firstPlaceSlot = FindSlotUI("Rank1", "1", "First", "Howard", "HowardText");
         }
-        if (secondPlaceSlot == null || secondPlaceSlot.nameText == null || secondPlaceSlot.scoreText == null)
+        if (secondPlaceSlot == null || secondPlaceSlot.nameText == null || secondPlaceSlot.scoreText == null || (firstPlaceSlot != null && secondPlaceSlot.nameText == firstPlaceSlot.nameText))
         {
             secondPlaceSlot = FindSlotUI("Rank2", "2", "Second", "Nelsen", "NelsenText");
         }
-        if (thirdPlaceSlot == null || thirdPlaceSlot.nameText == null || thirdPlaceSlot.scoreText == null)
+        if (thirdPlaceSlot == null || thirdPlaceSlot.nameText == null || thirdPlaceSlot.scoreText == null || (secondPlaceSlot != null && thirdPlaceSlot.nameText == secondPlaceSlot.nameText) || (firstPlaceSlot != null && thirdPlaceSlot.nameText == firstPlaceSlot.nameText))
         {
             thirdPlaceSlot = FindSlotUI("Rank3", "3", "Third", "Celyne", "CelyneText");
         }
@@ -616,11 +616,11 @@ public class LeaderboardPanel : MonoBehaviour
                 LeaderboardSlotUI slot = new LeaderboardSlotUI();
 
                 // Find WinnerName / Name text
-                Transform nameChild = FindDeepChild(found, "WinnerName") ?? FindDeepChild(found, "Name") ?? FindDeepChild(found, "PlayerName");
+                Transform nameChild = FindDeepChild(found, "WinnerName") ?? FindDeepChild(found, "Name") ?? FindDeepChild(found, "PlayerName") ?? FindDeepChild(found, "Player");
                 if (nameChild != null) slot.nameText = nameChild.GetComponent<TMP_Text>();
 
                 // Find Score / Time text
-                Transform scoreChild = FindDeepChild(found, "Score") ?? FindDeepChild(found, "Time") ?? FindDeepChild(found, "ScoreText");
+                Transform scoreChild = FindDeepChild(found, "Score") ?? FindDeepChild(found, "Time") ?? FindDeepChild(found, "ScoreText") ?? FindDeepChild(found, "TimeText");
                 if (scoreChild != null) slot.scoreText = scoreChild.GetComponent<TMP_Text>();
 
                 // Fallback to GetComponentsInChildren if named children not found
@@ -638,7 +638,8 @@ public class LeaderboardPanel : MonoBehaviour
                     }
                 }
 
-                return slot;
+                if (slot.nameText != null || slot.scoreText != null)
+                    return slot;
             }
         }
         return null;
