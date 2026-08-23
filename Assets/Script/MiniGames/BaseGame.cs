@@ -86,7 +86,7 @@ public class BaseGame : MonoBehaviour
             float elapsed = GetElapsedTimeSeconds();
             int mins = Mathf.FloorToInt(elapsed / 60f);
             int secs = Mathf.FloorToInt(elapsed % 60f);
-            timerText.text = $"<color=#FFD54F>⏱</color> {mins:D2}:{secs:D2}";
+            timerText.text = $"{mins:D2}:{secs:D2}";
         }
     }
 
@@ -172,23 +172,145 @@ public class BaseGame : MonoBehaviour
         }
     }
 
+    private static Sprite cachedStopwatchSprite;
+    private static Sprite cachedCapsuleSprite;
+
+    private static Sprite GetOrCreateStopwatchSprite()
+    {
+        if (cachedStopwatchSprite != null) return cachedStopwatchSprite;
+
+#if UNITY_EDITOR
+        Sprite loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Layer Lab/GUI Pro-SuperCasual/ResourcesData/Sprites/Components/Icon_PictoIcons/128/PictoIcon_Stopwatch_1.Png");
+        if (loaded != null)
+        {
+            cachedStopwatchSprite = loaded;
+            return cachedStopwatchSprite;
+        }
+#endif
+
+        int size = 64;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        Color[] pixels = new Color[size * size];
+
+        Vector2 center = new Vector2(32f, 28f);
+        float outerRadius = 22f;
+        float innerRadius = 17f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float px = x + 0.5f;
+                float py = y + 0.5f;
+                float dist = Vector2.Distance(new Vector2(px, py), center);
+
+                float alpha = 0f;
+
+                // Main circular body ring
+                if (dist <= outerRadius + 0.5f && dist >= innerRadius - 0.5f)
+                {
+                    float ringAlpha = 1f;
+                    if (dist > outerRadius - 0.5f) ringAlpha = Mathf.Clamp01(outerRadius + 0.5f - dist);
+                    else if (dist < innerRadius + 0.5f) ringAlpha = Mathf.Clamp01(dist - (innerRadius - 0.5f));
+                    alpha = Mathf.Max(alpha, ringAlpha);
+                }
+
+                // Top button stem & cap
+                if (px >= 30f && px <= 34f && py >= 49f && py <= 56f) alpha = Mathf.Max(alpha, 1f);
+                if (px >= 26f && px <= 38f && py >= 56f && py <= 60f) alpha = Mathf.Max(alpha, 1f);
+
+                // Top-right side pusher
+                Vector2 sideBtnCenter = center + new Vector2(15f, 15f);
+                if (Vector2.Distance(new Vector2(px, py), sideBtnCenter) <= 4.5f) alpha = Mathf.Max(alpha, 1f);
+
+                // Center hub
+                if (dist <= 3.5f) alpha = Mathf.Max(alpha, 1f);
+
+                // Stopwatch hand pointing at ~2 o'clock
+                Vector2 handDir = new Vector2(px, py) - center;
+                float handDist = handDir.magnitude;
+                if (handDist <= 13f && handDist >= 2f)
+                {
+                    float angle = Mathf.Atan2(handDir.y, handDir.x) * Mathf.Rad2Deg;
+                    if (Mathf.Abs(Mathf.DeltaAngle(angle, 60f)) < 12f) alpha = Mathf.Max(alpha, 1f);
+                }
+
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        cachedStopwatchSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        return cachedStopwatchSprite;
+    }
+
+    private static Sprite GetOrCreateCapsuleSprite()
+    {
+        if (cachedCapsuleSprite != null) return cachedCapsuleSprite;
+
+        int size = 64;
+        float cornerRadius = 24f;
+        float halfSize = size / 2f;
+        float innerHalf = halfSize - cornerRadius;
+
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        Color[] pixels = new Color[size * size];
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float px = Mathf.Abs((x + 0.5f) - halfSize);
+                float py = Mathf.Abs((y + 0.5f) - halfSize);
+
+                float dx = Mathf.Max(px - innerHalf, 0f);
+                float dy = Mathf.Max(py - innerHalf, 0f);
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                float alpha = Mathf.Clamp01(cornerRadius - dist + 0.5f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        Vector4 border = new Vector4(24, 24, 24, 24);
+        cachedCapsuleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        return cachedCapsuleSprite;
+    }
+
     private void EnsureTimerUI()
     {
         if (timerText != null) return;
 
-        // 1. Try finding existing timer text in hierarchy
-        string[] candidates = { "TimerText", "Timer", "TimeText", "TimeDisplay", "Waktu", "TimerBadge" };
+        // 1. Try finding existing timer text in hierarchy (if already wired or built)
+        string[] candidates = { "TimerText", "Timer", "TimeText", "TimeDisplay", "Waktu" };
         foreach (string n in candidates)
         {
             Transform found = FindDeepChild(transform, n);
-            if (found != null)
+            if (found != null && found.name != "TimerBadge")
             {
                 timerText = found.GetComponent<TMPro.TMP_Text>();
                 if (timerText != null) return;
             }
         }
 
-        // 2. Dynamically create a sleek TimerBadge at top of panel
+        // Check if TimerBadge was already built
+        Transform existingBadge = FindDeepChild(transform, "TimerBadge");
+        if (existingBadge != null)
+        {
+            timerText = existingBadge.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (timerText != null) return;
+        }
+
+        // 2. Dynamically create a sleek TimerBadge at top of panel with dedicated Stopwatch Icon
         GameObject badgeObj = new GameObject("TimerBadge", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
         badgeObj.transform.SetParent(transform, false);
 
@@ -197,26 +319,44 @@ public class BaseGame : MonoBehaviour
         badgeRect.anchorMax = new Vector2(0.5f, 1f);
         badgeRect.pivot = new Vector2(0.5f, 1f);
         badgeRect.anchoredPosition = new Vector2(0f, -12f);
-        badgeRect.sizeDelta = new Vector2(105f, 30f);
+        badgeRect.sizeDelta = new Vector2(115f, 32f);
 
         Image bgImage = badgeObj.GetComponent<Image>();
-        bgImage.color = new Color(0.06f, 0.09f, 0.14f, 0.85f);
+        bgImage.sprite = GetOrCreateCapsuleSprite();
+        bgImage.type = Image.Type.Sliced;
+        bgImage.color = new Color(0.05f, 0.08f, 0.14f, 0.90f);
         bgImage.raycastTarget = false;
+
+        // Create Stopwatch Icon Image
+        GameObject iconObj = new GameObject("TimerIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        iconObj.transform.SetParent(badgeObj.transform, false);
+
+        RectTransform iconRect = iconObj.GetComponent<RectTransform>();
+        iconRect.anchorMin = new Vector2(0f, 0.5f);
+        iconRect.anchorMax = new Vector2(0f, 0.5f);
+        iconRect.pivot = new Vector2(0f, 0.5f);
+        iconRect.anchoredPosition = new Vector2(12f, 0f);
+        iconRect.sizeDelta = new Vector2(18f, 18f);
+
+        Image iconImg = iconObj.GetComponent<Image>();
+        iconImg.sprite = GetOrCreateStopwatchSprite();
+        iconImg.color = new Color(1f, 0.835f, 0.31f, 1f); // Warm Amber Gold (#FFD54F)
+        iconImg.raycastTarget = false;
 
         // Create TextMeshProUGUI inside badge
         GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
         textObj.transform.SetParent(badgeObj.transform, false);
 
         RectTransform textRect = textObj.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.sizeDelta = Vector2.zero;
-        textRect.anchoredPosition = Vector2.zero;
+        textRect.anchorMin = new Vector2(0f, 0f);
+        textRect.anchorMax = new Vector2(1f, 1f);
+        textRect.offsetMin = new Vector2(36f, 0f);
+        textRect.offsetMax = new Vector2(-10f, 0f);
 
         TMPro.TextMeshProUGUI tmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
         tmp.fontSize = 15;
         tmp.fontStyle = TMPro.FontStyles.Bold;
-        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
         tmp.color = Color.white;
         tmp.raycastTarget = false;
 
