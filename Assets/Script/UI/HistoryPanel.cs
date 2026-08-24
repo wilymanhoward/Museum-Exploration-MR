@@ -113,7 +113,6 @@ public class HistoryPanel : MonoBehaviour
     private ScrollRect photoScrollRect;
     private RectTransform photoContentRect;
     private PhotoSnapScroller photoSnapScroller;
-    private Camera cachedMainCamera;
 
     private struct RectTransformSnapshot
     {
@@ -1203,8 +1202,8 @@ public class HistoryPanel : MonoBehaviour
         if (isStaringOrHolding) return true;
         if (activeHistoryData == null || activeHistoryData.videoClip == null) return false;
 
-        if (cachedMainCamera == null) cachedMainCamera = Camera.main;
-        if (cachedMainCamera == null) return false;
+        Camera cam = Camera.main;
+        if (cam == null) return false;
 
         Transform targetT = photoScrollRect != null ? photoScrollRect.transform : (displayImage != null ? displayImage.transform : null);
         if (targetT == null || !targetT.gameObject.activeInHierarchy) return false;
@@ -1212,7 +1211,7 @@ public class HistoryPanel : MonoBehaviour
         RectTransform rect = targetT as RectTransform;
         if (rect != null)
         {
-            Ray headRay = new Ray(cachedMainCamera.transform.position, cachedMainCamera.transform.forward);
+            Ray headRay = new Ray(cam.transform.position, cam.transform.forward);
             Plane imgPlane = new Plane(-rect.forward, rect.position);
             if (imgPlane.Raycast(headRay, out float enterDist) && enterDist > 0.1f && enterDist <= 4f)
             {
@@ -2076,37 +2075,25 @@ public class HistoryPanel : MonoBehaviour
         ClosePanel();
     }
 
-    public void PositionInFrontOfPlayer(int staggerIndex = 0)
+    public void PositionInFrontOfPlayer()
     {
         // Clears the dragger's "user moved" bookkeeping since this call IS the deliberate
         // reset-to-in-front-of-player action - matches Artifact.cs.PositionInFrontOfUser.
-        ArtifactPanelDragger dragger = GetComponentInParent<ArtifactPanelDragger>() ?? GetComponent<ArtifactPanelDragger>();
+        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
         if (dragger != null) dragger.ResetUserMoved();
 
-        if (cachedMainCamera == null) cachedMainCamera = Camera.main;
-        Transform cam = cachedMainCamera != null ? cachedMainCamera.transform : null;
+        Transform cam = Camera.main != null ? Camera.main.transform : null;
         if (cam == null) return;
 
         Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
         if (forward == Vector3.zero) forward = Vector3.forward;
-        Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
 
-        float sideOffset = (staggerIndex % 2 == 1) ? ((staggerIndex + 1) / 2) * 0.65f : -(staggerIndex / 2) * 0.65f;
-
-        Transform targetT = (transform.parent != null && transform.parent.name.Contains("HistoryDetailPanelCanvas")) ? transform.parent : transform;
-
-        targetT.position = cam.position + forward * 0.75f + right * sideOffset - Vector3.up * 0.05f;
-        Vector3 toPlayer = cam.position - targetT.position;
+        transform.position = cam.position + forward * 0.7f - Vector3.up * 0.05f;
+        Vector3 toPlayer = cam.position - transform.position;
         toPlayer.y = 0;
         if (toPlayer.sqrMagnitude > 0.0001f)
         {
-            targetT.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
-        }
-
-        if (targetT != transform)
-        {
-            transform.localPosition = Vector3.zero;
-            transform.localRotation = Quaternion.identity;
+            transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
         }
     }
 

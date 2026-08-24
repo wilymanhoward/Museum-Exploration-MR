@@ -104,9 +104,6 @@ public class WristWatch : MonoBehaviour
     private Vector3 lastGoodAnchorPos;
     private Quaternion lastGoodAnchorRot;
     private bool leftHandSolidlyTracked;
-    private float lastFallbackScanTime = -10f;
-    private Transform fallbackAnchorCandidate;
-    private Transform cachedMainCamTransform;
 
     void Start()
     {
@@ -397,36 +394,20 @@ public class WristWatch : MonoBehaviour
             return;
         }
 
-        // 5. Throttled fallback candidate search (avoids scanning entire scene every frame at 90Hz)
-        if (fallbackAnchorCandidate != null && GetPoseFromCandidate(fallbackAnchorCandidate, out anchorPos, out anchorRot))
+        // 5. Fallback search for any active left hand or left ray transform in the scene
+        foreach (var t in FindObjectsOfType<Transform>(true))
         {
-            hasAnchorPose = true;
-            hasLastGoodAnchor = true;
-            lastGoodAnchorPos = anchorPos;
-            lastGoodAnchorRot = anchorRot;
-            return;
-        }
-
-        if (Time.time - lastFallbackScanTime > 1.5f)
-        {
-            lastFallbackScanTime = Time.time;
-            fallbackAnchorCandidate = null;
-
-            foreach (var t in FindObjectsOfType<Transform>(true))
+            if (t == null || !t.gameObject.activeInHierarchy || t == transform) continue;
+            string n = t.name.ToLower();
+            if ((n.Contains("left") || n.Contains("lhs")) && (n.Contains("hand") || n.Contains("wrist") || n.Contains("ray") || n.Contains("controller") || n.Contains("aim")))
             {
-                if (t == null || !t.gameObject.activeInHierarchy || t == transform) continue;
-                string n = t.name.ToLower();
-                if ((n.Contains("left") || n.Contains("lhs")) && (n.Contains("hand") || n.Contains("wrist") || n.Contains("ray") || n.Contains("controller") || n.Contains("aim")))
+                if (GetPoseFromCandidate(t, out anchorPos, out anchorRot))
                 {
-                    fallbackAnchorCandidate = t;
-                    if (GetPoseFromCandidate(t, out anchorPos, out anchorRot))
-                    {
-                        hasAnchorPose = true;
-                        hasLastGoodAnchor = true;
-                        lastGoodAnchorPos = anchorPos;
-                        lastGoodAnchorRot = anchorRot;
-                        break;
-                    }
+                    hasAnchorPose = true;
+                    hasLastGoodAnchor = true;
+                    lastGoodAnchorPos = anchorPos;
+                    lastGoodAnchorRot = anchorRot;
+                    break;
                 }
             }
         }
@@ -482,10 +463,7 @@ public class WristWatch : MonoBehaviour
             hasAnchorPose = true;
         }
 
-        if (cachedMainCamTransform == null && Camera.main != null)
-            cachedMainCamTransform = Camera.main.transform;
-
-        Transform playerCam = cachedMainCamTransform;
+        Transform playerCam = Camera.main != null ? Camera.main.transform : null;
 
         // 1. Keep Watch Button attached to Left Wrist smoothly
         if (wristWatchButtonObj != null)
@@ -827,9 +805,8 @@ public class WristWatch : MonoBehaviour
             optionsPanelObj.SetActive(optionsPanelActive);
             if (optionsPanelActive)
             {
-                // Hide wrist-attached room list / game list choosers so they don't overlap the options menu,
-                // but preserve any placed artifact and history panels in the environment.
-                if (roomListPanel != null) roomListPanel.SetActive(false);
+                // Ensure other list panels are hidden so both never appear at once
+                if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
                 if (gamesPanel != null) gamesPanel.SetActive(false);
 
                 if (hasAnchorPose)
@@ -840,7 +817,7 @@ public class WristWatch : MonoBehaviour
         }
         else if (!optionsPanelActive)
         {
-            if (roomListPanel != null) roomListPanel.SetActive(false);
+            if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
             if (gamesPanel != null) gamesPanel.SetActive(false);
         }
         Debug.Log($"WristWatch: Options Panel Toggled -> {optionsPanelActive}");
@@ -864,9 +841,9 @@ public class WristWatch : MonoBehaviour
     }
 
     /// <summary>
-    /// Checks if any modal / chooser UI panel is currently open on the wrist that should temporarily collapse the watch icon.
-    /// World-space placed content (HistoryPanel, ArtifactDetailPanel, 3D models) do NOT hide the watch button,
-    /// allowing players to spawn and place multiple panels in their mixed reality room.
+    /// Checks if any content UI panel (Senarai Ruang / Room list panel, Room detail panel, 
+    /// Games panel, History panel, Artifact panel, etc.) is currently open and active in the scene.
+    /// Excludes the wrist options menu itself so tapping the watch button can open the options panel.
     /// </summary>
     public bool IsContentPanelActive()
     {
@@ -882,22 +859,19 @@ public class WristWatch : MonoBehaviour
                 {
                     if (optionsPanelObj != null && (child.gameObject == optionsPanelObj || child.IsChildOf(optionsPanelObj.transform)))
                         continue;
-                    // Exclude world-placed artifact detail panels and history panels
-                    if (child.name.Contains("ArtifactDetail") || child.name.Contains("ArtifactUI") || child.GetComponentInChildren<Artifact>() != null || child.GetComponentInChildren<HistoryPanel>() != null)
-                        continue;
                     return true;
                 }
             }
         }
 
         if (HistoryListPanel.Instance != null && HistoryListPanel.Instance.gameObject.activeInHierarchy) return true;
+        if (HistoryPanel.Instance != null && HistoryPanel.Instance.gameObject.activeInHierarchy) return true;
         if (LeaderboardPanel.Instance != null && LeaderboardPanel.Instance.gameObject.activeInHierarchy) return true;
         if (GameListMenu.Instance != null)
         {
             if (GameListMenu.Instance.gameListPanel != null && GameListMenu.Instance.gameListPanel.activeInHierarchy) return true;
         }
 
-        // NOTE: HistoryPanel and Artifact instances are explicitly NOT checked here so the watch button stays shown!
         return false;
     }
 
@@ -1014,7 +988,7 @@ public class WristWatch : MonoBehaviour
         optionsPanelActive = false;
         if (optionsPanelObj != null) optionsPanelObj.SetActive(false);
         if (gamesPanel != null) gamesPanel.SetActive(false);
-        if (roomListPanel != null) roomListPanel.SetActive(false);
+        if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
 
         if (wristWatchButtonObj != null)
         {
@@ -1072,7 +1046,9 @@ public class WristWatch : MonoBehaviour
         // Make sure the List Game panel isn't left showing alongside the room list.
         if (GameListMenu.Instance != null) GameListMenu.Instance.HidePanel();
 
-        // Resolve the REAL room-list panel by name.
+        // Resolve the REAL room-list panel by name. The cloned GameListPanel may also carry a
+        // RoomList component, so we must not rely on GetComponentInChildren<RoomList> here -
+        // that could grab the game panel and open it when the player taps Explore.
         if (roomListPanel == null)
         {
             Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
@@ -1080,13 +1056,16 @@ public class WristWatch : MonoBehaviour
         }
         if (roomListPanel == null) return;
 
-        // Activate RoomListPanel and hide only the gallery RoomPanel, preserving any placed panels.
-        roomListPanel.SetActive(true);
-
-        Transform rPanel = roomHudCanvas.transform.Find("RoomPanel");
-        if (rPanel != null && rPanel.gameObject != roomListPanel)
+        // Show ONLY the room list among the canvas panels (hides GameListPanel, RoomPanel, etc.).
+        Transform parent = roomListPanel.transform.parent;
+        if (parent != null)
         {
-            rPanel.gameObject.SetActive(false);
+            foreach (Transform sibling in parent)
+                sibling.gameObject.SetActive(sibling.gameObject == roomListPanel);
+        }
+        else
+        {
+            roomListPanel.SetActive(true);
         }
 
         RoomList rList = roomListPanel.GetComponent<RoomList>();

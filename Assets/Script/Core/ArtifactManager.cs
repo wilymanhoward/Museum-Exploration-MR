@@ -2,24 +2,7 @@ using UnityEngine;
 
 public class ArtifactManager : MonoBehaviour
 {
-    private static ArtifactManager _instance;
-    public static ArtifactManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                _instance = FindObjectOfType<ArtifactManager>();
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("ArtifactManager");
-                    _instance = go.AddComponent<ArtifactManager>();
-                }
-            }
-            return _instance;
-        }
-        private set { _instance = value; }
-    }
+    public static ArtifactManager Instance { get; private set; }
 
     [Header("Player Tracking")]
     [Tooltip("Reference to the player's camera or headset transform.")]
@@ -47,19 +30,17 @@ public class ArtifactManager : MonoBehaviour
 
     private void Awake()
     {
-        if (_instance == null)
+        if (Instance == null)
         {
-            _instance = this;
+            Instance = this;
         }
-        else if (_instance != this)
+        else
         {
             Destroy(gameObject);
-            return;
         }
-        AutoFindReferences();
     }
 
-    public void AutoFindReferences()
+    private void Start()
     {
         // Fallback for player transform
         if (playerTransform == null && Camera.main != null)
@@ -70,10 +51,15 @@ public class ArtifactManager : MonoBehaviour
         // Automatic scene lookup for persistent references (even if inactive)
         if (artifactUiCanvas == null)
         {
-            artifactUiCanvas = FindSceneObject("ArtifactDetailPanel") 
-                            ?? FindSceneObject("ArtifactUICanvas") 
-                            ?? FindSceneObject("ArtifactPanelPrefab");
-
+            GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
+            foreach (GameObject go in allGo)
+            {
+                if ((go.name == "ArtifactDetailPanel" || go.name == "ArtifactUICanvas" || go.name == "ArtifactPanelPrefab") && go.scene.isLoaded)
+                {
+                    artifactUiCanvas = go;
+                    break;
+                }
+            }
             if (artifactUiCanvas != null)
             {
                 Debug.Log($"ArtifactManager: Automatically located '{artifactUiCanvas.name}' (even if inactive) in the scene.");
@@ -212,12 +198,6 @@ public class ArtifactManager : MonoBehaviour
         {
             Debug.LogError("ArtifactManager: No artifactUiCanvas (scene ArtifactDetailPanel) or artifactPanelPrefab assigned to spawn detail panel!");
             return null;
-        }
-
-        // Ensure template panel under ExplorationCanvas stays inactive
-        if (artifactUiCanvas != null && artifactUiCanvas.activeSelf && artifactUiCanvas.transform.parent != null)
-        {
-            artifactUiCanvas.SetActive(false);
         }
 
         GameObject newPanelInstance;
@@ -392,16 +372,12 @@ public class ArtifactManager : MonoBehaviour
 
             if (match == null)
             {
-                ArtifactData[] allResourceArtifacts = Resources.LoadAll<ArtifactData>("");
-                if (allResourceArtifacts != null)
+                foreach (ArtifactData data in Resources.FindObjectsOfTypeAll<ArtifactData>())
                 {
-                    foreach (ArtifactData data in allResourceArtifacts)
+                    if (Matches(data))
                     {
-                        if (Matches(data))
-                        {
-                            match = data;
-                            break;
-                        }
+                        match = data;
+                        break;
                     }
                 }
             }
@@ -552,13 +528,9 @@ public class ArtifactManager : MonoBehaviour
             foreach (var art in resourceArtifacts) AddIfUnique(art);
         }
 
-        ArtifactData[] fallbackArtifacts = Resources.LoadAll<ArtifactData>("");
-        if (fallbackArtifacts != null)
+        foreach (ArtifactData art in Resources.FindObjectsOfTypeAll<ArtifactData>())
         {
-            foreach (ArtifactData art in fallbackArtifacts)
-            {
-                AddIfUnique(art);
-            }
+            AddIfUnique(art);
         }
 
         return allList;
@@ -566,7 +538,19 @@ public class ArtifactManager : MonoBehaviour
 
     public void PopulateArtifactHUDList()
     {
-        GameObject hudCanvas = FindSceneObject("ArtifactHUDCanvas");
+        GameObject hudCanvas = GameObject.Find("ArtifactHUDCanvas");
+        if (hudCanvas == null)
+        {
+            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go.name == "ArtifactHUDCanvas" && go.scene.isLoaded)
+                {
+                    hudCanvas = go;
+                    break;
+                }
+            }
+        }
+
         if (hudCanvas == null) return;
 
         Transform listContainer = hudCanvas.transform.Find("ArtifactList");
@@ -589,7 +573,10 @@ public class ArtifactManager : MonoBehaviour
         GameObject itemPrefab = RoomManager.Instance != null ? RoomManager.Instance.artifactListItemPrefab : null;
         if (itemPrefab == null)
         {
-            itemPrefab = FindSceneObject("ArtifactListItemPrefab");
+            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
+            {
+                if (go.name == "ArtifactListItemPrefab") { itemPrefab = go; break; }
+            }
         }
 
         foreach (Transform child in listContainer)
@@ -694,22 +681,5 @@ public class ArtifactManager : MonoBehaviour
                 statusText.color = new Color(0.816f, 0.835f, 0.8f);
             }
         }
-    }
-
-    private static GameObject FindSceneObject(string objectName)
-    {
-        if (string.IsNullOrEmpty(objectName)) return null;
-        GameObject direct = GameObject.Find(objectName);
-        if (direct != null) return direct;
-
-        Transform[] allTransforms = Object.FindObjectsOfType<Transform>(true);
-        foreach (Transform t in allTransforms)
-        {
-            if (t != null && t.gameObject.name == objectName && t.gameObject.scene.isLoaded)
-            {
-                return t.gameObject;
-            }
-        }
-        return null;
     }
 }

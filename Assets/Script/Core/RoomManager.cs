@@ -57,7 +57,15 @@ public class RoomManager : MonoBehaviour
         // 1. Try to find RoomHUDCanvas / RoomCanvas in the scene (active or inactive)
         if (roomHudContainer == null)
         {
-            roomHudContainer = FindSceneObject("RoomHUDCanvas") ?? FindSceneObject("RoomCanvas");
+            GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
+            foreach (GameObject go in allGo)
+            {
+                if ((go.name == "RoomHUDCanvas" || go.name == "RoomCanvas") && go.scene.isLoaded)
+                {
+                    roomHudContainer = go;
+                    break;
+                }
+            }
             if (roomHudContainer != null)
             {
                 Debug.Log($"RoomManager: Automatically located '{roomHudContainer.name}' (even if inactive) in the scene.");
@@ -881,15 +889,11 @@ public class RoomManager : MonoBehaviour
 
         if (rooms.Count < 5)
         {
-            RoomData[] allResourceRooms = Resources.LoadAll<RoomData>("");
-            if (allResourceRooms != null)
+            foreach (RoomData r in Resources.FindObjectsOfTypeAll<RoomData>())
             {
-                foreach (RoomData r in allResourceRooms)
+                if (r != null && !rooms.Contains(r) && !string.IsNullOrEmpty(r.roomName))
                 {
-                    if (r != null && !rooms.Contains(r) && !string.IsNullOrEmpty(r.roomName))
-                    {
-                        rooms.Add(r);
-                    }
+                    rooms.Add(r);
                 }
             }
         }
@@ -903,7 +907,7 @@ public class RoomManager : MonoBehaviour
                 ArtifactData[] allArts = Resources.LoadAll<ArtifactData>("MuseumData");
                 if (allArts == null || allArts.Length == 0)
                 {
-                    allArts = Resources.LoadAll<ArtifactData>("");
+                    allArts = Resources.FindObjectsOfTypeAll<ArtifactData>();
                 }
                 if (allArts != null)
                 {
@@ -939,32 +943,11 @@ public class RoomManager : MonoBehaviour
         {
             return roomNameText.font;
         }
-        TMPro.TMP_FontAsset[] fonts = Resources.LoadAll<TMPro.TMP_FontAsset>("");
-        if (fonts != null)
+        foreach (var font in Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>())
         {
-            foreach (var font in fonts)
+            if (font != null && font.name != null && !font.name.Contains("Sprite"))
             {
-                if (font != null && font.name != null && !font.name.Contains("Sprite"))
-                {
-                    return font;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static GameObject FindSceneObject(string objectName)
-    {
-        if (string.IsNullOrEmpty(objectName)) return null;
-        GameObject direct = GameObject.Find(objectName);
-        if (direct != null) return direct;
-
-        Transform[] allTransforms = Object.FindObjectsOfType<Transform>(true);
-        foreach (Transform t in allTransforms)
-        {
-            if (t != null && t.gameObject.name == objectName && t.gameObject.scene.isLoaded)
-            {
-                return t.gameObject;
+                return font;
             }
         }
         return null;

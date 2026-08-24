@@ -146,24 +146,18 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     {
         if (hitObj != null)
         {
-            RotateArtifact rotator = hitObj.GetComponent<RotateArtifact>() ?? hitObj.GetComponentInParent<RotateArtifact>();
-            if (rotator != null && rotator.IsBeingRotated)
+            if (hitObj.GetComponent<RotateArtifact>() != null || hitObj.name.Contains("ObjectSpawner") || hitObj.name.Contains("3DDisplay") || hitObj.name.Contains("Model"))
             {
                 return true;
             }
-
-            // Only suppress if directly pinching a 3D mesh object spawned inside ObjectSpawner
-            if (hitObj.GetComponent<MeshRenderer>() != null || hitObj.GetComponent<MeshFilter>() != null)
+            if (hitObj.transform.parent != null && (hitObj.transform.parent.name.Contains("ObjectSpawner") || hitObj.transform.parent.GetComponent<RotateArtifact>() != null))
             {
-                if (hitObj.transform.parent != null && hitObj.transform.parent.name == "ObjectSpawner")
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
-        RotateArtifact childRotator = GetComponentInChildren<RotateArtifact>();
-        if (childRotator != null && childRotator.IsBeingRotated)
+        RotateArtifact rotator = GetComponentInChildren<RotateArtifact>();
+        if (rotator != null && rotator.IsBeingRotated)
         {
             return true;
         }
@@ -251,15 +245,6 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
         isMoving = false;
     }
 
-    private Transform GetMoveTargetTransform()
-    {
-        if (transform.parent != null && transform.parent.GetComponent<Canvas>() != null && transform.parent.parent == null)
-        {
-            return transform.parent;
-        }
-        return transform;
-    }
-
     private IEnumerator ProcessPinchHold(Transform interactorTransform)
     {
         float elapsed = 0f;
@@ -291,13 +276,11 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
                 interactorTransform = FindActiveInteractorTransform();
             }
 
-            Transform targetT = GetMoveTargetTransform();
-
             if (interactorTransform != null)
             {
                 // Calculate initial local offset relative to the interactor ray
-                Vector3 initialLocalPos = interactorTransform.InverseTransformPoint(targetT.position);
-                Quaternion initialLocalRot = Quaternion.Inverse(interactorTransform.rotation) * targetT.rotation;
+                Vector3 initialLocalPos = interactorTransform.InverseTransformPoint(transform.position);
+                Quaternion initialLocalRot = Quaternion.Inverse(interactorTransform.rotation) * transform.rotation;
 
                 while (isPinching)
                 {
@@ -330,8 +313,8 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
                     }
                     isSnappedToWall = nowSnapped;
 
-                    targetT.position = Vector3.Lerp(targetT.position, targetPos, Time.deltaTime * 25f);
-                    targetT.rotation = Quaternion.Slerp(targetT.rotation, targetRot, Time.deltaTime * 25f);
+                    transform.position = Vector3.Lerp(transform.position, targetPos, Time.deltaTime * 25f);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, Time.deltaTime * 25f);
 
                     yield return null;
                 }
@@ -339,7 +322,7 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
 
             // Explicitly force exactly 0-degree tilt on placement release (a wall-snapped
             // rotation is already pitch/roll-free, so this is a no-op in that case).
-            targetT.rotation = Quaternion.Euler(0f, targetT.rotation.eulerAngles.y, 0f);
+            transform.rotation = Quaternion.Euler(0f, transform.rotation.eulerAngles.y, 0f);
 
             isMoving = false;
             Debug.Log(isSnappedToWall

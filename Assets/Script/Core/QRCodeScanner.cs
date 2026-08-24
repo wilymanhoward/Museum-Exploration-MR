@@ -28,7 +28,6 @@ public class QRCodeScanner : MonoBehaviour
     private string currentActiveScannedPayload = ""; // Tracks currently active QR code to filter duplicate scans
     private float hardwareScanCooldown = 0f;
     private List<MRUKTrackable> activeTrackables = new List<MRUKTrackable>();
-    private Transform cachedMainCamTransform;
 
     private void Awake()
     {
@@ -45,8 +44,6 @@ public class QRCodeScanner : MonoBehaviour
 
     private void Start()
     {
-        if (Camera.main != null) cachedMainCamTransform = Camera.main.transform;
-
         // Register MRUK QR code tracking callbacks
         if (MRUK.Instance != null && MRUK.Instance.SceneSettings != null)
         {
@@ -85,11 +82,7 @@ public class QRCodeScanner : MonoBehaviour
                 return;
             }
 
-            if (cachedMainCamTransform == null && Camera.main != null)
-            {
-                cachedMainCamTransform = Camera.main.transform;
-            }
-            Transform camTransform = cachedMainCamTransform != null ? cachedMainCamTransform : transform;
+            Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
             Vector3 camPos = camTransform.position;
             Vector3 camForward = camTransform.forward;
 

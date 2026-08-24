@@ -410,151 +410,100 @@ public class LeaderboardPanel : MonoBehaviour
 
         for (int i = 1; i < docs.Length; i++)
         {
-            try
+            string doc = docs[i];
+
+            // 1. Extract Name
+            string name = "";
+            int nameIdx = doc.IndexOf("\"name\":");
+            if (nameIdx != -1)
             {
-                string doc = docs[i];
-
-                // 1. Extract Name
-                string name = "";
-                int nameIdx = doc.IndexOf("\"name\":");
-                if (nameIdx != -1)
+                int strIdx = doc.IndexOf("\"stringValue\":", nameIdx);
+                if (strIdx != -1)
                 {
-                    int strIdx = doc.IndexOf("\"stringValue\":", nameIdx);
-                    if (strIdx != -1)
+                    int start = doc.IndexOf("\"", strIdx + 14) + 1;
+                    int end = doc.IndexOf("\"", start);
+                    if (start > 0 && end > start)
                     {
-                        int start = doc.IndexOf("\"", strIdx + 14) + 1;
-                        int end = doc.IndexOf("\"", start);
-                        if (start > 0 && end > start)
-                        {
-                            name = doc.Substring(start, end - start);
-                        }
+                        name = doc.Substring(start, end - start);
                     }
-                }
-
-                // 2. Extract Score (time in seconds)
-                float timeSec = 0f;
-                int scoreIdx = doc.IndexOf("\"score\":");
-                if (scoreIdx == -1) scoreIdx = doc.IndexOf("\"time\":");
-
-                if (scoreIdx != -1)
-                {
-                    int valIdx = doc.IndexOf("\"integerValue\":", scoreIdx);
-                    int prefixLen = 15;
-                    if (valIdx == -1)
-                    {
-                        valIdx = doc.IndexOf("\"doubleValue\":", scoreIdx);
-                        prefixLen = 14;
-                    }
-                    if (valIdx == -1)
-                    {
-                        valIdx = doc.IndexOf("\"stringValue\":", scoreIdx);
-                        prefixLen = 14;
-                    }
-
-                    if (valIdx != -1)
-                    {
-                        int start = valIdx + prefixLen;
-                        while (start < doc.Length && (doc[start] == ' ' || doc[start] == '"' || doc[start] == ':')) start++;
-
-                        int end = start;
-                        while (end < doc.Length && (char.IsDigit(doc[end]) || doc[end] == '.' || doc[end] == '-')) end++;
-
-                        if (end > start)
-                        {
-                            string scoreStr = doc.Substring(start, end - start);
-                            if (float.TryParse(scoreStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float parsedVal))
-                            {
-                                timeSec = parsedVal;
-                            }
-                        }
-                    }
-                }
-
-                // 3. Extract Game ID
-                string entryGameId = "";
-                int gameIdIdx = doc.IndexOf("\"gameID\":");
-                if (gameIdIdx == -1) gameIdIdx = doc.IndexOf("\"game_id\":");
-                if (gameIdIdx != -1)
-                {
-                    int strIdx = doc.IndexOf("\"stringValue\":", gameIdIdx);
-                    if (strIdx != -1)
-                    {
-                        int start = doc.IndexOf("\"", strIdx + 14) + 1;
-                        int end = doc.IndexOf("\"", start);
-                        if (start > 0 && end > start)
-                        {
-                            entryGameId = doc.Substring(start, end - start);
-                        }
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(entryGameId) && !string.IsNullOrEmpty(targetGameId) && entryGameId != targetGameId)
-                {
-                    continue;
-                }
-
-                if (!string.IsNullOrEmpty(name) && timeSec > 0f && timeSec < 86400f && !float.IsNaN(timeSec) && !float.IsInfinity(timeSec))
-                {
-                    results.Add(new LeaderboardEntry 
-                    { 
-                        name = name, 
-                        timeSeconds = timeSec,
-                        formattedScore = FormatTime(timeSec),
-                        gameID = entryGameId 
-                    });
                 }
             }
-            catch (System.Exception ex)
+
+            // 2. Extract Score (time in seconds)
+            float timeSec = 0f;
+            int scoreIdx = doc.IndexOf("\"score\":");
+            if (scoreIdx == -1) scoreIdx = doc.IndexOf("\"time\":");
+
+            if (scoreIdx != -1)
             {
-                Debug.LogWarning($"[Leaderboard] Skipped malformed leaderboard document: {ex.Message}");
+                int valIdx = doc.IndexOf("\"integerValue\":", scoreIdx);
+                int prefixLen = 15;
+                if (valIdx == -1)
+                {
+                    valIdx = doc.IndexOf("\"doubleValue\":", scoreIdx);
+                    prefixLen = 14;
+                }
+                if (valIdx == -1)
+                {
+                    valIdx = doc.IndexOf("\"stringValue\":", scoreIdx);
+                    prefixLen = 14;
+                }
+
+                if (valIdx != -1)
+                {
+                    int start = valIdx + prefixLen;
+                    while (start < doc.Length && (doc[start] == ' ' || doc[start] == '"' || doc[start] == ':')) start++;
+
+                    int end = start;
+                    while (end < doc.Length && (char.IsDigit(doc[end]) || doc[end] == '.' || doc[end] == '-')) end++;
+
+                    if (end > start)
+                    {
+                        string scoreStr = doc.Substring(start, end - start);
+                        if (float.TryParse(scoreStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out float parsedVal))
+                        {
+                            timeSec = parsedVal;
+                        }
+                    }
+                }
+            }
+
+            // 3. Extract Game ID
+            string entryGameId = "";
+            int gameIdIdx = doc.IndexOf("\"gameID\":");
+            if (gameIdIdx == -1) gameIdIdx = doc.IndexOf("\"game_id\":");
+            if (gameIdIdx != -1)
+            {
+                int strIdx = doc.IndexOf("\"stringValue\":", gameIdIdx);
+                if (strIdx != -1)
+                {
+                    int start = doc.IndexOf("\"", strIdx + 14) + 1;
+                    int end = doc.IndexOf("\"", start);
+                    if (start > 0 && end > start)
+                    {
+                        entryGameId = doc.Substring(start, end - start);
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(entryGameId) && !string.IsNullOrEmpty(targetGameId) && entryGameId != targetGameId)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(name) && timeSec > 0f)
+            {
+                results.Add(new LeaderboardEntry 
+                { 
+                    name = name, 
+                    timeSeconds = timeSec,
+                    formattedScore = FormatTime(timeSec),
+                    gameID = entryGameId 
+                });
             }
         }
 
         return results;
-    }
-
-    [System.Serializable]
-    private class FirestoreStringField
-    {
-        public string stringValue;
-        public FirestoreStringField(string val) { stringValue = val ?? ""; }
-    }
-
-    [System.Serializable]
-    private class FirestoreIntegerField
-    {
-        public string integerValue;
-        public FirestoreIntegerField(int val) { integerValue = val.ToString(); }
-    }
-
-    [System.Serializable]
-    private class FirestoreScoreDocumentFields
-    {
-        public FirestoreStringField name;
-        public FirestoreIntegerField score;
-        public FirestoreStringField gameID;
-    }
-
-    [System.Serializable]
-    private class FirestoreScorePayload
-    {
-        public FirestoreScoreDocumentFields fields;
-    }
-
-    public static string SanitizePlayerName(string rawName)
-    {
-        if (string.IsNullOrWhiteSpace(rawName)) return "Howard";
-        System.Text.StringBuilder sb = new System.Text.StringBuilder(rawName.Length);
-        foreach (char c in rawName)
-        {
-            if (!char.IsControl(c) && c != '\r' && c != '\n' && c != '\t')
-            {
-                sb.Append(c);
-            }
-        }
-        string clean = sb.ToString().Trim();
-        if (clean.Length > 24) clean = clean.Substring(0, 24);
-        return string.IsNullOrEmpty(clean) ? "Howard" : clean;
     }
 
     public static IEnumerator PostScore(string gameID, string playerName, int score, string firestoreUrl = DefaultFirestoreUrl)
@@ -568,20 +517,10 @@ public class LeaderboardPanel : MonoBehaviour
             resolvedName = !string.IsNullOrWhiteSpace(customName) ? customName : "Howard";
         }
 
-        string sanitizedName = SanitizePlayerName(resolvedName);
         string collectionName = GetFirestoreCollectionName(gameID);
+        string safeName = resolvedName.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        string json = $"{{\"fields\":{{\"name\":{{\"stringValue\":\"{safeName}\"}},\"score\":{{\"integerValue\":\"{score}\"}},\"gameID\":{{\"stringValue\":\"{gameID}\"}}}}}}";
 
-        FirestoreScorePayload payload = new FirestoreScorePayload
-        {
-            fields = new FirestoreScoreDocumentFields
-            {
-                name = new FirestoreStringField(sanitizedName),
-                score = new FirestoreIntegerField(score),
-                gameID = new FirestoreStringField(gameID)
-            }
-        };
-
-        string json = JsonUtility.ToJson(payload);
         string postUrl = $"{firestoreUrl}/{collectionName}";
 
         using (UnityWebRequest req = new UnityWebRequest(postUrl, "POST"))
@@ -600,7 +539,7 @@ public class LeaderboardPanel : MonoBehaviour
             }
             else
             {
-                Debug.Log($"[Leaderboard] Successfully posted score to {collectionName} for {sanitizedName}: {score}s");
+                Debug.Log($"[Leaderboard] Successfully posted score to {collectionName} for {playerName}: {score}s");
             }
         }
     }
