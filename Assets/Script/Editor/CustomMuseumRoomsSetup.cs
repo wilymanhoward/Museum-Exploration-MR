@@ -37,8 +37,8 @@ public class CustomMuseumRoomsSetup : EditorWindow
         var artArtifacts = new List<ArtifactData>()
         {
             // Reuse existing prefab if we have gamelan
-            CreateOrUpdateArtifact("artifact_gamelan", "Gamelan", "Traditional Smith", "c. 1200 CE", 
-                "Traditional bronze percussion instrument producing resonant and melodic metallic tones.", "model_artifact_gamelan"),
+            CreateOrUpdateArtifact("artifact_gamelan", "Gamelan Terengganu", "Istana Terengganu & Pahang", "1885 - 1942", 
+                "Tradisi muzik istana ensembel perkusian gamelan Melayu yang berkembang dari Riau-Lingga dan Istana Pahang ke Terengganu.", "model_artifact_gamelan"),
             CreateOrUpdateArtifact("artifact_rodat", "Rodat", "Traditional Drummer", "Historical", 
                 "A traditional performing art drum and dance instrument originating from historical cultural exchanges.")
         };

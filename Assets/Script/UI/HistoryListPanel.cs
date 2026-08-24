@@ -515,19 +515,22 @@ public class HistoryListPanel : MonoBehaviour
     {
         if (data == null) return;
 
-        if (historyDetailPanel == null)
+        if (HistoryManager.Instance != null)
         {
-            historyDetailPanel = FindObjectOfType<HistoryPanel>(true);
+            HistoryManager.Instance.ShowHistoryDetail(data);
         }
-
-        if (historyDetailPanel != null)
+        else
         {
-            gameObject.SetActive(false);
-            historyDetailPanel.Setup(data, () =>
+            if (historyDetailPanel == null)
             {
-                gameObject.SetActive(true);
-            });
-            historyDetailPanel.OpenPanel();
+                historyDetailPanel = FindObjectOfType<HistoryPanel>(true);
+            }
+
+            if (historyDetailPanel != null)
+            {
+                historyDetailPanel.Setup(data);
+                historyDetailPanel.OpenPanel();
+            }
         }
     }
 

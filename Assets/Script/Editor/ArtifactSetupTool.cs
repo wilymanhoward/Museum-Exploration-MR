@@ -43,10 +43,10 @@ public class ArtifactSetupTool : Editor
             new ArtifactConfig()
             {
                 id = "artifact_gamelan",
-                name = "Gamelan Xylophone",
-                artist = "Traditional Javanese Smith",
-                year = "c. 1200 CE",
-                description = "A traditional Javanese musical instrument. Part of the gamelan ensemble, this bronze xylophone-style instrument produces resonant, metallic tones.",
+                name = "Gamelan Terengganu",
+                artist = "Istana Terengganu & Pahang",
+                year = "1885 - 1942",
+                description = "Gamelan Terengganu merupakan tradisi muzik istana yang berkembang di Semenanjung Tanah Melayu dan Kepulauan Riau-Lingga. Berasal dari perkataan Jawa 'gamel' yang bermaksud memukul atau tukul, gamelan merujuk kepada ensembel alat muzik perkusian yang dipalu dan ditabuh. Tradisi ini dibawa dari istana Pahang pada tahun 1885 oleh Almarhum Sultan Zainal Abidin III dan mencapai zaman kegemilangan di bawah Almarhum Sultan Sulaiman Badrul Alam Syah serta Tengku Ampuan Mariam (1913-1942).",
                 modelPath = "Assets/Artifact/Gamelan/Gamelen.fbx",
                 baseTexPath = "Assets/Artifact/Gamelan/Textures/Xylophone_Base_color_1001.png",
                 normalTexPath = "Assets/Artifact/Gamelan/Textures/Xylophone_Normal_1001.png",

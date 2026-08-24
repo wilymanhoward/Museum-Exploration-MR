@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_room_2_1
   artifactName: Gamelan Terengganu
-  artist: 
-  year: 
-  timePeriod: 1885
-  location: Kepulauan Riau Lingga
+  artist: Istana Terengganu & Pahang
+  year: 1885 - 1942
+  timePeriod: 1885 - 1942
+  location: Kepulauan Riau-Lingga, Pahang & Terengganu
   height: 0
   width: 0
   length: 0
-  material: logam (gangsa, tembaga, atau besi), kayu keras, dan kulit binatang
-  description: 
+  material: Logam (Gangsa, Tembaga, Besi), Kayu Keras & Kulit Binatang
+  description: "Gamelan Terengganu merupakan tradisi muzik istana yang berkembang di Semenanjung Tanah Melayu dan Kepulauan Riau-Lingga. Berasal dari perkataan Jawa 'gamel' yang bermaksud memukul atau tukul, gamelan merujuk kepada ensembel alat muzik perkusian yang dipalu, dipukul atau ditabuh. Alat tiupan dan gesekan seperti seruling dan rebab tidak dikira sebagai ensembel gamelan Melayu.\n\nTradisi Gamelan Terengganu berakar umbi dari Riau dan Istana Pahang, bermula pada tahun 1885 apabila Almarhum Sultan Zainal Abidin III mengahwini Tengku Long, puteri Sultan Ahmad dari Pahang, lalu membawa satu set gamelan ke Terengganu.\n\nPerkembangannya mencapai zaman kegemilangan semasa pemerintahan Almarhum Sultan Sulaiman Badrul Alam Syah bersama isterinya Almarhumah Tengku Ampuan Mariam (1913), yang giat melatih pemain dan penari tempatan serta menghasilkan manuskrip tarian dan pelbagai lagu Gamelan Melayu sebelum era penaklukan Jepun (1941) dan kemangkatan Baginda pada tahun 1942."
   modelPrefab: {fileID: 919132149155446097, guid: 755f212e80cacfe4a9dc9643b9867896,
     type: 3}
   narrationClip: {fileID: 8300000, guid: 0e3ee46e638b0d14ca79566463ebb5da, type: 3}

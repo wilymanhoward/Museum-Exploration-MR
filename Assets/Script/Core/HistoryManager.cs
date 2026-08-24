@@ -80,21 +80,72 @@ public class HistoryManager : MonoBehaviour
         historyListPanel.ShowList(historyDatabase, title, subtitle);
     }
 
+    [HideInInspector] public List<GameObject> activeHistoryPanels = new List<GameObject>();
+
     /// <summary>
     /// Open the HistoryPanel (Detail) with the specified HistoryData.
+    /// If an existing panel is already active in the environment, spawns a new instance side-by-side
+    /// so the user can place multiple historical panels around their room.
     /// </summary>
-    public void ShowHistoryDetail(HistoryData data)
+    public GameObject ShowHistoryDetail(HistoryData data)
     {
+        if (data == null) return null;
         AutoFindPanels();
 
         if (historyDetailPanel == null)
         {
             Debug.LogWarning("HistoryManager: No HistoryDetailPanel (HistoryPanel) found in scene!");
-            return;
+            return null;
         }
 
-        historyDetailPanel.Setup(data);
-        historyDetailPanel.OpenPanel();
+        // Clean up destroyed entries from tracking list
+        activeHistoryPanels.RemoveAll(go => go == null);
+
+        // If primary historyDetailPanel is not active yet, use it directly
+        if (!historyDetailPanel.gameObject.activeInHierarchy)
+        {
+            historyDetailPanel.Setup(data);
+            historyDetailPanel.OpenPanel();
+            if (!activeHistoryPanels.Contains(historyDetailPanel.gameObject))
+            {
+                activeHistoryPanels.Add(historyDetailPanel.gameObject);
+            }
+            return historyDetailPanel.gameObject;
+        }
+
+        // Check if there is already an active panel displaying this exact HistoryData
+        foreach (GameObject panelGo in activeHistoryPanels)
+        {
+            if (panelGo != null && panelGo.activeInHierarchy)
+            {
+                HistoryPanel hp = panelGo.GetComponentInChildren<HistoryPanel>(true);
+                if (hp != null && hp.activeHistoryData == data)
+                {
+                    hp.OpenPanel();
+                    return panelGo;
+                }
+            }
+        }
+
+        // If existing panel is already open and placed in world, instantiate a new clone instance
+        GameObject clonedPanel = Instantiate(historyDetailPanel.gameObject);
+        clonedPanel.name = $"HistoryDetailPanel_{data.name}";
+        clonedPanel.SetActive(true);
+
+        HistoryPanel cloneHp = clonedPanel.GetComponentInChildren<HistoryPanel>(true);
+        if (cloneHp != null)
+        {
+            cloneHp.Setup(data, () =>
+            {
+                activeHistoryPanels.Remove(clonedPanel);
+                if (clonedPanel != null) Destroy(clonedPanel);
+            });
+            cloneHp.PositionInFrontOfPlayer(activeHistoryPanels.Count);
+        }
+
+        activeHistoryPanels.Add(clonedPanel);
+        Debug.Log($"HistoryManager: Spawned history panel for '{data.name}'. Total open history panels: {activeHistoryPanels.Count}");
+        return clonedPanel;
     }
 
     /// <summary>
@@ -123,5 +174,14 @@ public class HistoryManager : MonoBehaviour
     {
         if (historyListPanel != null) historyListPanel.ClosePanel();
         if (historyDetailPanel != null) historyDetailPanel.ClosePanel();
+
+        foreach (GameObject panelGo in activeHistoryPanels)
+        {
+            if (panelGo != null && panelGo != historyDetailPanel.gameObject)
+            {
+                Destroy(panelGo);
+            }
+        }
+        activeHistoryPanels.Clear();
     }
 }
