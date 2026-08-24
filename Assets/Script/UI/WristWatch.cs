@@ -805,9 +805,13 @@ public class WristWatch : MonoBehaviour
             optionsPanelObj.SetActive(optionsPanelActive);
             if (optionsPanelActive)
             {
-                // Ensure other list panels are hidden so both never appear at once
-                if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+                // Ensure other wrist list panels are hidden so they don't overlap on the wrist
+                if (roomListPanel != null) roomListPanel.SetActive(false);
                 if (gamesPanel != null) gamesPanel.SetActive(false);
+                if (HistoryListPanel.Instance != null) HistoryListPanel.Instance.gameObject.SetActive(false);
+
+                GameObject roomPanelObj = GameObject.Find("RoomPanel");
+                if (roomPanelObj != null && roomPanelObj.activeSelf) roomPanelObj.SetActive(false);
 
                 if (hasAnchorPose)
                 {
@@ -817,7 +821,7 @@ public class WristWatch : MonoBehaviour
         }
         else if (!optionsPanelActive)
         {
-            if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+            if (roomListPanel != null) roomListPanel.SetActive(false);
             if (gamesPanel != null) gamesPanel.SetActive(false);
         }
         Debug.Log($"WristWatch: Options Panel Toggled -> {optionsPanelActive}");
@@ -841,9 +845,10 @@ public class WristWatch : MonoBehaviour
     }
 
     /// <summary>
-    /// Checks if any content UI panel (Senarai Ruang / Room list panel, Room detail panel, 
-    /// Games panel, History panel, Artifact panel, etc.) is currently open and active in the scene.
-    /// Excludes the wrist options menu itself so tapping the watch button can open the options panel.
+    /// Checks if any wrist-attached chooser/game panel (Room list, Games, History list, Leaderboard)
+    /// is currently open and active on the wrist.
+    /// Floating world-space detail panels (ArtifactDetailPanel, HistoryPanel) deliberately DO NOT
+    /// block the wrist watch button, so players can open multiple panels and place them side-by-side.
     /// </summary>
     public bool IsContentPanelActive()
     {
@@ -859,13 +864,17 @@ public class WristWatch : MonoBehaviour
                 {
                     if (optionsPanelObj != null && (child.gameObject == optionsPanelObj || child.IsChildOf(optionsPanelObj.transform)))
                         continue;
+                    // Ignore floating detail panels
+                    if (child.name.Contains("ArtifactDetail") || child.name.Contains("ArtifactUI") || child.GetComponent<Artifact>() != null)
+                        continue;
+                    if (child.name.Contains("HistoryPanel") || child.GetComponent<HistoryPanel>() != null)
+                        continue;
                     return true;
                 }
             }
         }
 
         if (HistoryListPanel.Instance != null && HistoryListPanel.Instance.gameObject.activeInHierarchy) return true;
-        if (HistoryPanel.Instance != null && HistoryPanel.Instance.gameObject.activeInHierarchy) return true;
         if (LeaderboardPanel.Instance != null && LeaderboardPanel.Instance.gameObject.activeInHierarchy) return true;
         if (GameListMenu.Instance != null)
         {
@@ -904,6 +913,7 @@ public class WristWatch : MonoBehaviour
             if (optionsPanelObj != null && (child.gameObject == optionsPanelObj || child.IsChildOf(optionsPanelObj.transform))) continue;
             if (roomHudCanvas != null && (child.gameObject == roomHudCanvas || child.IsChildOf(roomHudCanvas.transform))) continue;
             if (gamesPanel != null && (child.gameObject == gamesPanel || child.IsChildOf(gamesPanel.transform))) continue;
+            if (child.name.Contains("ArtifactDetail") || child.name.Contains("HistoryPanel")) continue;
 
             if (child.gameObject.activeSelf != visible)
             {
@@ -919,6 +929,7 @@ public class WristWatch : MonoBehaviour
             if (optionsPanelObj != null && g.transform.IsChildOf(optionsPanelObj.transform)) continue;
             if (roomHudCanvas != null && g.transform.IsChildOf(roomHudCanvas.transform)) continue;
             if (gamesPanel != null && g.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (g.name.Contains("ArtifactDetail") || g.name.Contains("HistoryPanel")) continue;
 
             g.enabled = visible;
             g.raycastTarget = visible;
@@ -932,6 +943,7 @@ public class WristWatch : MonoBehaviour
             if (optionsPanelObj != null && r.transform.IsChildOf(optionsPanelObj.transform)) continue;
             if (roomHudCanvas != null && r.transform.IsChildOf(roomHudCanvas.transform)) continue;
             if (gamesPanel != null && r.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (r.name.Contains("ArtifactDetail") || r.name.Contains("HistoryPanel")) continue;
 
             r.enabled = visible;
         }
@@ -944,6 +956,7 @@ public class WristWatch : MonoBehaviour
             if (optionsPanelObj != null && b.transform.IsChildOf(optionsPanelObj.transform)) continue;
             if (roomHudCanvas != null && b.transform.IsChildOf(roomHudCanvas.transform)) continue;
             if (gamesPanel != null && b.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (b.name.Contains("ArtifactDetail") || b.name.Contains("HistoryPanel")) continue;
 
             b.enabled = visible;
             b.interactable = visible;
@@ -956,6 +969,7 @@ public class WristWatch : MonoBehaviour
             if (optionsPanelObj != null && xr.transform.IsChildOf(optionsPanelObj.transform)) continue;
             if (roomHudCanvas != null && xr.transform.IsChildOf(roomHudCanvas.transform)) continue;
             if (gamesPanel != null && xr.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (xr.name.Contains("ArtifactDetail") || xr.name.Contains("HistoryPanel")) continue;
 
             xr.enabled = visible;
         }
@@ -967,6 +981,7 @@ public class WristWatch : MonoBehaviour
             if (optionsPanelObj != null && xrInt.transform.IsChildOf(optionsPanelObj.transform)) continue;
             if (roomHudCanvas != null && xrInt.transform.IsChildOf(roomHudCanvas.transform)) continue;
             if (gamesPanel != null && xrInt.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (xrInt.name.Contains("ArtifactDetail") || xrInt.name.Contains("HistoryPanel")) continue;
 
             xrInt.enabled = visible;
         }
@@ -978,6 +993,7 @@ public class WristWatch : MonoBehaviour
             if (optionsPanelObj != null && c.transform.IsChildOf(optionsPanelObj.transform)) continue;
             if (roomHudCanvas != null && c.transform.IsChildOf(roomHudCanvas.transform)) continue;
             if (gamesPanel != null && c.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (c.name.Contains("ArtifactDetail") || c.name.Contains("HistoryPanel")) continue;
 
             c.enabled = visible;
         }
@@ -988,7 +1004,11 @@ public class WristWatch : MonoBehaviour
         optionsPanelActive = false;
         if (optionsPanelObj != null) optionsPanelObj.SetActive(false);
         if (gamesPanel != null) gamesPanel.SetActive(false);
-        if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+        if (roomListPanel != null) roomListPanel.SetActive(false);
+        if (HistoryListPanel.Instance != null) HistoryListPanel.Instance.gameObject.SetActive(false);
+
+        GameObject roomPanelObj = GameObject.Find("RoomPanel");
+        if (roomPanelObj != null && roomPanelObj.activeSelf) roomPanelObj.SetActive(false);
 
         if (wristWatchButtonObj != null)
         {

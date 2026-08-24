@@ -255,10 +255,18 @@ public class Room : MonoBehaviour
         if (ArtifactManager.Instance != null)
         {
             ArtifactManager.Instance.SpawnArtifactDetailPanel(artifact);
+            if (WristWatch.Instance != null)
+            {
+                WristWatch.Instance.EnsureWatchButtonVisible();
+            }
         }
         else if (artifactDetailPanel != null)
         {
             artifactDetailPanel.ShowArtifact(artifact, this);
+            if (WristWatch.Instance != null)
+            {
+                WristWatch.Instance.EnsureWatchButtonVisible();
+            }
         }
         else
         {
