@@ -2080,7 +2080,7 @@ public class HistoryPanel : MonoBehaviour
     {
         // Clears the dragger's "user moved" bookkeeping since this call IS the deliberate
         // reset-to-in-front-of-player action - matches Artifact.cs.PositionInFrontOfUser.
-        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        ArtifactPanelDragger dragger = GetComponentInParent<ArtifactPanelDragger>() ?? GetComponent<ArtifactPanelDragger>();
         if (dragger != null) dragger.ResetUserMoved();
 
         if (cachedMainCamera == null) cachedMainCamera = Camera.main;
@@ -2093,12 +2093,20 @@ public class HistoryPanel : MonoBehaviour
 
         float sideOffset = (staggerIndex % 2 == 1) ? ((staggerIndex + 1) / 2) * 0.65f : -(staggerIndex / 2) * 0.65f;
 
-        transform.position = cam.position + forward * 0.75f + right * sideOffset - Vector3.up * 0.05f;
-        Vector3 toPlayer = cam.position - transform.position;
+        Transform targetT = (transform.parent != null && transform.parent.name.Contains("HistoryDetailPanelCanvas")) ? transform.parent : transform;
+
+        targetT.position = cam.position + forward * 0.75f + right * sideOffset - Vector3.up * 0.05f;
+        Vector3 toPlayer = cam.position - targetT.position;
         toPlayer.y = 0;
         if (toPlayer.sqrMagnitude > 0.0001f)
         {
-            transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
+            targetT.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
+        }
+
+        if (targetT != transform)
+        {
+            transform.localPosition = Vector3.zero;
+            transform.localRotation = Quaternion.identity;
         }
     }
 

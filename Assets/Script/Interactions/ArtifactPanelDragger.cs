@@ -146,18 +146,24 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     {
         if (hitObj != null)
         {
-            if (hitObj.GetComponent<RotateArtifact>() != null || hitObj.name.Contains("ObjectSpawner") || hitObj.name.Contains("3DDisplay") || hitObj.name.Contains("Model"))
+            RotateArtifact rotator = hitObj.GetComponent<RotateArtifact>() ?? hitObj.GetComponentInParent<RotateArtifact>();
+            if (rotator != null && rotator.IsBeingRotated)
             {
                 return true;
             }
-            if (hitObj.transform.parent != null && (hitObj.transform.parent.name.Contains("ObjectSpawner") || hitObj.transform.parent.GetComponent<RotateArtifact>() != null))
+
+            // Only suppress if directly pinching a 3D mesh object spawned inside ObjectSpawner
+            if (hitObj.GetComponent<MeshRenderer>() != null || hitObj.GetComponent<MeshFilter>() != null)
             {
-                return true;
+                if (hitObj.transform.parent != null && hitObj.transform.parent.name == "ObjectSpawner")
+                {
+                    return true;
+                }
             }
         }
 
-        RotateArtifact rotator = GetComponentInChildren<RotateArtifact>();
-        if (rotator != null && rotator.IsBeingRotated)
+        RotateArtifact childRotator = GetComponentInChildren<RotateArtifact>();
+        if (childRotator != null && childRotator.IsBeingRotated)
         {
             return true;
         }

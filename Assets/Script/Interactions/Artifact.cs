@@ -206,7 +206,7 @@ public class Artifact : MonoBehaviour
 
     public void PositionInFrontOfUser()
     {
-        ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
+        ArtifactPanelDragger dragger = GetComponentInParent<ArtifactPanelDragger>() ?? GetComponent<ArtifactPanelDragger>();
         if (dragger != null)
         {
             dragger.ResetUserMoved();
@@ -219,18 +219,26 @@ public class Artifact : MonoBehaviour
 
         if (trackedPlayer != null)
         {
+            Transform targetT = (transform.parent != null && transform.parent.name.Contains("ArtifactDetailPanelCanvas")) ? transform.parent : transform;
+
             Vector3 forwardDir = Vector3.ProjectOnPlane(trackedPlayer.forward, Vector3.up).normalized;
             if (forwardDir == Vector3.zero) forwardDir = Vector3.forward;
 
             // Spawn exactly 1.0 meter in front of the user's camera
-            transform.position = trackedPlayer.position + forwardDir * 1.0f;
+            targetT.position = trackedPlayer.position + forwardDir * 1.0f;
 
-            Vector3 directionToPlayer = trackedPlayer.position - transform.position;
+            Vector3 directionToPlayer = trackedPlayer.position - targetT.position;
             directionToPlayer.y = 0;
             if (directionToPlayer != Vector3.zero)
             {
                 Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
-                transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
+                targetT.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
+            }
+
+            if (targetT != transform)
+            {
+                transform.localPosition = Vector3.zero;
+                transform.localRotation = Quaternion.identity;
             }
         }
     }

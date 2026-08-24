@@ -2,7 +2,24 @@ using UnityEngine;
 
 public class ArtifactManager : MonoBehaviour
 {
-    public static ArtifactManager Instance { get; private set; }
+    private static ArtifactManager _instance;
+    public static ArtifactManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindObjectOfType<ArtifactManager>();
+                if (_instance == null)
+                {
+                    GameObject go = new GameObject("ArtifactManager");
+                    _instance = go.AddComponent<ArtifactManager>();
+                }
+            }
+            return _instance;
+        }
+        private set { _instance = value; }
+    }
 
     [Header("Player Tracking")]
     [Tooltip("Reference to the player's camera or headset transform.")]
@@ -30,17 +47,19 @@ public class ArtifactManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null)
+        if (_instance == null)
         {
-            Instance = this;
+            _instance = this;
         }
-        else
+        else if (_instance != this)
         {
             Destroy(gameObject);
+            return;
         }
+        AutoFindReferences();
     }
 
-    private void Start()
+    public void AutoFindReferences()
     {
         // Fallback for player transform
         if (playerTransform == null && Camera.main != null)
