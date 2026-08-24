@@ -195,6 +195,12 @@ public class ArtifactManager : MonoBehaviour
             return null;
         }
 
+        // Ensure template panel under ExplorationCanvas stays inactive
+        if (artifactUiCanvas != null && artifactUiCanvas.activeSelf && artifactUiCanvas.transform.parent != null)
+        {
+            artifactUiCanvas.SetActive(false);
+        }
+
         GameObject newPanelInstance;
         if (source.GetComponent<Canvas>() != null)
         {

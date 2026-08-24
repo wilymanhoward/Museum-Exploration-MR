@@ -1014,7 +1014,7 @@ public class WristWatch : MonoBehaviour
         optionsPanelActive = false;
         if (optionsPanelObj != null) optionsPanelObj.SetActive(false);
         if (gamesPanel != null) gamesPanel.SetActive(false);
-        if (roomHudCanvas != null) roomHudCanvas.SetActive(false);
+        if (roomListPanel != null) roomListPanel.SetActive(false);
 
         if (wristWatchButtonObj != null)
         {
@@ -1072,9 +1072,7 @@ public class WristWatch : MonoBehaviour
         // Make sure the List Game panel isn't left showing alongside the room list.
         if (GameListMenu.Instance != null) GameListMenu.Instance.HidePanel();
 
-        // Resolve the REAL room-list panel by name. The cloned GameListPanel may also carry a
-        // RoomList component, so we must not rely on GetComponentInChildren<RoomList> here -
-        // that could grab the game panel and open it when the player taps Explore.
+        // Resolve the REAL room-list panel by name.
         if (roomListPanel == null)
         {
             Transform t = FindDeepChild(roomHudCanvas.transform, "RoomListPanel");
@@ -1082,16 +1080,13 @@ public class WristWatch : MonoBehaviour
         }
         if (roomListPanel == null) return;
 
-        // Show ONLY the room list among the canvas panels (hides GameListPanel, RoomPanel, etc.).
-        Transform parent = roomListPanel.transform.parent;
-        if (parent != null)
+        // Activate RoomListPanel and hide only the gallery RoomPanel, preserving any placed panels.
+        roomListPanel.SetActive(true);
+
+        Transform rPanel = roomHudCanvas.transform.Find("RoomPanel");
+        if (rPanel != null && rPanel.gameObject != roomListPanel)
         {
-            foreach (Transform sibling in parent)
-                sibling.gameObject.SetActive(sibling.gameObject == roomListPanel);
-        }
-        else
-        {
-            roomListPanel.SetActive(true);
+            rPanel.gameObject.SetActive(false);
         }
 
         RoomList rList = roomListPanel.GetComponent<RoomList>();
