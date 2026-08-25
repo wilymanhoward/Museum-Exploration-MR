@@ -1497,10 +1497,17 @@ public class HistoryPanel : MonoBehaviour
                     }
                 }
 
-                if (loadedSprite != null && (data.images == null || data.images.Length == 0))
+                if (loadedSprite != null)
                 {
                     data.displaySprite = loadedSprite;
-                    data.images = new HistoryImage[] { new HistoryImage { sprite = loadedSprite, caption = data.eventTitle } };
+                    if (data.images == null || data.images.Length == 0 || data.images[0].sprite == null)
+                    {
+                        data.images = new HistoryImage[] { new HistoryImage { sprite = loadedSprite, caption = data.eventTitle } };
+                    }
+                    else
+                    {
+                        data.images[0].sprite = loadedSprite;
+                    }
                 }
             }
 
@@ -1944,15 +1951,19 @@ public class HistoryPanel : MonoBehaviour
 
         if (activeHistoryData.images != null && activeHistoryData.images.Length > 0)
         {
-            if (activeHistoryData.images[0].sprite != null)
+            System.Collections.Generic.List<HistoryImage> validList = new System.Collections.Generic.List<HistoryImage>();
+            foreach (var img in activeHistoryData.images)
             {
-                try
+                if (img.sprite != null)
                 {
-                    if (activeHistoryData.images[0].sprite.texture != null)
-                        return activeHistoryData.images;
+                    try
+                    {
+                        if (img.sprite.texture != null) validList.Add(img);
+                    }
+                    catch { }
                 }
-                catch { }
             }
+            if (validList.Count > 0) return validList.ToArray();
         }
 
         if (activeHistoryData.displaySprite != null)
@@ -1961,7 +1972,7 @@ public class HistoryPanel : MonoBehaviour
             {
                 if (activeHistoryData.displaySprite.texture != null)
                 {
-                    return new[] { new HistoryImage { sprite = activeHistoryData.displaySprite, caption = "" } };
+                    return new[] { new HistoryImage { sprite = activeHistoryData.displaySprite, caption = activeHistoryData.eventTitle } };
                 }
             }
             catch { }

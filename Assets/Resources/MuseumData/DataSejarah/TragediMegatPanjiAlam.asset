@@ -28,8 +28,8 @@ MonoBehaviour:
 
     • Pertembungan Tragis: Namun dalam pertembungan di istana, Megat Panji Alam akhirnya gugur secara tragis apabila beliau ditikam oleh Hang Jebat dan Hang Kasturi di anak tangga istana.'
   images:
-  - sprite: {fileID: 21300000, guid: 65d0c381467383748aa3324d95c6ccd1, type: 3}
-    caption: ''
-  displaySprite: {fileID: 21300000, guid: 65d0c381467383748aa3324d95c6ccd1, type: 3}
-  videoClip: {fileID: 32900000, guid: 883a0242699e9ff4e9896d2f917db7ef, type: 3}
+  - sprite: {fileID: 21300000, guid: 3bbe7ac8fb508bc48aab6f911b170ff2, type: 3}
+    caption: 'Tragedi Megat Panji Alam'
+  displaySprite: {fileID: 21300000, guid: 3bbe7ac8fb508bc48aab6f911b170ff2, type: 3}
+  videoClip: {fileID: 32900000, guid: b5992a517807f5c47aba44443fc0b226, type: 3}
   narrationClip: {fileID: 0}
