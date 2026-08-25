@@ -102,9 +102,11 @@ public class HistoryPanel : MonoBehaviour
     private bool isStaringOrHolding = false;
     private bool isVideoPlaying = false;
     private float currentGazeTimer = 0f;
-    private const float RequiredGazeDuration = 2.0f;
+    private const float RequiredGazeDuration = 1.5f;
     private CanvasGroup displayImageCanvasGroup;
+    private CanvasGroup photoCanvasGroup;
     private CanvasGroup videoPanelCanvasGroup;
+    private CanvasGroup holdHintCanvasGroup;
     private Coroutine crossfadeCoroutine;
     private Coroutine videoMonitorCoroutine;
     private int currentImageIndex = 0;
@@ -682,6 +684,9 @@ public class HistoryPanel : MonoBehaviour
         scrollRootRect.anchoredPosition = Vector2.zero;
         scrollRootRect.sizeDelta = Vector2.zero;
         scrollRootRect.pivot = new Vector2(0.5f, 0.5f);
+
+        photoCanvasGroup = scrollGo.GetComponent<CanvasGroup>();
+        if (photoCanvasGroup == null) photoCanvasGroup = scrollGo.AddComponent<CanvasGroup>();
 
         Image scrollBg = scrollGo.AddComponent<Image>();
         scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
@@ -1307,11 +1312,22 @@ public class HistoryPanel : MonoBehaviour
 
         // Video Player Setup
         WireVideoTriggerArea();
+        EnsureVideoPanelLayout();
         if (videoPlayer != null)
         {
             videoPlayer.Stop();
             videoPlayer.clip = data.videoClip;
             videoPlayer.isLooping = false;
+        }
+
+        if (holdToPlayText != null)
+        {
+            bool hasVideo = data.videoClip != null;
+            holdToPlayText.gameObject.SetActive(hasVideo);
+            if (hasVideo)
+            {
+                holdToPlayText.text = "✦ Tatap gambar untuk mainkan video langsung ✦";
+            }
         }
 
         // Rule 1: Always start off hiding the video panel and revealing static image
@@ -1561,6 +1577,15 @@ public class HistoryPanel : MonoBehaviour
 
     private void EnsureCanvasGroups()
     {
+        if (photoScrollRect != null && photoScrollRect.gameObject != null && photoCanvasGroup == null)
+        {
+            photoCanvasGroup = photoScrollRect.GetComponent<CanvasGroup>();
+            if (photoCanvasGroup == null)
+            {
+                photoCanvasGroup = photoScrollRect.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+
         if (displayImage != null && displayImageCanvasGroup == null)
         {
             displayImageCanvasGroup = displayImage.GetComponent<CanvasGroup>();
@@ -1578,6 +1603,89 @@ public class HistoryPanel : MonoBehaviour
                 videoPanelCanvasGroup = videoPanel.gameObject.AddComponent<CanvasGroup>();
             }
         }
+
+        if (holdToPlayText != null && holdHintCanvasGroup == null)
+        {
+            holdHintCanvasGroup = holdToPlayText.GetComponent<CanvasGroup>();
+            if (holdHintCanvasGroup == null)
+            {
+                holdHintCanvasGroup = holdToPlayText.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+    }
+
+    private void EnsureVideoPanelLayout()
+    {
+        AutoWireMediaFields();
+
+        Transform parentSlot = null;
+        if (photoScrollRect != null) parentSlot = photoScrollRect.transform.parent;
+        else if (displayImage != null) parentSlot = displayImage.transform.parent;
+        if (parentSlot == null) parentSlot = mediaSlotTransform != null ? mediaSlotTransform : transform;
+
+        if (videoPanel == null)
+        {
+            GameObject vGo = new GameObject("VideoPanel");
+            vGo.transform.SetParent(parentSlot, false);
+            videoPanel = vGo;
+        }
+        else if (videoPanel.transform.parent != parentSlot)
+        {
+            videoPanel.transform.SetParent(parentSlot, false);
+        }
+
+        // Align VideoPanel RectTransform with PhotoScrollView exactly
+        RectTransform vRt = videoPanel.GetComponent<RectTransform>();
+        if (vRt == null) vRt = videoPanel.AddComponent<RectTransform>();
+        vRt.anchorMin = new Vector2(0.02f, 0.02f);
+        vRt.anchorMax = new Vector2(0.98f, 0.98f);
+        vRt.anchoredPosition = Vector2.zero;
+        vRt.sizeDelta = Vector2.zero;
+        vRt.offsetMin = new Vector2(0f, 16f); // match photo viewport above scrollbar
+        vRt.offsetMax = Vector2.zero;
+        vRt.pivot = new Vector2(0.5f, 0.5f);
+        vRt.localScale = Vector3.one;
+        vRt.localRotation = Quaternion.identity;
+
+        // Ensure displayVideoRawImage fills VideoPanel
+        if (displayVideoRawImage == null)
+        {
+            GameObject rawGo = new GameObject("DisplayVideoRawImage");
+            rawGo.transform.SetParent(videoPanel.transform, false);
+            displayVideoRawImage = rawGo.AddComponent<RawImage>();
+        }
+        else if (displayVideoRawImage.transform.parent != videoPanel.transform)
+        {
+            displayVideoRawImage.transform.SetParent(videoPanel.transform, false);
+        }
+
+        RectTransform rRt = displayVideoRawImage.rectTransform;
+        rRt.anchorMin = Vector2.zero;
+        rRt.anchorMax = Vector2.one;
+        rRt.anchoredPosition = Vector2.zero;
+        rRt.sizeDelta = Vector2.zero;
+        rRt.pivot = new Vector2(0.5f, 0.5f);
+        rRt.localScale = Vector3.one;
+        rRt.localRotation = Quaternion.identity;
+
+        // Connect RenderTexture
+        RenderTexture videoRT = videoPlayer != null && videoPlayer.targetTexture != null ? videoPlayer.targetTexture : Resources.Load<RenderTexture>("SejarahVideo/Video");
+        if (videoPlayer != null && videoRT != null)
+        {
+            videoPlayer.renderMode = VideoRenderMode.RenderTexture;
+            videoPlayer.targetTexture = videoRT;
+        }
+        if (displayVideoRawImage != null && videoRT != null)
+        {
+            displayVideoRawImage.texture = videoRT;
+            displayVideoRawImage.color = Color.white;
+            displayVideoRawImage.enabled = true;
+        }
+
+        // Put video panel in front of photo viewport so it crossfades smoothly on top
+        videoPanel.transform.SetAsLastSibling();
+
+        EnsureCanvasGroups();
     }
 
     public void OnPointerEnterTrigger()
@@ -1628,7 +1736,7 @@ public class HistoryPanel : MonoBehaviour
 
     private IEnumerator StareTimerCoroutine()
     {
-        yield return new WaitForSeconds(2.0f);
+        yield return new WaitForSeconds(1.5f);
 
         if (isStaringOrHolding && activeHistoryData != null && activeHistoryData.videoClip != null && !isVideoPlaying)
         {
@@ -1643,13 +1751,14 @@ public class HistoryPanel : MonoBehaviour
         isVideoPlaying = true;
         currentGazeTimer = 0f;
         SetGalleryNavVisible(false);
-        EnsureCanvasGroups();
 
-        AutoWireMediaFields();
+        EnsureVideoPanelLayout();
+        EnsureCanvasGroups();
 
         if (videoPanel != null)
         {
             videoPanel.SetActive(true);
+            videoPanel.transform.SetAsLastSibling();
         }
 
         if (displayVideoRawImage != null)
@@ -1675,8 +1784,9 @@ public class HistoryPanel : MonoBehaviour
         videoMonitorCoroutine = StartCoroutine(VideoMonitorCoroutine());
 
         if (crossfadeCoroutine != null) StopCoroutine(crossfadeCoroutine);
-        crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(displayImageCanvasGroup, videoPanelCanvasGroup, 0.6f, () =>
+        crossfadeCoroutine = StartCoroutine(CrossfadeLivePhotoCoroutine(toVideo: true, duration: 0.65f, () =>
         {
+            if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(false);
             if (displayImage != null) displayImage.gameObject.SetActive(false);
             if (noImageTextObj != null) noImageTextObj.SetActive(false);
         }));
@@ -1702,6 +1812,7 @@ public class HistoryPanel : MonoBehaviour
         isHoldingTrigger = false;
         isStaringOrHolding = false;
         isVideoPlaying = false;
+        currentGazeTimer = 0f;
 
         if (holdCheckCoroutine != null)
         {
@@ -1719,13 +1830,21 @@ public class HistoryPanel : MonoBehaviour
 
         if (animate && videoPanel != null && videoPanel.activeSelf)
         {
-            if (displayImage != null) displayImage.gameObject.SetActive(true);
+            if (photoScrollRect != null)
+            {
+                photoScrollRect.gameObject.SetActive(true);
+            }
+            if (displayImage != null)
+            {
+                displayImage.gameObject.SetActive(true);
+            }
+
+            if (photoCanvasGroup != null) photoCanvasGroup.alpha = 0f;
             if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = 0f;
-            UpdateImageUI();
             SetGalleryNavVisible(false);
 
             if (crossfadeCoroutine != null) StopCoroutine(crossfadeCoroutine);
-            crossfadeCoroutine = StartCoroutine(CrossfadeMediaCoroutine(videoPanelCanvasGroup, displayImageCanvasGroup, 0.6f, () =>
+            crossfadeCoroutine = StartCoroutine(CrossfadeLivePhotoCoroutine(toVideo: false, duration: 0.65f, () =>
             {
                 if (videoPlayer != null && videoPlayer.isPlaying)
                 {
@@ -1749,40 +1868,61 @@ public class HistoryPanel : MonoBehaviour
             }
 
             if (videoPanel != null) videoPanel.SetActive(false);
-            if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = 1f;
             if (videoPanelCanvasGroup != null) videoPanelCanvasGroup.alpha = 0f;
+
+            if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(true);
+            if (photoCanvasGroup != null) photoCanvasGroup.alpha = 1f;
+            if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = 1f;
+            if (holdHintCanvasGroup != null) holdHintCanvasGroup.alpha = 1f;
 
             UpdateImageUI();
         }
     }
 
-    private IEnumerator CrossfadeMediaCoroutine(CanvasGroup fadeOutGroup, CanvasGroup fadeInGroup, float duration, Action onComplete = null)
+    private IEnumerator CrossfadeLivePhotoCoroutine(bool toVideo, float duration, Action onComplete = null)
     {
         float elapsed = 0f;
 
-        if (fadeInGroup != null)
-        {
-            fadeInGroup.gameObject.SetActive(true);
-        }
+        // Start alphas
+        float startPhotoAlpha = toVideo ? 1f : 0f;
+        float targetPhotoAlpha = toVideo ? 0f : 1f;
 
-        float startFadeOutAlpha = fadeOutGroup != null ? fadeOutGroup.alpha : 1f;
-        float startFadeInAlpha = fadeInGroup != null ? fadeInGroup.alpha : 0f;
+        float startVideoAlpha = toVideo ? 0f : 1f;
+        float targetVideoAlpha = toVideo ? 1f : 0f;
+
+        // Ensure targets active before crossfading
+        if (toVideo)
+        {
+            if (videoPanel != null) videoPanel.SetActive(true);
+            if (videoPanelCanvasGroup != null) videoPanelCanvasGroup.alpha = 0f;
+        }
+        else
+        {
+            if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(true);
+            if (photoCanvasGroup != null) photoCanvasGroup.alpha = 0f;
+        }
 
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            // Smoothstep curve (ease-in-out)
-            t = t * t * (3f - 2f * t);
+            float smoothT = Mathf.SmoothStep(0f, 1f, t);
 
-            if (fadeOutGroup != null) fadeOutGroup.alpha = Mathf.Lerp(startFadeOutAlpha, 0f, t);
-            if (fadeInGroup != null) fadeInGroup.alpha = Mathf.Lerp(startFadeInAlpha, 1f, t);
+            float curPhotoAlpha = Mathf.Lerp(startPhotoAlpha, targetPhotoAlpha, smoothT);
+            float curVideoAlpha = Mathf.Lerp(startVideoAlpha, targetVideoAlpha, smoothT);
+
+            if (photoCanvasGroup != null) photoCanvasGroup.alpha = curPhotoAlpha;
+            if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = curPhotoAlpha;
+            if (videoPanelCanvasGroup != null) videoPanelCanvasGroup.alpha = curVideoAlpha;
+            if (holdHintCanvasGroup != null) holdHintCanvasGroup.alpha = curPhotoAlpha;
 
             yield return null;
         }
 
-        if (fadeOutGroup != null) fadeOutGroup.alpha = 0f;
-        if (fadeInGroup != null) fadeInGroup.alpha = 1f;
+        if (photoCanvasGroup != null) photoCanvasGroup.alpha = targetPhotoAlpha;
+        if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = targetPhotoAlpha;
+        if (videoPanelCanvasGroup != null) videoPanelCanvasGroup.alpha = targetVideoAlpha;
+        if (holdHintCanvasGroup != null) holdHintCanvasGroup.alpha = targetPhotoAlpha;
 
         onComplete?.Invoke();
         crossfadeCoroutine = null;
@@ -1985,6 +2125,12 @@ public class HistoryPanel : MonoBehaviour
             displayVideoRawImage.texture = videoRT;
             displayVideoRawImage.color = Color.white;
             displayVideoRawImage.enabled = true;
+        }
+
+        if (holdToPlayText == null)
+        {
+            Transform t = FindDeepChildTransform(transform, "HoldToPlayText") ?? FindDeepChildTransform(transform, "HoldText") ?? FindDeepChildTransform(transform, "VideoHint");
+            if (t != null) holdToPlayText = t.GetComponent<TMP_Text>();
         }
 
         if (noImageTextObj == null)
