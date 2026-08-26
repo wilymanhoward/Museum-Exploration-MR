@@ -8,7 +8,24 @@ using UnityEngine;
 /// </summary>
 public class HistoryManager : MonoBehaviour
 {
-    public static HistoryManager Instance { get; private set; }
+    private static HistoryManager _instance;
+    public static HistoryManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindObjectOfType<HistoryManager>();
+                if (_instance == null)
+                {
+                    GameObject go = new GameObject("HistoryManager");
+                    _instance = go.AddComponent<HistoryManager>();
+                }
+            }
+            return _instance;
+        }
+        private set => _instance = value;
+    }
 
     [Header("History Database (Auto-loaded from Resources if empty)")]
     [Tooltip("List of all HistoryData ScriptableObjects available in the game. Will auto-detect from Resources if left empty.")]
@@ -23,8 +40,8 @@ public class HistoryManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(this); return; }
+        if (_instance == null) _instance = this;
+        else if (_instance != this) { Destroy(gameObject); return; }
 
         AutoFindPanels();
         EnsureHistoryDatabase();
@@ -35,10 +52,34 @@ public class HistoryManager : MonoBehaviour
         if (historyListPanel == null)
         {
             historyListPanel = FindObjectOfType<HistoryListPanel>(true);
+            if (historyListPanel == null)
+            {
+                GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
+                foreach (GameObject go in allGo)
+                {
+                    if ((go.name == "HistoryListPanel" || go.name == "HistoryList") && go.scene.isLoaded)
+                    {
+                        historyListPanel = go.GetComponentInChildren<HistoryListPanel>(true);
+                        if (historyListPanel != null) break;
+                    }
+                }
+            }
         }
         if (historyDetailPanel == null)
         {
             historyDetailPanel = FindObjectOfType<HistoryPanel>(true);
+            if (historyDetailPanel == null)
+            {
+                GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
+                foreach (GameObject go in allGo)
+                {
+                    if ((go.name == "HistoryPanel" || go.name == "HistoryDetailPanel" || go.name == "HistoryUICanvas") && go.scene.isLoaded)
+                    {
+                        historyDetailPanel = go.GetComponentInChildren<HistoryPanel>(true);
+                        if (historyDetailPanel != null) break;
+                    }
+                }
+            }
         }
     }
 

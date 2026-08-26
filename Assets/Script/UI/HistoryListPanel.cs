@@ -515,35 +515,12 @@ public class HistoryListPanel : MonoBehaviour
     {
         if (data == null) return;
 
-        if (HistoryManager.Instance != null)
-        {
-            gameObject.SetActive(false);
-            HistoryManager.Instance.ShowHistoryDetail(data);
-            if (WristWatch.Instance != null)
-            {
-                WristWatch.Instance.EnsureWatchButtonVisible();
-            }
-        }
-        else
-        {
-            if (historyDetailPanel == null)
-            {
-                historyDetailPanel = FindObjectOfType<HistoryPanel>(true);
-            }
+        gameObject.SetActive(false);
+        HistoryManager.Instance.ShowHistoryDetail(data);
 
-            if (historyDetailPanel != null)
-            {
-                gameObject.SetActive(false);
-                historyDetailPanel.Setup(data, () =>
-                {
-                    gameObject.SetActive(true);
-                });
-                historyDetailPanel.OpenPanel();
-                if (WristWatch.Instance != null)
-                {
-                    WristWatch.Instance.EnsureWatchButtonVisible();
-                }
-            }
+        if (WristWatch.Instance != null)
+        {
+            WristWatch.Instance.EnsureWatchButtonVisible();
         }
     }
 
