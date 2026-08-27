@@ -76,6 +76,8 @@ public class Artifact : MonoBehaviour
     // Only ONE artifact narration may play at a time. Tracks whichever panel is currently
     // narrating so a newly-opened/played panel can silence the previous one.
     private static Artifact s_activeNarration;
+    private ScrollRect descriptionScrollRect;
+    private static Sprite cachedRoundedRectSprite;
 
     private void Awake()
     {
@@ -95,6 +97,7 @@ public class Artifact : MonoBehaviour
         audioSource.spatialBlend = 0f;
 
         EnsureGrabbablePanel();
+        EnsureDescriptionScrollView();
     }
 
     /// <summary>
@@ -272,7 +275,42 @@ public class Artifact : MonoBehaviour
             bottomTitleText.fontSizeMax = 20f;
             bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
         }
-        if (descriptionText != null) descriptionText.text = data.description;
+        if (descriptionText != null)
+        {
+            EnsureDescriptionScrollView();
+
+            descriptionText.text = string.IsNullOrEmpty(data.description) ? "" : data.description;
+            descriptionText.enableWordWrapping = true;
+            descriptionText.enableAutoSizing = false;
+            descriptionText.fontSize = 12f;
+            descriptionText.overflowMode = TextOverflowModes.Overflow;
+            descriptionText.raycastTarget = true;
+
+            descriptionText.ForceMeshUpdate();
+
+            RectTransform contentRect = descriptionText.transform.parent as RectTransform;
+            if (contentRect != null)
+            {
+                float textHeight = descriptionText.preferredHeight;
+                float viewportHeight = 100f;
+                if (descriptionScrollRect != null && descriptionScrollRect.viewport != null)
+                {
+                    viewportHeight = descriptionScrollRect.viewport.rect.height;
+                    if (viewportHeight <= 1f) viewportHeight = 100f;
+                }
+
+                float totalHeight = Mathf.Max(textHeight + 16f, viewportHeight);
+                contentRect.sizeDelta = new Vector2(0f, totalHeight);
+                descriptionText.rectTransform.sizeDelta = new Vector2(0f, totalHeight);
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            }
+
+            if (descriptionScrollRect != null)
+            {
+                descriptionScrollRect.verticalNormalizedPosition = 1f; // Reset scroll to top
+            }
+        }
 
         // Populate Details
         if (timePeriodText != null) timePeriodText.text = data.timePeriod;
@@ -1219,5 +1257,209 @@ public class Artifact : MonoBehaviour
         {
             PlayNarration();
         }
+    }
+
+    private void EnsureDescriptionScrollView()
+    {
+        if (descriptionText == null)
+        {
+            foreach (TextMeshProUGUI tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                string n = tmp.name.ToLower();
+                if (n.Contains("description") || n.Contains("desc") || n.Contains("tentang"))
+                {
+                    descriptionText = tmp;
+                    break;
+                }
+            }
+        }
+
+        if (descriptionText == null) return;
+
+        descriptionScrollRect = descriptionText.GetComponentInParent<ScrollRect>();
+        if (descriptionScrollRect != null)
+        {
+            descriptionText.raycastTarget = true;
+            Transform currentContent = descriptionText.transform.parent;
+            if (currentContent != null)
+            {
+                ContentSizeFitter csf = currentContent.GetComponent<ContentSizeFitter>();
+                if (csf != null) Destroy(csf);
+            }
+            if (descriptionScrollRect.verticalScrollbar == null)
+            {
+                BuildScrollbarForScrollRect(descriptionScrollRect);
+            }
+            return;
+        }
+
+        Transform originalParent = descriptionText.transform.parent;
+        RectTransform textRect = descriptionText.rectTransform;
+
+        Vector2 anchorMin = textRect.anchorMin;
+        Vector2 anchorMax = textRect.anchorMax;
+        Vector2 anchoredPosition = textRect.anchoredPosition;
+        Vector2 sizeDelta = textRect.sizeDelta;
+        Vector2 pivot = textRect.pivot;
+        int siblingIndex = textRect.GetSiblingIndex();
+
+        // 1. Scroll view root (takes over the description's slot in the card)
+        GameObject scrollGo = new GameObject("DescriptionScrollView");
+        RectTransform scrollRootRect = scrollGo.AddComponent<RectTransform>();
+        scrollGo.transform.SetParent(originalParent, false);
+        scrollRootRect.anchorMin = anchorMin;
+        scrollRootRect.anchorMax = anchorMax;
+        scrollRootRect.anchoredPosition = anchoredPosition;
+        scrollRootRect.sizeDelta = sizeDelta;
+        scrollRootRect.pivot = pivot;
+        scrollRootRect.SetSiblingIndex(siblingIndex);
+
+        Image scrollBg = scrollGo.AddComponent<Image>();
+        scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
+        scrollBg.raycastTarget = true;
+
+        // 2. Viewport (clips overflowing content with RectMask2D, with 10px right margin for scrollbar track)
+        GameObject viewportGo = new GameObject("Viewport");
+        RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
+        viewportGo.transform.SetParent(scrollGo.transform, false);
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.offsetMin = Vector2.zero;
+        viewportRect.offsetMax = new Vector2(-10f, 0f);
+        viewportGo.AddComponent<RectMask2D>();
+        Image viewportImg = viewportGo.AddComponent<Image>();
+        viewportImg.color = new Color(1f, 1f, 1f, 0.001f);
+        viewportImg.raycastTarget = true;
+
+        // 3. Content (scrollable container that expands to fit text height)
+        GameObject contentGo = new GameObject("Content");
+        RectTransform contentRect = contentGo.AddComponent<RectTransform>();
+        contentGo.transform.SetParent(viewportGo.transform, false);
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(0f, sizeDelta.y);
+
+        // 4. Re-parent descriptionText inside Content
+        descriptionText.transform.SetParent(contentGo.transform, false);
+        textRect.anchorMin = new Vector2(0f, 1f);
+        textRect.anchorMax = new Vector2(1f, 1f);
+        textRect.pivot = new Vector2(0.5f, 1f);
+        textRect.anchoredPosition = Vector2.zero;
+        textRect.sizeDelta = Vector2.zero;
+        descriptionText.raycastTarget = true;
+
+        // 5. Setup ScrollRect
+        descriptionScrollRect = scrollGo.AddComponent<ScrollRect>();
+        descriptionScrollRect.content = contentRect;
+        descriptionScrollRect.viewport = viewportRect;
+        descriptionScrollRect.horizontal = false;
+        descriptionScrollRect.vertical = true;
+        descriptionScrollRect.movementType = ScrollRect.MovementType.Clamped;
+        descriptionScrollRect.scrollSensitivity = 35f;
+
+        // 6. Build sleek vertical scrollbar
+        BuildScrollbarForScrollRect(descriptionScrollRect);
+    }
+
+    private static Sprite GetOrCreateRoundedRectSprite()
+    {
+        if (cachedRoundedRectSprite != null) return cachedRoundedRectSprite;
+
+        int size = 64;
+        float cornerRadius = 10f;
+        float halfSize = size / 2f;
+        float innerHalf = halfSize - cornerRadius;
+
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color[] pixels = new Color[size * size];
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float px = Mathf.Abs((x + 0.5f) - halfSize);
+                float py = Mathf.Abs((y + 0.5f) - halfSize);
+
+                float dx = Mathf.Max(px - innerHalf, 0f);
+                float dy = Mathf.Max(py - innerHalf, 0f);
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                float alpha = Mathf.Clamp01(cornerRadius - dist + 0.5f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        Vector4 border = new Vector4(14, 14, 14, 14);
+        cachedRoundedRectSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        return cachedRoundedRectSprite;
+    }
+
+    private void BuildScrollbarForScrollRect(ScrollRect scrollRect)
+    {
+        if (scrollRect == null || scrollRect.gameObject == null) return;
+
+        Sprite roundedRect = GetOrCreateRoundedRectSprite();
+
+        Scrollbar existingSb = scrollRect.gameObject.GetComponentInChildren<Scrollbar>(true);
+        if (existingSb != null)
+        {
+            scrollRect.verticalScrollbar = existingSb;
+            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            return;
+        }
+
+        GameObject scrollbarGo = new GameObject("ScrollbarVertical");
+        scrollbarGo.transform.SetParent(scrollRect.transform, false);
+
+        RectTransform sbRect = scrollbarGo.AddComponent<RectTransform>();
+        sbRect.anchorMin = new Vector2(1f, 0f);
+        sbRect.anchorMax = new Vector2(1f, 1f);
+        sbRect.pivot = new Vector2(1f, 0.5f);
+        sbRect.anchoredPosition = Vector2.zero;
+        sbRect.sizeDelta = new Vector2(6f, 0f);
+
+        Image trackImg = scrollbarGo.AddComponent<Image>();
+        trackImg.sprite = roundedRect;
+        trackImg.type = Image.Type.Sliced;
+        trackImg.color = new Color(1f, 1f, 1f, 0.15f);
+        trackImg.raycastTarget = true;
+
+        Scrollbar sbComp = scrollbarGo.AddComponent<Scrollbar>();
+        sbComp.direction = Scrollbar.Direction.BottomToTop;
+
+        GameObject slidingAreaGo = new GameObject("Sliding Area");
+        slidingAreaGo.transform.SetParent(scrollbarGo.transform, false);
+        RectTransform slidingRect = slidingAreaGo.AddComponent<RectTransform>();
+        slidingRect.anchorMin = Vector2.zero;
+        slidingRect.anchorMax = Vector2.one;
+        slidingRect.sizeDelta = Vector2.zero;
+
+        GameObject handleGo = new GameObject("Handle");
+        handleGo.transform.SetParent(slidingAreaGo.transform, false);
+        RectTransform handleRect = handleGo.AddComponent<RectTransform>();
+        handleRect.anchorMin = Vector2.zero;
+        handleRect.anchorMax = Vector2.one;
+        handleRect.sizeDelta = Vector2.zero;
+
+        Image handleImg = handleGo.AddComponent<Image>();
+        handleImg.sprite = roundedRect;
+        handleImg.type = Image.Type.Sliced;
+        handleImg.color = new Color(0.90f, 0.93f, 0.63f, 0.85f);
+        handleImg.raycastTarget = true;
+
+        sbComp.targetGraphic = handleImg;
+        sbComp.handleRect = handleRect;
+
+        scrollRect.verticalScrollbar = sbComp;
+        scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+        scrollRect.verticalScrollbarSpacing = 3f;
     }
 }
