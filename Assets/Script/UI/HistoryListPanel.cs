@@ -529,6 +529,10 @@ public class HistoryListPanel : MonoBehaviour
 
         if (HistoryManager.Instance != null)
         {
+<<<<<<< HEAD
+=======
+            gameObject.SetActive(false);
+>>>>>>> parent of 6133937 (Fix history singleton and narration sync)
             HistoryManager.Instance.ShowHistoryDetail(data);
             if (WristWatch.Instance != null)
             {
@@ -544,6 +548,7 @@ public class HistoryListPanel : MonoBehaviour
 
             if (historyDetailPanel != null)
             {
+<<<<<<< HEAD
                 historyDetailPanel.Setup(data, () =>
                 {
                     if (WristWatch.Instance != null)
@@ -552,6 +557,14 @@ public class HistoryListPanel : MonoBehaviour
                     }
                 });
                 historyDetailPanel.PositionInFrontOfUser();
+=======
+                gameObject.SetActive(false);
+                historyDetailPanel.Setup(data, () =>
+                {
+                    gameObject.SetActive(true);
+                });
+                historyDetailPanel.OpenPanel();
+>>>>>>> parent of 6133937 (Fix history singleton and narration sync)
                 if (WristWatch.Instance != null)
                 {
                     WristWatch.Instance.EnsureWatchButtonVisible();
