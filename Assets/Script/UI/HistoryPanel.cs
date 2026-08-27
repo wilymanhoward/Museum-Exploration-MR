@@ -2241,11 +2241,6 @@ public class HistoryPanel : MonoBehaviour
         }
     }
 
-    public void PositionInFrontOfUser()
-    {
-        PositionInFrontOfPlayer();
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // Button Auto-Wiring
     // ─────────────────────────────────────────────────────────────────────────

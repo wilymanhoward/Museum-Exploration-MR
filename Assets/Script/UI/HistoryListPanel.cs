@@ -119,10 +119,9 @@ public class HistoryListPanel : MonoBehaviour
             {
                 historyItems.AddRange(HistoryManager.Instance.historyDatabase);
             }
-
-            // 2. Auto-load from Resources as fallback
-            if (historyItems.Count == 0)
+            else
             {
+                // 2. Auto-load from Resources as fallback
                 HistoryData[] resHistory = Resources.LoadAll<HistoryData>("MuseumData/DataSejarah");
                 if (resHistory == null || resHistory.Length == 0) resHistory = Resources.LoadAll<HistoryData>("MuseumData/History");
                 if (resHistory == null || resHistory.Length == 0) resHistory = Resources.LoadAll<HistoryData>("DataSejarah");
@@ -150,17 +149,6 @@ public class HistoryListPanel : MonoBehaviour
             int count = historyItems != null ? historyItems.Count : 0;
             artifactCountText.text = $"Jumlah: {count}";
             artifactCountText.fontSize = 12f;
-        }
-
-        if (artifactListContainer == null)
-        {
-            AutoFindUIReferences();
-            if (artifactListContainer == null)
-            {
-                GameObject container = new GameObject("ArtifactList", typeof(RectTransform));
-                container.transform.SetParent(transform, false);
-                artifactListContainer = container.transform;
-            }
         }
 
         if (artifactListContainer == null) return;
@@ -529,10 +517,7 @@ public class HistoryListPanel : MonoBehaviour
 
         if (HistoryManager.Instance != null)
         {
-<<<<<<< HEAD
-=======
             gameObject.SetActive(false);
->>>>>>> parent of 6133937 (Fix history singleton and narration sync)
             HistoryManager.Instance.ShowHistoryDetail(data);
             if (WristWatch.Instance != null)
             {
@@ -548,23 +533,12 @@ public class HistoryListPanel : MonoBehaviour
 
             if (historyDetailPanel != null)
             {
-<<<<<<< HEAD
-                historyDetailPanel.Setup(data, () =>
-                {
-                    if (WristWatch.Instance != null)
-                    {
-                        WristWatch.Instance.EnsureWatchButtonVisible();
-                    }
-                });
-                historyDetailPanel.PositionInFrontOfUser();
-=======
                 gameObject.SetActive(false);
                 historyDetailPanel.Setup(data, () =>
                 {
                     gameObject.SetActive(true);
                 });
                 historyDetailPanel.OpenPanel();
->>>>>>> parent of 6133937 (Fix history singleton and narration sync)
                 if (WristWatch.Instance != null)
                 {
                     WristWatch.Instance.EnsureWatchButtonVisible();

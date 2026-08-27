@@ -93,30 +93,11 @@ public class MainMenu : MonoBehaviour
             if (skipButtonXR == null) skipButtonXR = introVideoPanel.GetComponentInChildren<XRButtonSelection>(true);
         }
 
-        // Hook video events & prepare/play for Meta Quest 3 Android hardware compatibility
+        // Hook video events
         if (videoPlayer != null)
         {
             videoPlayer.loopPointReached += OnVideoFinished;
             videoPlayer.errorReceived += OnVideoError;
-            videoPlayer.prepareCompleted += OnVideoPrepared;
-
-            try
-            {
-                if (!videoPlayer.isPrepared)
-                {
-                    videoPlayer.Prepare();
-                }
-                else
-                {
-                    videoPlayer.Play();
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogWarning($"MainMenu: Exception preparing/playing intro video: {ex.Message}");
-            }
-
-            StartCoroutine(VideoWatchdogTimer());
         }
         if (skipButton != null)
         {
@@ -156,6 +137,12 @@ public class MainMenu : MonoBehaviour
         {
             introVideoPanel.SetActive(true);
             FadeBackground(1f, fadeDuration);
+
+            // EVERYTHING the player ever sees (name entry, main menu, wrist button) is
+            // gated behind this video finishing, and the background is faded to black
+            // while it plays. If the clip silently fails to decode on the headset the
+            // app would be a permanent black screen - so watchdog it.
+            StartCoroutine(VideoStartWatchdog(8f));
         }
         else
         {
@@ -435,53 +422,23 @@ public class MainMenu : MonoBehaviour
         // Show standard references if assigned
         if (wayfindingSystem != null) wayfindingSystem.SetActive(true);
 
-        // Find and activate the WristMenuSystem / WristMenuCanvas
+        // Find and activate the WristMenuSystem
         if (wristMenuSystem == null)
         {
             foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
             {
-                if ((go.name == "WristMenuCanvas" || go.name == "WristMenuSystem" || go.name.Contains("WristMenu")) && go.scene.isLoaded)
+                if (go.name == "WristMenuSystem" && go.scene.isLoaded)
                 {
                     wristMenuSystem = go;
                     break;
                 }
-            }
-            if (wristMenuSystem == null && WristWatch.Instance != null)
-            {
-                wristMenuSystem = WristWatch.Instance.gameObject;
             }
         }
 
         if (wristMenuSystem != null)
         {
             wristMenuSystem.SetActive(true);
-            Debug.Log("MainMenu: Activated WristMenuSystem/WristMenuCanvas.");
-        }
-
-        if (WristWatch.Instance != null && WristWatch.Instance.wristWatchButtonObj != null)
-        {
-            WristWatch.Instance.wristWatchButtonObj.SetActive(true);
-        }
-
-        // Find, activate and start the TutorialManager
-        TutorialManager tutorialMgr = TutorialManager.Instance;
-        if (tutorialMgr == null)
-        {
-            foreach (GameObject go in Resources.FindObjectsOfTypeAll<GameObject>())
-            {
-                if ((go.name == "TutorialSystem" || go.name.Contains("Tutorial")) && go.scene.isLoaded)
-                {
-                    go.SetActive(true);
-                    tutorialMgr = go.GetComponent<TutorialManager>();
-                    break;
-                }
-            }
-        }
-        if (tutorialMgr != null)
-        {
-            tutorialMgr.gameObject.SetActive(true);
-            tutorialMgr.StartTutorial();
-            Debug.Log("MainMenu: Explicitly triggered TutorialManager.StartTutorial().");
+            Debug.Log("MainMenu: Activated WristMenuSystem.");
         }
 
         // Tell the Room Manager to start populating and setting up the wayfinding paths
@@ -491,50 +448,38 @@ public class MainMenu : MonoBehaviour
         }
     }
 
-    private void OnVideoPrepared(VideoPlayer source)
+    private void OnVideoFinished(VideoPlayer source)
     {
-        if (source != null)
-        {
-            try
-            {
-                source.Play();
-                Debug.Log("MainMenu: VideoPlayer prepared and playback started.");
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogWarning($"MainMenu: Exception calling VideoPlayer.Play: {ex.Message}");
-            }
-        }
+        EndVideoAndShowNameEntry();
     }
 
     private void OnVideoError(VideoPlayer source, string message)
     {
-        Debug.LogWarning($"MainMenu: VideoPlayer error encountered on Quest 3: {message}");
+        Debug.LogError($"MainMenu: Intro video failed on this device - skipping the intro. {message}");
         EndVideoAndShowNameEntry();
     }
 
-    private System.Collections.IEnumerator VideoWatchdogTimer()
+    /// <summary>
+    /// Skips the intro automatically if the video never actually starts rendering frames
+    /// (codec/decode failures on Android often DON'T raise errorReceived - the player just
+    /// sits there forever, leaving the app on the black fade overlay with nothing visible).
+    /// </summary>
+    private System.Collections.IEnumerator VideoStartWatchdog(float timeoutSeconds)
     {
         float elapsed = 0f;
-        while (elapsed < 3f && videoPlayer != null && introVideoPanel != null && introVideoPanel.activeInHierarchy)
+        while (elapsed < timeoutSeconds)
         {
-            if (videoPlayer.isPlaying)
-            {
-                yield break;
-            }
+            // Intro already ended or was skipped - nothing to guard anymore.
+            if (introVideoPanel == null || !introVideoPanel.activeInHierarchy) yield break;
+
+            // Video is genuinely playing frames - the normal flow will take it from here.
+            if (videoPlayer != null && videoPlayer.isPlaying && videoPlayer.frame > 0) yield break;
+
             elapsed += Time.deltaTime;
             yield return null;
         }
 
-        if (introVideoPanel != null && introVideoPanel.activeInHierarchy && (videoPlayer == null || !videoPlayer.isPlaying))
-        {
-            Debug.LogWarning("MainMenu: Video watchdog timeout - video did not start playing. Skipping to name entry.");
-            EndVideoAndShowNameEntry();
-        }
-    }
-
-    private void OnVideoFinished(VideoPlayer source)
-    {
+        Debug.LogWarning($"MainMenu: Intro video did not start within {timeoutSeconds}s - skipping the intro so the app remains usable.");
         EndVideoAndShowNameEntry();
     }
 
@@ -571,7 +516,7 @@ public class MainMenu : MonoBehaviour
 
         backgroundFadeOverlayObj = new GameObject("BackgroundFadeOverlay");
         backgroundFadeOverlayObj.transform.SetParent(camTransform, false);
-        backgroundFadeOverlayObj.transform.localPosition = new Vector3(0, 0, 2.5f);
+        backgroundFadeOverlayObj.transform.localPosition = new Vector3(0, 0, 0.4f);
         backgroundFadeOverlayObj.transform.localRotation = Quaternion.identity;
 
         Canvas canvas = backgroundFadeOverlayObj.AddComponent<Canvas>();

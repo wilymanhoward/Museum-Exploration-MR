@@ -24,9 +24,9 @@ public class GameListMenu : MonoBehaviour
     [Header("Games shown in the list")]
     public List<GameEntry> games = new List<GameEntry>
     {
-        new GameEntry { gameId = "game_1", displayName = "Kuis Artefak" },
-        new GameEntry { gameId = "game_2", displayName = "Urutan Process Pembuatan Batik" },
-        new GameEntry { gameId = "game_3", displayName = "Tebak Bayangan Artefak" },
+        new GameEntry { gameId = "game_1", displayName = "Tebak Bayangan Artefak" },
+        new GameEntry { gameId = "game_2", displayName = "Urutkan Proses Pembuatan Batik" },
+        new GameEntry { gameId = "game_3", displayName = "Urutkan Timeline Sejarah" },
     };
 
     [Header("References (auto-found if empty)")]
@@ -195,7 +195,7 @@ public class GameListMenu : MonoBehaviour
             if (game == null) continue;
             GameEntry captured = game;
 
-            GameObject btnObj = Instantiate(templateObj, container);
+            GameObject btnObj = Instantiate(buttonPrefab, container);
             btnObj.SetActive(true);
 
             // Match number text & name text fields
