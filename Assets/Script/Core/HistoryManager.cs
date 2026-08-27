@@ -8,24 +8,7 @@ using UnityEngine;
 /// </summary>
 public class HistoryManager : MonoBehaviour
 {
-    private static HistoryManager _instance;
-    public static HistoryManager Instance
-    {
-        get
-        {
-            if (_instance == null)
-            {
-                _instance = FindObjectOfType<HistoryManager>();
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("HistoryManager");
-                    _instance = go.AddComponent<HistoryManager>();
-                }
-            }
-            return _instance;
-        }
-        private set => _instance = value;
-    }
+    public static HistoryManager Instance { get; private set; }
 
     [Header("History Database (Auto-loaded from Resources if empty)")]
     [Tooltip("List of all HistoryData ScriptableObjects available in the game. Will auto-detect from Resources if left empty.")]
@@ -40,8 +23,8 @@ public class HistoryManager : MonoBehaviour
 
     private void Awake()
     {
-        if (_instance == null) _instance = this;
-        else if (_instance != this) { Destroy(gameObject); return; }
+        if (Instance == null) Instance = this;
+        else { Destroy(this); return; }
 
         AutoFindPanels();
         EnsureHistoryDatabase();
@@ -52,34 +35,10 @@ public class HistoryManager : MonoBehaviour
         if (historyListPanel == null)
         {
             historyListPanel = FindObjectOfType<HistoryListPanel>(true);
-            if (historyListPanel == null)
-            {
-                GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
-                foreach (GameObject go in allGo)
-                {
-                    if ((go.name == "HistoryListPanel" || go.name == "HistoryList") && go.scene.isLoaded)
-                    {
-                        historyListPanel = go.GetComponentInChildren<HistoryListPanel>(true);
-                        if (historyListPanel != null) break;
-                    }
-                }
-            }
         }
         if (historyDetailPanel == null)
         {
             historyDetailPanel = FindObjectOfType<HistoryPanel>(true);
-            if (historyDetailPanel == null)
-            {
-                GameObject[] allGo = Resources.FindObjectsOfTypeAll<GameObject>();
-                foreach (GameObject go in allGo)
-                {
-                    if ((go.name == "HistoryPanel" || go.name == "HistoryDetailPanel" || go.name == "HistoryUICanvas") && go.scene.isLoaded)
-                    {
-                        historyDetailPanel = go.GetComponentInChildren<HistoryPanel>(true);
-                        if (historyDetailPanel != null) break;
-                    }
-                }
-            }
         }
     }
 
@@ -155,89 +114,45 @@ public class HistoryManager : MonoBehaviour
             }
         }
 
-        // Calculate spawn position in world space
+        // If no panel is currently active, use the scene's primary historyDetailPanel
+        if (!historyDetailPanel.gameObject.activeInHierarchy && activePanelInstances.Count == 0)
+        {
+            historyDetailPanel.Setup(data, () => {
+                activePanelInstances.Remove(historyDetailPanel.gameObject);
+            });
+            historyDetailPanel.OpenPanel();
+            activePanelInstances.Add(historyDetailPanel.gameObject);
+            return historyDetailPanel.gameObject;
+        }
+
+        // If another panel is already open in world space, spawn a new clone side-by-side!
         Transform cam = Camera.main != null ? Camera.main.transform : null;
         Vector3 forward = cam != null ? Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized : Vector3.forward;
         if (forward == Vector3.zero) forward = Vector3.forward;
         Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
 
-        // Stagger multiple open panels horizontally: 0m, +0.65m, -0.65m, +1.3m, -1.3m
         int count = activePanelInstances.Count;
-        float sideOffset = (count == 0) ? 0f : ((count % 2 == 1) ? ((count + 1) / 2) * 0.65f : -(count / 2) * 0.65f);
+        float sideOffset = (count % 2 == 1) ? ((count + 1) / 2) * 0.65f : -(count / 2) * 0.65f;
 
-        Vector3 spawnPos = (cam != null ? cam.position : Vector3.zero) + forward * 0.85f + right * sideOffset - Vector3.up * 0.05f;
-        Quaternion spawnRot = Quaternion.LookRotation(forward, Vector3.up);
+        Vector3 spawnPos = (cam != null ? cam.position : Vector3.zero) + forward * 0.75f + right * sideOffset - Vector3.up * 0.05f;
+        Quaternion spawnRot = Quaternion.LookRotation(-forward, Vector3.up);
 
-        GameObject newPanelInstance = BuildWorldSpacePanel(historyDetailPanel.gameObject, spawnPos, spawnRot);
-        newPanelInstance.name = $"HistoryDetailPanel_{data.name}";
-        newPanelInstance.SetActive(true);
+        GameObject newInstance = Instantiate(historyDetailPanel.gameObject, spawnPos, spawnRot);
+        newInstance.name = $"HistoryDetailPanel_{data.name}";
+        newInstance.SetActive(true);
 
-        HistoryPanel newHp = newPanelInstance.GetComponentInChildren<HistoryPanel>(true);
+        HistoryPanel newHp = newInstance.GetComponent<HistoryPanel>();
         if (newHp != null)
         {
-            newHp.gameObject.SetActive(true);
             newHp.Setup(data, () => {
-                activePanelInstances.Remove(newPanelInstance);
-                Destroy(newPanelInstance);
+                activePanelInstances.Remove(newInstance);
+                Destroy(newInstance);
             });
         }
 
-        // Keep the scene template panel hidden so only the world space instance is displayed
-        historyDetailPanel.gameObject.SetActive(false);
-
-        activePanelInstances.Add(newPanelInstance);
+        activePanelInstances.Add(newInstance);
         Debug.Log($"HistoryManager: Spawned history panel for '{data.name}' in world space. Total active panels: {activePanelInstances.Count}");
-        return newPanelInstance;
-    }
-
-    /// <summary>
-    /// Wraps a clone of the HistoryPanel in its own world-space Canvas with graphic raycasters
-    /// and repositioning dragger so multiple panels can float and be interacted with side-by-side.
-    /// </summary>
-    private GameObject BuildWorldSpacePanel(GameObject source, Vector3 pos, Quaternion rot)
-    {
-        RectTransform srcRT = source.GetComponent<RectTransform>();
-        Vector2 size = srcRT != null ? srcRT.sizeDelta : new Vector2(560f, 400f);
-        if (size.x < 100f || size.y < 100f) size = new Vector2(560f, 400f);
-
-        float worldScale = source.transform.lossyScale.x;
-        if (worldScale <= 0.00001f) worldScale = 0.001f;
-
-        GameObject wrapper = new GameObject("HistoryDetailPanelCanvas");
-        Canvas canvas = wrapper.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        canvas.worldCamera = Camera.main;
-        wrapper.AddComponent<UnityEngine.UI.CanvasScaler>();
-        wrapper.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-
-        // XR ray/poke UI raycaster so the panel's buttons are clickable with VR hands/controllers
-        if (wrapper.GetComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>() == null)
-            wrapper.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
-
-        // Pinch-and-hold dragger for repositioning panels freely in world space
-        if (wrapper.GetComponent<ArtifactPanelDragger>() == null)
-            wrapper.AddComponent<ArtifactPanelDragger>();
-
-        RectTransform wrt = wrapper.GetComponent<RectTransform>();
-        wrt.sizeDelta = size;
-        wrapper.transform.position = pos;
-        wrapper.transform.rotation = rot;
-        wrapper.transform.localScale = Vector3.one * worldScale;
-
-        // Clone the designed panel under the wrapper and stretch it to fill
-        GameObject panel = Instantiate(source, wrapper.transform);
-        panel.SetActive(true);
-        RectTransform prt = panel.GetComponent<RectTransform>();
-        if (prt != null)
-        {
-            prt.localScale = Vector3.one;
-            prt.localRotation = Quaternion.identity;
-            prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0.5f, 0.5f);
-            prt.sizeDelta = size;
-            prt.anchoredPosition = Vector2.zero;
-        }
-
-        return wrapper;
+        return newInstance;
     }
 
     /// <summary>
@@ -269,13 +184,10 @@ public class HistoryManager : MonoBehaviour
         foreach (GameObject panel in activePanelInstances)
         {
             if (panel == null) continue;
-            Destroy(panel);
+            HistoryPanel hp = panel.GetComponentInChildren<HistoryPanel>(true);
+            if (hp != null) hp.ClosePanel();
+            else panel.SetActive(false);
         }
         activePanelInstances.Clear();
-
-        if (historyDetailPanel != null)
-        {
-            historyDetailPanel.gameObject.SetActive(false);
-        }
     }
 }

@@ -2161,27 +2161,6 @@ public class HistoryPanel : MonoBehaviour
     // Audio Controls
     // ─────────────────────────────────────────────────────────────────────────
 
-    private static HistoryPanel s_activeNarration;
-
-    private void BecomeActiveNarrator()
-    {
-        if (s_activeNarration != null && s_activeNarration != this)
-        {
-            s_activeNarration.StopNarration();
-        }
-        s_activeNarration = this;
-    }
-
-    public void StopNarration()
-    {
-        if (audioSource != null && audioSource.isPlaying)
-        {
-            audioSource.Stop();
-        }
-        if (s_activeNarration == this) s_activeNarration = null;
-        UpdatePlayPauseIcons();
-    }
-
     public void TogglePlayAudio()
     {
         if (audioSource == null || audioSource.clip == null) return;
@@ -2189,11 +2168,9 @@ public class HistoryPanel : MonoBehaviour
         if (audioSource.isPlaying)
         {
             audioSource.Pause();
-            if (s_activeNarration == this) s_activeNarration = null;
         }
         else
         {
-            BecomeActiveNarrator();
             audioSource.Play();
         }
 
@@ -2204,7 +2181,6 @@ public class HistoryPanel : MonoBehaviour
     {
         if (audioSource == null || audioSource.clip == null) return;
 
-        BecomeActiveNarrator();
         audioSource.Stop();
         audioSource.time = 0f;
         audioSource.Play();
@@ -2276,6 +2252,11 @@ public class HistoryPanel : MonoBehaviour
         {
             transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
         }
+    }
+
+    public void PositionInFrontOfUser()
+    {
+        PositionInFrontOfPlayer();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
