@@ -1322,12 +1322,7 @@ public class HistoryPanel : MonoBehaviour
 
         if (holdToPlayText != null)
         {
-            bool hasVideo = data.videoClip != null;
-            holdToPlayText.gameObject.SetActive(hasVideo);
-            if (hasVideo)
-            {
-                holdToPlayText.text = "✦ Tatap gambar untuk mainkan video langsung ✦";
-            }
+            holdToPlayText.gameObject.SetActive(false);
         }
 
         // Rule 1: Always start off hiding the video panel and revealing static image
@@ -1793,7 +1788,6 @@ public class HistoryPanel : MonoBehaviour
         if (crossfadeCoroutine != null) StopCoroutine(crossfadeCoroutine);
         crossfadeCoroutine = StartCoroutine(CrossfadeLivePhotoCoroutine(toVideo: true, duration: 0.65f, () =>
         {
-            if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(false);
             if (displayImage != null) displayImage.gameObject.SetActive(false);
             if (noImageTextObj != null) noImageTextObj.SetActive(false);
         }));
@@ -1843,7 +1837,7 @@ public class HistoryPanel : MonoBehaviour
             }
             if (displayImage != null)
             {
-                displayImage.gameObject.SetActive(true);
+                displayImage.gameObject.SetActive(false);
             }
 
             if (photoCanvasGroup != null) photoCanvasGroup.alpha = 0f;
@@ -1858,7 +1852,7 @@ public class HistoryPanel : MonoBehaviour
                     videoPlayer.Stop();
                 }
                 if (videoPanel != null) videoPanel.SetActive(false);
-                UpdateImageUI();
+                if (displayImage != null) displayImage.gameObject.SetActive(false);
             }));
         }
         else
@@ -1879,10 +1873,7 @@ public class HistoryPanel : MonoBehaviour
 
             if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(true);
             if (photoCanvasGroup != null) photoCanvasGroup.alpha = 1f;
-            if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = 1f;
-            if (holdHintCanvasGroup != null) holdHintCanvasGroup.alpha = 1f;
-
-            UpdateImageUI();
+            if (displayImage != null) displayImage.gameObject.SetActive(false);
         }
     }
 
@@ -1919,17 +1910,13 @@ public class HistoryPanel : MonoBehaviour
             float curVideoAlpha = Mathf.Lerp(startVideoAlpha, targetVideoAlpha, smoothT);
 
             if (photoCanvasGroup != null) photoCanvasGroup.alpha = curPhotoAlpha;
-            if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = curPhotoAlpha;
             if (videoPanelCanvasGroup != null) videoPanelCanvasGroup.alpha = curVideoAlpha;
-            if (holdHintCanvasGroup != null) holdHintCanvasGroup.alpha = curPhotoAlpha;
 
             yield return null;
         }
 
         if (photoCanvasGroup != null) photoCanvasGroup.alpha = targetPhotoAlpha;
-        if (displayImageCanvasGroup != null) displayImageCanvasGroup.alpha = targetPhotoAlpha;
         if (videoPanelCanvasGroup != null) videoPanelCanvasGroup.alpha = targetVideoAlpha;
-        if (holdHintCanvasGroup != null) holdHintCanvasGroup.alpha = targetPhotoAlpha;
 
         onComplete?.Invoke();
         crossfadeCoroutine = null;
