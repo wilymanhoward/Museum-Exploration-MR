@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_room_2_2
   artifactName: Wayang Kulit
-  artist: 
-  year: 
-  timePeriod: Abad 9-11
-  location: India
+  artist: Tok Dalang
+  year: Seni Teater Warisan
+  timePeriod: Asia Tenggara & Nusantara
+  location: Kelantan, Terengganu, Kedah, Johor & Patani
   height: 0
   width: 0
   length: 0
-  material: kulit kerbau, kulit lembu, dan tanduk kerbau
-  description: Keterangan ringkas bagi Artefak 2.
+  material: Kulit Kerbau / Lembu, Kelir Kain Putih & Tanduk
+  description: "Persembahan wayang kulit merupakan salah satu persembahan berbentuk seni teater yang tertua di sebelah rantau timur. Ia berkembang di setiap kawasan termasuklah di negara China, India, Turki dan tidak ketinggalan juga di sebelah rantau Asia Tenggara. Setiap negara mempunyai pelbagai variasi rupa bentuk dan gaya yang tersendiri dalam mempersembahkan seni teater wayang kulit. Wayang kulit di sekitar Asia Tenggara banyak mempersembahkan cerita-cerita epik Ramayana dan Mahabrata disamping cerita-cerita panji dan rakyat. Selain itu, ianya juga turut memuatkan cerita-cerita yang diambil atau disadur dari isu-isu semasa yang berlaku di sekitarnya. Kebiasaannya persembahan wayang kulit dimainkan pada waktu malam dan diketuai oleh 'Tok Dalang' sebagai narrator. Ianya dipersembahkan dan ditayangkan disebalik kelir atau pemidang kain putih yang disuluh dengan cahaya lampu sama ada gasolin atau mentol yang digantung. Tok Dalang mempunyai kebolehan menuturkan pelbagai gaya suara mengikut watak-watak yang dimainkan. Persembahan wayang kulit ini turut diiringi dengan alunan muzik yang terdiri dari gong atau tetawak, sepasang geduk, gedumbak, canang, kesi dan serunai.\n\nDi Malaysia terdapat empat jenis persembahan wayang kulit yang berlainan dimainkan mengikut kawasan iaitu Wayang Kulit Jawa, Wayang Kulit Gedek, Wayang Kulit Melayu dan Wayang Kulit Siam. Wayang Kulit Jawa atau Wayang Purwa ini dimainkan oleh masyarakat berketurunan Jawa di sekitar Johor dan Selangor. Cerita yang dimainkan dalam wayang kulit ini adalah berdasarkan epik Mahabrata. Manakala Wayang Kulit Gedek pula banyak dimainkan di kawasan negeri Kedah, Kelantan dan selatan Thailand. Patung-patung wayang kulit dari jenis ini kebiasaannya bersaiz kecil dan mempunyai pandangan muka posisi depan. Persembahan wayang gedek di negeri Kedah menggunakan loghat utara manakala di selatan Thailand menggunakan campuran antara bahasa Thailand dan loghat setempat. Persembahan Wayang Kulit Melayu atau juga dikenali sebagai Wayang Jawa pula banyak dipengaruhi dari Wayang Purwa. Wayang Kulit Melayu ini biasanya dimainkan untuk golongan aristrokat dan hanya berkembang di antara golongan mereka sahaja. Ianya banyak dimainkan di Kedah, Kelantan, Terengganu dan Patani. Kini wayang kulit Melayu ini telah pupus dan tidak dimainkan lagi. Wayang kulit Siam atau Wayang Kulit Kelantan merupakan persembahan wayang kulit yang paling banyak dan popular dimainkan di Malaysia. Wayang kulit ini banyak dimainkan di Kelantan, Terengganu, Perak, Kedah dan Pahang. Cerita-cerita yang dimainkan dalam wayang kulit Siam ini lebih kepada epik Ramayana versi Siam."
   modelPrefab: {fileID: 919132149155446097, guid: a5d60641a026246418aaaf308e7b5aab,
     type: 3}
   narrationClip: {fileID: 8300000, guid: a9c9310401eda1347a3e033051a2e030, type: 3}
