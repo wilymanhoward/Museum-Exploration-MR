@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_room_3_1
   artifactName: Batu Bersurat Terengganu
-  artist: 
-  year: 
-  timePeriod: 1887
-  location: Tanah Batu
-  height: 0
-  width: 0
-  length: 0
-  material: Batu
-  description: Keterangan ringkas bagi Artefak 1.
+  artist: Ditemui: Saiyed Husin Al-Bukhari
+  year: 702 Hijrah (1303 M)
+  timePeriod: 702 Hijrah (1303 M)
+  location: Sg. Tara, Kg. Buloh, Hulu Terengganu
+  height: 84
+  width: 53
+  length: 25
+  material: Batu Granit & Tulisan Jawi Purba
+  description: "Batu Bersurat Terengganu ditemui pada tahun 1887 di Tanah Batu, tebing Sungai Tara, Mukim Kampung Buloh, Hulu Terengganu sebelum dibawa ke Surau Tok Abdul Rashid dan dijadikan sebagai alas untuk membasuh kaki sebelum naik ke surau. Setelah 15 tahun, ia telah dilihat oleh seorang usahawan berketurunan Arab, Saiyed Husin Ghulam Al-Bukhari pada tahun 1902 sewaktu menunaikan solat zohor.\n\nSetelah dibersihkan, Saiyed Husin mendapat keizinan oleh Penghulu Ali untuk dibawa pulang ke Kuala Terengganu dan dipersembahkan Kebawah Duli Tuanku Sultan Terengganu, Sultan Zainal Abidin III (1881-1918) dan diperintahkan supaya diletakkan di atas Bukit Puteri, Kuala Terengganu. Usaha mengenal pasti dan membaca makna tulisan yang tercatat pada batu itu telah diusahakan oleh Penolong Penasihat British di Terengganu merangkap Ketua Bandaran, Mejar H.S Peterson pada tahun 1922, dibantu oleh N. Suzuki seorang jurugambar Jepun yang merakamkan tulisan pada batu tersebut dan dihantar ke Universiti Oxford, England. Hasil penyelidikan pakar-pakar bahasa di sana mengesahkan bahawa batu tersebut ditulis dalam bahasa Melayu dengan tulisan jawi bertarikh 702 Hijrah.\n\nPada 29 November 1923, Penasihat British di Terengganu, J.L Humphreys telah mencadangkan kepada pihak kerajaan negeri Batu Bersurat ini disimpan di Muzium Raffles (Sekolah Gambar) dengan jaminan bahawa Kerajaan Terengganu boleh mengambil kembali batu tersebut pada bila-bila masa apabila Terengganu sudah mempunyai muzium atau tempat yang sesuai. Keputusan ini telah dipersembahkan untuk limpah perkenan Al Marhum Sultan Sulaiman Badrul Alam Shah (1920-1942) serta mendapat perkenan baginda pada 15 Mei 1923 atas dasar pinjaman kepada Muzium Raffles Singapura. Batu Bersurat telah dibawa ke Singapura pada pertengahan 1923 dan kekal di sana selama 37 tahun sehingga 1960.\n\nPada tahun 1960, Batu Bersurat telah dibawa ke Muzium Negara Kuala Lumpur dengan cara pinjaman dari Muzium Raffles. Bermula tahun 1979, beberapa usaha telah dibuat bagi mengembalikan Batu Bersurat ini ke Terengganu oleh Kerajaan Negeri Terengganu dan Lembaga Muzium Terengganu. Melalui Mesyuarat Khas pada 2 Jun 1989 di Kementerian Kebudayaan, Kesenian dan Pelancongan, Jemaah Menteri yang bermesyuarat pada 15 Mei 1991 telah bersetuju agar Batu Bersurat dikembalikan kepada Kerajaan Negeri Terengganu Darul Iman."
   modelPrefab: {fileID: 919132149155446097, guid: 76fbfaf0da8c09d43801758d2f22e4b0,
     type: 3}
   narrationClip: {fileID: 8300000, guid: e980d49f3c48caa48ac3c5cbf8f8ff49, type: 3}
