@@ -14,18 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_room_1_3
   artifactName: Kain Songket
-  artist: 
-  year: 
-  timePeriod: Beratus tahun yang lalu
-  location: Kelantan, Terengganu, dan Pahang
+  artist: Penenun Tradisional Pantai Timur
+  year: Warisan Tenunan Melayu
+  timePeriod: Warisan Tradisi Berzaman
+  location: Terengganu, Kelantan & Pahang
   height: 0
   width: 0
   length: 0
-  material: Benang asas
-  description: Kain Songket ialah kain tenunan tradisional Melayu yang sangat indah
-    dari segi estetika. Corak dan warnanya pada zaman dahulu melambangkan status
-    sosial pemakainya. Kain ini memerlukan proses pengeluaran yang kompleks, melibatkan
-    pelbagai peringkat tenunan yang terperinci.
+  material: Benang Sutera Halus, Benang Emas (Pakan) & Benang Kapas
+  description: "Songket merupakan tenunan unik dan mempunyai nilai estetik yang tinggi. Ia merupakan puncak keindahan seni pakaian orang Melayu sejak zaman berzaman. Seni tenunan songket telah berkembang di negara ini khususnya di negeri-negeri pantai timur terutamanya Kelantan, Terengganu dan Pahang sejak beratus tahun yang lalu.\n\nKedatangan pedagang-pedagang ke Tanah Melayu telah menggiatkan lagi perkembangan seni tenunan tempatan. Pada zaman silam, motif dan warna yang terdapat pada tenunan songket melambangkan strata atau kedudukan dalam masyarakat. Secara tradisi, songket ditenun dengan menggunakan benang sutera halus dan benang emas serta dipakai oleh kerabat diraja Melayu dan golongan bangsawan. Kini, songket ditenun dengan benang kapas dan mula dipakai oleh golongan rakyat biasa sebagai pakaian rasmi untuk majlis-majlis tertentu.\n\nDalam hikayat-hikayat lama, seperti Sejarah Melayu, Hikayat Hang Tuah dan Hikayat Raja Pasai, kain songket disebut kain berpakan emas. Ini kerana benang emas yang disongket adalah benang pakan atau diistilahkan juga sebagai benang mendatang.\n\nPada asasnya, penghasilan songket melalui beberapa proses khusus iaitu mencelup, melerai benang, menganing, menggulung, menyapuk, mengarat, menyongket, menekat dan menenun."
   modelPrefab: {fileID: 919132149155446097, guid: 17f61d7342e911c48a3302df263e373e,
     type: 3}
   narrationClip: {fileID: 8300000, guid: a9c9310401eda1347a3e033051a2e030, type: 3}
