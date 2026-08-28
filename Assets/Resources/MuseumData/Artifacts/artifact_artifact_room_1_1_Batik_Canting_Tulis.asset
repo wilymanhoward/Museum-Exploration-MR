@@ -14,19 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_room_1_1
   artifactName: Batik Canting/Tulis
-  artist: 
-  year: 
-  timePeriod: Abad 12-13
-  location: Batik Kraton Jawa
+  artist: Warisan Seni Kraf Tekstil
+  year: Warisan Tradisi Kraton
+  timePeriod: Warisan Tradisi (Kraton Jawa & Terengganu)
+  location: Terengganu & Nusantara
   height: 0
   width: 0
   length: 0
-  material: Kain & Lilin
-  description: Batik Canting ialah seni tradisional Jawa di mana corak yang rumit
-    dilukis dengan tangan pada kain menggunakan lilin cair. Kain tersebut kemudiannya
-    dicelup dan direbus untuk menanggalkan lilin, mendedahkan corak bunga, geometri,
-    atau abstrak yang terperinci. Bahan siap ini lazimnya digunakan untuk membuat
-    pakaian bagi lelaki dan wanita.
+  material: Kain (Kapas / Rayon / Sutera), Lilin Cair & Canting Tembaga
+  description: "Batik canting juga dikenali sebagai Batik Tulis atau Batik Lukis. Ia dipercayai warisan daripada Batik Kraton Jawa yang menggunakan kaedah lakaran canting dengan penggunaan bahan lilin yang dicairkan. Canting merupakan bekas yang diperbuat daripada tembaga berbentuk takung kecil dengan kayu pemegang kecil. Pada hujung bahagian bawah mempunyai saluran kecil yang dapat mengalirkan cairan lilin. Motif-motif dan corak-corak dilukis melalui hujung saluran canting ke atas kain yang telah diregangkan. Kain yang telah dicanting, diwarnakan, dikeringkan dan dimatikan warna. Kain-kain yang telah siap melalui proses canting, perwarnaan dan proses mengekalkan warna akan direbus bagi mengeluarkan lilin sebelum dikeringkan sekali lagi.\n\nTerdapat lima jenis canting iaitu canting burung, canting kasut, canting periuk, canting bola dan canting pelbagai mata. Batik Canting menggunakan pelbagai jenis kain termasuk kapas, rayon dan sutera. Motif-motif biasanya diadaptasikan dari motif flora, geometri dan abstrak. Batik Canting selalunya dihasilkan untuk pakaian perempuan sama ada secara sedondon mahupun untuk kemeja lelaki."
   modelPrefab: {fileID: 0}
   narrationClip: {fileID: 8300000, guid: 1a2307a76cc9fb14cb942f9801f8b524, type: 3}
   instrumentClip: {fileID: 0}
