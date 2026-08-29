@@ -122,7 +122,8 @@ public class Room : MonoBehaviour
             artifactCountText.text = "Jumlah Artefak: " + count;
         }
 
-
+        // Adjust background height so single-artifact rooms (Galeri Kraf) have a compact, proportional background
+        AdjustCanvasBackground(count);
 
         // Clear existing artifact items
         if (artifactListContainer != null)
@@ -323,5 +324,55 @@ public class Room : MonoBehaviour
         }
     }
 
+    private void AdjustCanvasBackground(int artifactCount)
+    {
+        GameObject targetCanvas = canvasObject != null ? canvasObject : (transform.parent != null ? transform.parent.gameObject : null);
+        if (targetCanvas == null) return;
 
+        // Find the background image on the canvas
+        Image bgImg = targetCanvas.GetComponent<Image>() ?? targetCanvas.transform.Find("Background")?.GetComponent<Image>();
+        if (bgImg == null)
+        {
+            foreach (Image img in targetCanvas.GetComponentsInChildren<Image>(true))
+            {
+                if (img.transform.parent == targetCanvas.transform && (img.gameObject.name.ToLower().Contains("bg") || img.gameObject.name.ToLower().Contains("background") || (img.material != null && img.material.name.Contains("CardBackground"))))
+                {
+                    bgImg = img;
+                    break;
+                }
+            }
+        }
+        if (bgImg == null) return;
+
+        RectTransform bgRT = bgImg.rectTransform;
+        if (bgRT == null) return;
+
+        if (artifactCount <= 1)
+        {
+            // Galeri Kraf (1 artifact): Make the green background card shorter (height = 315px)
+            // Anchor to top so it frames the top header down to 30px below 01 Keris cleanly
+            bgRT.anchorMin = new Vector2(0f, 1f);
+            bgRT.anchorMax = new Vector2(1f, 1f);
+            bgRT.pivot = new Vector2(0.5f, 1f);
+            bgRT.anchoredPosition = Vector2.zero;
+            bgRT.sizeDelta = new Vector2(0f, 315f); // Clean 315px height, cutting off bottom empty space
+        }
+        else if (artifactCount == 2)
+        {
+            bgRT.anchorMin = new Vector2(0f, 1f);
+            bgRT.anchorMax = new Vector2(1f, 1f);
+            bgRT.pivot = new Vector2(0.5f, 1f);
+            bgRT.anchoredPosition = Vector2.zero;
+            bgRT.sizeDelta = new Vector2(0f, 395f);
+        }
+        else
+        {
+            // Full room (3+ artifacts): stretch to full canvas height
+            bgRT.anchorMin = Vector2.zero;
+            bgRT.anchorMax = Vector2.one;
+            bgRT.pivot = new Vector2(0.5f, 0.5f);
+            bgRT.anchoredPosition = Vector2.zero;
+            bgRT.sizeDelta = Vector2.zero;
+        }
+    }
 }
