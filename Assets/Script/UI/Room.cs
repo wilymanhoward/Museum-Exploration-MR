@@ -326,33 +326,42 @@ public class Room : MonoBehaviour
 
     private void AdjustBackgroundCardHeight(int artifactCount)
     {
-        float bottomCrop = 0f;
+        // Width and height with clean widescreen ratio (500px wide)
+        float cardWidth = 500f;
+        float cardHeight;
+
         if (artifactCount <= 1)
         {
-            bottomCrop = 235f; // Raises bottom edge by 235px to hug cleanly below 01 Keris
+            cardHeight = 270f; // Spacious widescreen card that perfectly frames title down to 25px below 01 Keris
         }
         else if (artifactCount == 2)
         {
-            bottomCrop = 150f;
+            cardHeight = 350f;
+        }
+        else if (artifactCount == 3)
+        {
+            cardHeight = 430f;
         }
         else
         {
-            bottomCrop = 0f; // Full height for rooms with 3+ artifacts
+            cardHeight = 500f;
         }
 
-        void CropImageBottom(Image img)
+        void SizeBackground(Image img)
         {
             if (img == null) return;
             RectTransform rt = img.rectTransform;
             if (rt == null) return;
 
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMax = Vector2.zero;
-            rt.offsetMin = new Vector2(0f, bottomCrop);
+            // Anchor to top-center and expand downward to frame all header elements and artifact rows
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.anchoredPosition = new Vector2(0f, 18f); // 18px above the top title icon for breathing room
+            rt.sizeDelta = new Vector2(cardWidth, cardHeight);
         }
 
-        // Crop Room's own background card
+        // Apply to Room's background card
         for (int i = 0; i < transform.childCount; i++)
         {
             Transform child = transform.GetChild(i);
@@ -363,19 +372,19 @@ public class Room : MonoBehaviour
                 Image img = child.GetComponent<Image>();
                 if (img != null && !n.Contains("icon") && !n.Contains("button") && !n.Contains("line") && !n.Contains("separator"))
                 {
-                    CropImageBottom(img);
+                    SizeBackground(img);
                 }
             }
         }
-        CropImageBottom(GetComponent<Image>());
+        SizeBackground(GetComponent<Image>());
 
-        // Also crop parent canvas background if present
+        // Also apply to parent canvas background if present
         if (transform.parent != null)
         {
             Image parentBg = transform.parent.Find("Background")?.GetComponent<Image>() ?? transform.parent.GetComponent<Image>();
             if (parentBg != null)
             {
-                CropImageBottom(parentBg);
+                SizeBackground(parentBg);
             }
         }
     }
