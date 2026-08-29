@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roomId: room_4
   roomName: Galeri Kraf
-  roomSubtitle: Pameran Artefak Galeri Kraf
+  roomSubtitle: Pameran Artifak Galeri Kraf
   artifacts:
   - {fileID: 11400000, guid: 3dc025d2230431249ab3960feb953438, type: 2}
   waypoints: []

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roomId: room_2
   roomName: Galeri Seni
-  roomSubtitle: Pameran Artefak Seni
+  roomSubtitle: Pameran Artifak Seni
   artifacts:
   - {fileID: 11400000, guid: f45978afce3286f4aa0d2bba42717f3a, type: 2}
   - {fileID: 11400000, guid: c18c487466e31ad42b24ea55c2e2b774, type: 2}

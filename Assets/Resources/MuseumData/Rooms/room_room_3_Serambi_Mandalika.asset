@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   roomId: room_3
   roomName: Serambi Mandalika
-  roomSubtitle: Pameran Artefak Galeri 3
+  roomSubtitle: Pameran Artifak Galeri 3
   artifacts:
   - {fileID: 11400000, guid: 6316384c031dacc449ee36a266906a1f, type: 2}
   waypoints: []
