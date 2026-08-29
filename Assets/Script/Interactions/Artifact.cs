@@ -1255,13 +1255,13 @@ public class Artifact : MonoBehaviour
             tRect.anchoredPosition = Vector2.zero;
 
             // Compute exact height required for full text
-            float containerWidth = 260f;
+            float containerWidth = 270f;
             if (descriptionScrollRect != null && descriptionScrollRect.viewport != null && descriptionScrollRect.viewport.rect.width > 20f)
             {
                 containerWidth = descriptionScrollRect.viewport.rect.width;
             }
             Vector2 pref = descriptionText.GetPreferredValues(descriptionText.text, containerWidth, 5000f);
-            float totalHeight = Mathf.Max(pref.y + 24f, 120f);
+            float totalHeight = Mathf.Max(pref.y + 30f, 130f);
 
             RectTransform contentRect = descriptionText.transform.parent as RectTransform;
             if (contentRect != null)
@@ -1340,7 +1340,7 @@ public class Artifact : MonoBehaviour
         scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
         scrollBg.raycastTarget = true;
 
-        // 2. Viewport (clips overflowing content with RectMask2D, with 12px right margin for scrollbar track)
+        // 2. Viewport (clips overflowing content with Stencil Mask, with 12px right margin for scrollbar track)
         GameObject viewportGo = new GameObject("Viewport");
         RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
         viewportGo.transform.SetParent(scrollGo.transform, false);
@@ -1352,10 +1352,13 @@ public class Artifact : MonoBehaviour
         viewportRect.anchorMax = Vector2.one;
         viewportRect.offsetMin = Vector2.zero;
         viewportRect.offsetMax = new Vector2(-12f, 0f);
-        viewportGo.AddComponent<RectMask2D>();
+
         Image viewportImg = viewportGo.AddComponent<Image>();
-        viewportImg.color = new Color(1f, 1f, 1f, 0.001f);
+        viewportImg.color = Color.white;
         viewportImg.raycastTarget = true;
+
+        Mask viewportMask = viewportGo.AddComponent<Mask>();
+        viewportMask.showMaskGraphic = false;
 
         // 3. Content (scrollable container that expands to fit text height)
         GameObject contentGo = new GameObject("Content");
