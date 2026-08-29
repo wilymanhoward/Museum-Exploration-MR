@@ -122,9 +122,6 @@ public class Room : MonoBehaviour
             artifactCountText.text = "Jumlah Artefak: " + count;
         }
 
-        // Adjust background height so single-artifact rooms (Galeri Kraf) have a compact, proportional background
-        AdjustCanvasBackground(count);
-
         // Clear existing artifact items
         if (artifactListContainer != null)
         {
@@ -321,85 +318,6 @@ public class Room : MonoBehaviour
         {
             WristWatch ww = FindObjectOfType<WristWatch>();
             if (ww != null) ww.EnsureWatchButtonVisible();
-        }
-    }
-
-    private void AdjustCanvasBackground(int artifactCount)
-    {
-        // Collect all background candidate images on the canvas and room panel
-        List<Image> bgImages = new List<Image>();
-
-        void CollectBg(GameObject root)
-        {
-            if (root == null) return;
-            Image rootImg = root.GetComponent<Image>();
-            if (rootImg != null && !bgImages.Contains(rootImg)) bgImages.Add(rootImg);
-
-            for (int i = 0; i < root.transform.childCount; i++)
-            {
-                Transform child = root.transform.GetChild(i);
-                if (child == artifactListContainer) continue;
-                string n = child.name.ToLower();
-                if (n.Contains("bg") || n.Contains("back") || n.Contains("panel") || n.Contains("card") || i == 0)
-                {
-                    Image img = child.GetComponent<Image>();
-                    if (img != null && !n.Contains("button") && !n.Contains("icon") && !n.Contains("item") && !n.Contains("separator") && !n.Contains("line"))
-                    {
-                        if (!bgImages.Contains(img)) bgImages.Add(img);
-                    }
-                }
-            }
-        }
-
-        if (canvasObject != null) CollectBg(canvasObject);
-        if (transform.parent != null && transform.parent.gameObject != canvasObject) CollectBg(transform.parent.gameObject);
-        CollectBg(gameObject);
-
-        // Also search for any active Image with the glass background material
-        foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
-        {
-            if (img != null && img.gameObject.scene.isLoaded && img.gameObject.activeInHierarchy)
-            {
-                if (img.material != null && (img.material.name.Contains("OptionsCardBackground") || img.material.name.Contains("ArtifactDetailPanel")))
-                {
-                    if (!bgImages.Contains(img)) bgImages.Add(img);
-                }
-            }
-        }
-
-        foreach (Image bgImg in bgImages)
-        {
-            if (bgImg == null) continue;
-            RectTransform bgRT = bgImg.rectTransform;
-            if (bgRT == null) continue;
-
-            if (artifactCount <= 1)
-            {
-                // Galeri Kraf (1 artifact): Precisely match the user's hand-drawn outline
-                // Centered at (0, -35), size (430 x 220)
-                bgRT.anchorMin = new Vector2(0.5f, 0.5f);
-                bgRT.anchorMax = new Vector2(0.5f, 0.5f);
-                bgRT.pivot = new Vector2(0.5f, 0.5f);
-                bgRT.anchoredPosition = new Vector2(0f, -35f);
-                bgRT.sizeDelta = new Vector2(430f, 220f);
-            }
-            else if (artifactCount == 2)
-            {
-                bgRT.anchorMin = new Vector2(0.5f, 0.5f);
-                bgRT.anchorMax = new Vector2(0.5f, 0.5f);
-                bgRT.pivot = new Vector2(0.5f, 0.5f);
-                bgRT.anchoredPosition = new Vector2(0f, -55f);
-                bgRT.sizeDelta = new Vector2(430f, 300f);
-            }
-            else
-            {
-                // Full room (3+ artifacts): Full canvas size
-                bgRT.anchorMin = Vector2.zero;
-                bgRT.anchorMax = Vector2.one;
-                bgRT.pivot = new Vector2(0.5f, 0.5f);
-                bgRT.anchoredPosition = Vector2.zero;
-                bgRT.sizeDelta = Vector2.zero;
-            }
         }
     }
 }
