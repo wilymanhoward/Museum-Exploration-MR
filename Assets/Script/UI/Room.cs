@@ -326,53 +326,80 @@ public class Room : MonoBehaviour
 
     private void AdjustCanvasBackground(int artifactCount)
     {
-        GameObject targetCanvas = canvasObject != null ? canvasObject : (transform.parent != null ? transform.parent.gameObject : null);
-        if (targetCanvas == null) return;
+        // Collect all background candidate images on the canvas and room panel
+        List<Image> bgImages = new List<Image>();
 
-        // Find the background image on the canvas
-        Image bgImg = targetCanvas.GetComponent<Image>() ?? targetCanvas.transform.Find("Background")?.GetComponent<Image>();
-        if (bgImg == null)
+        void CollectBg(GameObject root)
         {
-            foreach (Image img in targetCanvas.GetComponentsInChildren<Image>(true))
+            if (root == null) return;
+            Image rootImg = root.GetComponent<Image>();
+            if (rootImg != null && !bgImages.Contains(rootImg)) bgImages.Add(rootImg);
+
+            for (int i = 0; i < root.transform.childCount; i++)
             {
-                if (img.transform.parent == targetCanvas.transform && (img.gameObject.name.ToLower().Contains("bg") || img.gameObject.name.ToLower().Contains("background") || (img.material != null && img.material.name.Contains("CardBackground"))))
+                Transform child = root.transform.GetChild(i);
+                if (child == artifactListContainer) continue;
+                string n = child.name.ToLower();
+                if (n.Contains("bg") || n.Contains("back") || n.Contains("panel") || n.Contains("card") || i == 0)
                 {
-                    bgImg = img;
-                    break;
+                    Image img = child.GetComponent<Image>();
+                    if (img != null && !n.Contains("button") && !n.Contains("icon") && !n.Contains("item") && !n.Contains("separator") && !n.Contains("line"))
+                    {
+                        if (!bgImages.Contains(img)) bgImages.Add(img);
+                    }
                 }
             }
         }
-        if (bgImg == null) return;
 
-        RectTransform bgRT = bgImg.rectTransform;
-        if (bgRT == null) return;
+        if (canvasObject != null) CollectBg(canvasObject);
+        if (transform.parent != null && transform.parent.gameObject != canvasObject) CollectBg(transform.parent.gameObject);
+        CollectBg(gameObject);
 
-        if (artifactCount <= 1)
+        // Also search for any active Image with the glass background material
+        foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
         {
-            // Galeri Kraf (1 artifact): Make the green background card shorter (height = 315px)
-            // Anchor to top so it frames the top header down to 30px below 01 Keris cleanly
-            bgRT.anchorMin = new Vector2(0f, 1f);
-            bgRT.anchorMax = new Vector2(1f, 1f);
-            bgRT.pivot = new Vector2(0.5f, 1f);
-            bgRT.anchoredPosition = Vector2.zero;
-            bgRT.sizeDelta = new Vector2(0f, 315f); // Clean 315px height, cutting off bottom empty space
+            if (img != null && img.gameObject.scene.isLoaded && img.gameObject.activeInHierarchy)
+            {
+                if (img.material != null && (img.material.name.Contains("OptionsCardBackground") || img.material.name.Contains("ArtifactDetailPanel")))
+                {
+                    if (!bgImages.Contains(img)) bgImages.Add(img);
+                }
+            }
         }
-        else if (artifactCount == 2)
+
+        foreach (Image bgImg in bgImages)
         {
-            bgRT.anchorMin = new Vector2(0f, 1f);
-            bgRT.anchorMax = new Vector2(1f, 1f);
-            bgRT.pivot = new Vector2(0.5f, 1f);
-            bgRT.anchoredPosition = Vector2.zero;
-            bgRT.sizeDelta = new Vector2(0f, 395f);
-        }
-        else
-        {
-            // Full room (3+ artifacts): stretch to full canvas height
-            bgRT.anchorMin = Vector2.zero;
-            bgRT.anchorMax = Vector2.one;
-            bgRT.pivot = new Vector2(0.5f, 0.5f);
-            bgRT.anchoredPosition = Vector2.zero;
-            bgRT.sizeDelta = Vector2.zero;
+            if (bgImg == null) continue;
+            RectTransform bgRT = bgImg.rectTransform;
+            if (bgRT == null) continue;
+
+            if (artifactCount <= 1)
+            {
+                // Galeri Kraf (1 artifact): Precisely match the user's hand-drawn outline
+                // Centered at (0, -35), size (430 x 220)
+                bgRT.anchorMin = new Vector2(0.5f, 0.5f);
+                bgRT.anchorMax = new Vector2(0.5f, 0.5f);
+                bgRT.pivot = new Vector2(0.5f, 0.5f);
+                bgRT.anchoredPosition = new Vector2(0f, -35f);
+                bgRT.sizeDelta = new Vector2(430f, 220f);
+            }
+            else if (artifactCount == 2)
+            {
+                bgRT.anchorMin = new Vector2(0.5f, 0.5f);
+                bgRT.anchorMax = new Vector2(0.5f, 0.5f);
+                bgRT.pivot = new Vector2(0.5f, 0.5f);
+                bgRT.anchoredPosition = new Vector2(0f, -55f);
+                bgRT.sizeDelta = new Vector2(430f, 300f);
+            }
+            else
+            {
+                // Full room (3+ artifacts): Full canvas size
+                bgRT.anchorMin = Vector2.zero;
+                bgRT.anchorMax = Vector2.one;
+                bgRT.pivot = new Vector2(0.5f, 0.5f);
+                bgRT.anchoredPosition = Vector2.zero;
+                bgRT.sizeDelta = Vector2.zero;
+            }
         }
     }
 }
