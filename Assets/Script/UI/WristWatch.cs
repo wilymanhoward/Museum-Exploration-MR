@@ -73,20 +73,20 @@ public class WristWatch : MonoBehaviour
 
     public static WristWatch Instance { get; private set; }
 
-    private Vector3 galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
+    private Vector3 galleryPanelOffset = new Vector3(0f, 0.16f, 0.04f);
 
     private void Awake()
     {
         Instance = this;
 
-        // Ensure Options Panel sits low near wrist button (Y = 0.20f)
-        panelOffset = new Vector3(0f, 0.20f, 0.02f);
+        // Ensure Options Panel sits low near wrist button (Y = 0.18f)
+        panelOffset = new Vector3(0f, 0.18f, 0.02f);
 
-        // Ensure List Ruang (Room List) panel sits a little bit higher (Y = 0.54f)
-        roomListWristOffset = new Vector3(0f, 0.54f, 0.02f);
+        // Ensure List Ruang (Room List) panel sits comfortably in front of wrist (Y = 0.32f)
+        roomListWristOffset = new Vector3(0f, 0.32f, 0.04f);
 
-        // Ensure Galery Panel (individual room view) sits lower (Y = 0.28f)
-        galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
+        // Ensure Gallery Panel (individual room view like Galeri Kraf) sits low right at wrist eye level (Y = 0.16f)
+        galleryPanelOffset = new Vector3(0f, 0.16f, 0.04f);
     }
 
     private bool hasAnchorPose;

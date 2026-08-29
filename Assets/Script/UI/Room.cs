@@ -122,9 +122,6 @@ public class Room : MonoBehaviour
             artifactCountText.text = "Jumlah Artefak: " + count;
         }
 
-        // Dynamically crop background and position panel for artifact count (e.g. Galeri Kraf)
-        AdjustPanelLayoutForArtifactCount(count);
-
         // Clear existing artifact items
         if (artifactListContainer != null)
         {
@@ -321,66 +318,6 @@ public class Room : MonoBehaviour
         {
             WristWatch ww = FindObjectOfType<WristWatch>();
             if (ww != null) ww.EnsureWatchButtonVisible();
-        }
-    }
-
-    private void AdjustPanelLayoutForArtifactCount(int artifactCount)
-    {
-        RectTransform panelRT = GetComponent<RectTransform>();
-        if (panelRT == null) return;
-
-        // Reset panel anchors and position
-        panelRT.anchorMin = Vector2.zero;
-        panelRT.anchorMax = Vector2.one;
-        panelRT.sizeDelta = Vector2.zero;
-        panelRT.pivot = new Vector2(0.5f, 0.5f);
-        panelRT.anchoredPosition = Vector2.zero;
-
-        // Find the background card graphic
-        Image bgImg = null;
-        for (int i = 0; i < transform.childCount; i++)
-        {
-            Transform child = transform.GetChild(i);
-            Image img = child.GetComponent<Image>();
-            if (img != null && (child.name.ToLower().Contains("bg") || child.name.ToLower().Contains("back") || child.name.ToLower().Contains("panel") || i == 0))
-            {
-                bgImg = img;
-                break;
-            }
-        }
-        if (bgImg == null) bgImg = GetComponent<Image>();
-
-        // Calculate exact required height from top of header to bottom of artifact list
-        float targetHeight;
-        if (artifactCount <= 1)
-        {
-            targetHeight = 225f; // Perfectly covers header down to 20px below 01 Keris
-        }
-        else if (artifactCount == 2)
-        {
-            targetHeight = 305f;
-        }
-        else if (artifactCount == 3)
-        {
-            targetHeight = 385f;
-        }
-        else
-        {
-            targetHeight = 465f;
-        }
-
-        if (bgImg != null)
-        {
-            RectTransform bgRT = bgImg.rectTransform;
-            if (bgRT != null && bgRT != panelRT)
-            {
-                // Anchor to the top edge and stretch horizontally, expanding down by targetHeight
-                bgRT.anchorMin = new Vector2(0f, 1f);
-                bgRT.anchorMax = new Vector2(1f, 1f);
-                bgRT.pivot = new Vector2(0.5f, 1f);
-                bgRT.anchoredPosition = Vector2.zero;
-                bgRT.sizeDelta = new Vector2(0f, targetHeight);
-            }
         }
     }
 }
