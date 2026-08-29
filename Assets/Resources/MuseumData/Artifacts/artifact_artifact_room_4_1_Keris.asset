@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   artifactId: artifact_room_4_1
   artifactName: Keris
-  artist: 
-  year: 
-  timePeriod: 600 Tahun yang lalu
-  location: Java
+  artist: Empu / Pandai Besi Istana
+  year: Warisan >600 Tahun
+  timePeriod: Warisan Tradisi Melayu (>600 Tahun)
+  location: Alam Melayu (Semenanjung, Jawa, Bugis)
   height: 0
   width: 0
-  length: 0
-  material: Besi, Baja, Nikel
-  description: 
+  length: 38
+  material: Besi Waja (Pamor), Kayu Kemuning, Gading & Emas/Perak
+  description: "Keris merupakan sejenis senjata pendek Kebangsaan Melayu turun-temurun yang digunakan sejak lebih daripada 600 tahun yang lalu. Keris bukan sahaja digunakan sebagai senjata untuk mempertahankan diri dari serangan musuh dan dijadikan sebagai alat kebesaran DiRaja tetapi keris juga disanjung tinggi dan sering dikaitkan dengan kesaktian dan keistimewaan yang luar biasa.\n\nKeris terbahagi kepada tiga bahagian utama iaitu mata, hulu dan sarong. Mata keris diperbuat daripada beberapa lapisan besi waja yang berlainan jenis (pamor) dan mempunyai bilangan lok yang tertentu (berlok seperti Sempena, Cerita, Rantai) atau lurus sahaja (Keris Sapukal). Ciri-ciri inilah yang membezakan jenis keris seperti Majapahit, Pekaka, Bugis, Jawa, dan Madura. Manakala hulu keris lazimnya berukir indah (seperti corak Jawa Demam, Ayam Patah Tengkok, Anak Ayam Teleng, Tajong atau Pekaka) daripada kayu kemuning, gading, tanduk, atau logam.\n\nSarung keris terdiri daripada bahagian sampir, batang dan buntut yang diperbuat daripada kayu atau gading, kadangkala bersalut emas atau perak berukir indah. Di pangkal bilah dipasang 'Ganja' untuk melindungi tangan dan 'Pendongkok' iaitu cincin hiasan berukir filigree atau repause bertatahkan permata di antara hulu dan bilah."
   modelPrefab: {fileID: 919132149155446097, guid: f1c2fb5ed61a2234cb31c2fad813aece,
     type: 3}
   narrationClip: {fileID: 8300000, guid: 50b22409f9c4b8d4ba12b505cf88a8bf, type: 3}
