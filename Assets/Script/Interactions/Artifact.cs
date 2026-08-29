@@ -1234,37 +1234,42 @@ public class Artifact : MonoBehaviour
         if (descriptionText != null)
         {
             descriptionText.gameObject.SetActive(true);
+            descriptionText.enabled = true;
             descriptionText.text = string.IsNullOrEmpty(data.description) ? "" : data.description;
             descriptionText.enableWordWrapping = true;
             descriptionText.overflowMode = TextOverflowModes.Overflow;
             descriptionText.alignment = TextAlignmentOptions.TopLeft;
             descriptionText.color = new Color(0.92f, 0.92f, 0.92f, 1f);
             descriptionText.raycastTarget = true;
+            descriptionText.maskable = true;
 
-            // Ensure text RectTransform fills Content container
+            // Ensure scale and position are clean
+            descriptionText.transform.localPosition = Vector3.zero;
+            descriptionText.transform.localScale = Vector3.one;
+            descriptionText.transform.localRotation = Quaternion.identity;
+
             RectTransform tRect = descriptionText.rectTransform;
             tRect.anchorMin = new Vector2(0f, 1f);
             tRect.anchorMax = new Vector2(1f, 1f);
             tRect.pivot = new Vector2(0.5f, 1f);
             tRect.anchoredPosition = Vector2.zero;
 
-            descriptionText.ForceMeshUpdate();
+            // Compute exact height required for full text
+            float containerWidth = 260f;
+            if (descriptionScrollRect != null && descriptionScrollRect.viewport != null && descriptionScrollRect.viewport.rect.width > 20f)
+            {
+                containerWidth = descriptionScrollRect.viewport.rect.width;
+            }
+            Vector2 pref = descriptionText.GetPreferredValues(descriptionText.text, containerWidth, 5000f);
+            float totalHeight = Mathf.Max(pref.y + 24f, 120f);
 
             RectTransform contentRect = descriptionText.transform.parent as RectTransform;
             if (contentRect != null)
             {
-                float textHeight = descriptionText.preferredHeight;
-                float viewportHeight = 110f;
-                if (descriptionScrollRect != null && descriptionScrollRect.viewport != null)
-                {
-                    float vh = descriptionScrollRect.viewport.rect.height;
-                    if (vh > 10f) viewportHeight = vh;
-                }
-
-                float totalHeight = Mathf.Max(textHeight + 16f, viewportHeight);
+                contentRect.localPosition = Vector3.zero;
+                contentRect.localScale = Vector3.one;
                 contentRect.sizeDelta = new Vector2(0f, totalHeight);
                 tRect.sizeDelta = new Vector2(0f, totalHeight);
-
                 LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
             }
 
@@ -1296,7 +1301,9 @@ public class Artifact : MonoBehaviour
         if (descriptionScrollRect != null)
         {
             descriptionText.gameObject.SetActive(true);
+            descriptionText.enabled = true;
             descriptionText.raycastTarget = true;
+            descriptionText.maskable = true;
             if (descriptionScrollRect.verticalScrollbar == null)
             {
                 BuildScrollbarForScrollRect(descriptionScrollRect);
@@ -1318,6 +1325,10 @@ public class Artifact : MonoBehaviour
         GameObject scrollGo = new GameObject("DescriptionScrollView");
         RectTransform scrollRootRect = scrollGo.AddComponent<RectTransform>();
         scrollGo.transform.SetParent(originalParent, false);
+        scrollGo.transform.localPosition = Vector3.zero;
+        scrollGo.transform.localScale = Vector3.one;
+        scrollGo.transform.localRotation = Quaternion.identity;
+
         scrollRootRect.anchorMin = anchorMin;
         scrollRootRect.anchorMax = anchorMax;
         scrollRootRect.anchoredPosition = anchoredPosition;
@@ -1329,14 +1340,18 @@ public class Artifact : MonoBehaviour
         scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
         scrollBg.raycastTarget = true;
 
-        // 2. Viewport (clips overflowing content with RectMask2D, with 10px right margin for scrollbar track)
+        // 2. Viewport (clips overflowing content with RectMask2D, with 12px right margin for scrollbar track)
         GameObject viewportGo = new GameObject("Viewport");
         RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
         viewportGo.transform.SetParent(scrollGo.transform, false);
+        viewportGo.transform.localPosition = Vector3.zero;
+        viewportGo.transform.localScale = Vector3.one;
+        viewportGo.transform.localRotation = Quaternion.identity;
+
         viewportRect.anchorMin = Vector2.zero;
         viewportRect.anchorMax = Vector2.one;
         viewportRect.offsetMin = Vector2.zero;
-        viewportRect.offsetMax = new Vector2(-10f, 0f);
+        viewportRect.offsetMax = new Vector2(-12f, 0f);
         viewportGo.AddComponent<RectMask2D>();
         Image viewportImg = viewportGo.AddComponent<Image>();
         viewportImg.color = new Color(1f, 1f, 1f, 0.001f);
@@ -1346,21 +1361,32 @@ public class Artifact : MonoBehaviour
         GameObject contentGo = new GameObject("Content");
         RectTransform contentRect = contentGo.AddComponent<RectTransform>();
         contentGo.transform.SetParent(viewportGo.transform, false);
+        contentGo.transform.localPosition = Vector3.zero;
+        contentGo.transform.localScale = Vector3.one;
+        contentGo.transform.localRotation = Quaternion.identity;
+
         contentRect.anchorMin = new Vector2(0f, 1f);
         contentRect.anchorMax = new Vector2(1f, 1f);
         contentRect.pivot = new Vector2(0.5f, 1f);
         contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = new Vector2(0f, 120f);
+        contentRect.sizeDelta = new Vector2(0f, 140f);
 
         // 4. Re-parent descriptionText inside Content
         descriptionText.transform.SetParent(contentGo.transform, false);
+        descriptionText.transform.localPosition = Vector3.zero;
+        descriptionText.transform.localScale = Vector3.one;
+        descriptionText.transform.localRotation = Quaternion.identity;
+
         textRect.anchorMin = new Vector2(0f, 1f);
         textRect.anchorMax = new Vector2(1f, 1f);
         textRect.pivot = new Vector2(0.5f, 1f);
         textRect.anchoredPosition = Vector2.zero;
-        textRect.sizeDelta = new Vector2(0f, 120f);
+        textRect.sizeDelta = new Vector2(0f, 140f);
+
         descriptionText.gameObject.SetActive(true);
+        descriptionText.enabled = true;
         descriptionText.raycastTarget = true;
+        descriptionText.maskable = true;
 
         // 5. Setup ScrollRect
         descriptionScrollRect = scrollGo.AddComponent<ScrollRect>();
