@@ -312,7 +312,7 @@ public class ArtifactManager : MonoBehaviour
         {
             if (RoomManager.Instance != null)
             {
-                RoomManager.Instance.SetScanStatus($"Artefak Diimbas: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
+                RoomManager.Instance.SetScanStatus($"Artifak Diimbas: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
             }
             SpawnArtifactDetailPanel(artifactMatch, pose);
         }
@@ -567,7 +567,7 @@ public class ArtifactManager : MonoBehaviour
         var allArtifacts = GetAllMuseumArtifacts();
         if (countText != null)
         {
-            countText.text = $"Jumlah Artefak: {allArtifacts.Count}";
+            countText.text = $"Jumlah Artifak: {allArtifacts.Count}";
         }
 
         GameObject itemPrefab = RoomManager.Instance != null ? RoomManager.Instance.artifactListItemPrefab : null;

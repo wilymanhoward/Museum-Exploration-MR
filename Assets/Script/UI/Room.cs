@@ -119,7 +119,7 @@ public class Room : MonoBehaviour
         int count = currentRoomData.artifacts != null ? currentRoomData.artifacts.Count : 0;
         if (artifactCountText != null)
         {
-            artifactCountText.text = "Jumlah Artefak: " + count;
+            artifactCountText.text = "Jumlah Artifak: " + count;
         }
 
         // Clear existing artifact items

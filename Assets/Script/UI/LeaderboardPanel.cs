@@ -260,11 +260,11 @@ public class LeaderboardPanel : MonoBehaviour
     public static string GetFirestoreCollectionName(string gameId)
     {
         string clean = (gameId ?? "game_1").Trim().ToLower();
-        if (clean == "game_1" || clean.Contains("1") || clean.Contains("guess") || clean.Contains("bayangan") || clean.Contains("tebak"))
+        if (clean == "game_1" || clean.Contains("1") || clean.Contains("guess") || clean.Contains("bayang") || clean.Contains("tebak") || clean.Contains("teka"))
             return "leaderboard_game_1";
-        if (clean == "game_2" || clean.Contains("2") || clean.Contains("batik") || clean.Contains("proses") || clean.Contains("susun"))
+        if (clean == "game_2" || clean.Contains("2") || clean.Contains("batik") || clean.Contains("proses") || clean.Contains("susun") || clean.Contains("urut"))
             return "leaderboard_game_2";
-        if (clean == "game_3" || clean.Contains("3") || clean.Contains("timeline") || clean.Contains("sejarah") || clean.Contains("kuis") || clean.Contains("artefak"))
+        if (clean == "game_3" || clean.Contains("3") || clean.Contains("timeline") || clean.Contains("sejarah") || clean.Contains("kuis") || clean.Contains("artefak") || clean.Contains("artifak") || clean.Contains("garis"))
             return "leaderboard_game_3";
 
         return $"leaderboard_{clean}";

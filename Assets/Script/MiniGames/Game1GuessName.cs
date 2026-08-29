@@ -140,7 +140,7 @@ public class Game1GuessName : BaseGame
         // Update progress text
         if (progressText != null)
         {
-            progressText.text = $"{roundIndex + 1}/{totalRounds} Namakan Artefak berikut";
+            progressText.text = $"{roundIndex + 1}/{totalRounds} Namakan Artifak berikut";
         }
 
         if (taskText != null)
@@ -224,7 +224,7 @@ public class Game1GuessName : BaseGame
         {
             // 5 rounds finished -> Show Game 1 Leaderboard with player completion time!
             Debug.Log($"Game 1 Complete! Final score: {score}/{totalRounds}");
-            FinishGameAndShowLeaderboard("game_1", "Tebak Bayangan Artefak");
+            FinishGameAndShowLeaderboard("game_1", "Teka Bayang Artifak");
         }
     }
 

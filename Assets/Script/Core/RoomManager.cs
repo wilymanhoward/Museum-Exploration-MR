@@ -379,7 +379,7 @@ public class RoomManager : MonoBehaviour
         if (roomArtifactCountText != null)
         {
             int count = (currentRoom.artifacts != null) ? currentRoom.artifacts.Count : 0;
-            roomArtifactCountText.text = $"Jumlah Artefak: {count}";
+            roomArtifactCountText.text = $"Jumlah Artifak: {count}";
         }
 
         // Repopulate HUD checklist

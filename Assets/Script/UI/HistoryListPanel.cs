@@ -102,7 +102,7 @@ public class HistoryListPanel : MonoBehaviour
         }
         if (sectionHeaderText != null)
         {
-            sectionHeaderText.text = "Informasi Sejarah di Ruangan ini";
+            sectionHeaderText.text = "Maklumat Sejarah di Bilik ini";
         }
 
         PopulateHistoryList();

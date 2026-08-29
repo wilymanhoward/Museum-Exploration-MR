@@ -269,7 +269,7 @@ public class Artifact : MonoBehaviour
         }
         if (bottomTitleText != null)
         {
-            bottomTitleText.text = $"Artefak:\n\"{data.artifactName}\"";
+            bottomTitleText.text = $"Artifak:\n\"{data.artifactName}\"";
             bottomTitleText.enableAutoSizing = true;
             bottomTitleText.fontSizeMin = 12f;
             bottomTitleText.fontSizeMax = 20f;
@@ -280,6 +280,8 @@ public class Artifact : MonoBehaviour
 
         // Populate Details (Tempoh Masa, Lokasi, Dimensi, Material)
         PopulateDetails(data);
+
+        NormalizeMalaysianMalayUI();
 
         // Reset image gallery index & show photo
         currentImageIndex = 0;
@@ -833,7 +835,7 @@ public class Artifact : MonoBehaviour
             if (noImagesText != null)
             {
                 noImagesText.gameObject.SetActive(true);
-                noImagesText.text = "Artefak ini tiada gambar";
+                noImagesText.text = "Artifak ini tiada gambar";
             }
         }
     }
@@ -868,7 +870,7 @@ public class Artifact : MonoBehaviour
         }
         if (bottomTitleText != null)
         {
-            bottomTitleText.text = $"Artefak:\n\"{data.artifactName}\"";
+            bottomTitleText.text = $"Artifak:\n\"{data.artifactName}\"";
             bottomTitleText.enableAutoSizing = true;
             bottomTitleText.fontSizeMin = 12f;
             bottomTitleText.fontSizeMax = 20f;
@@ -878,6 +880,8 @@ public class Artifact : MonoBehaviour
 
         // Populate Details (Tempoh Masa, Lokasi, Dimensi, Material)
         PopulateDetails(data);
+
+        NormalizeMalaysianMalayUI();
 
         // Reset image gallery index
         currentImageIndex = 0;
@@ -1338,6 +1342,27 @@ public class Artifact : MonoBehaviour
             if (descriptionScrollRect != null)
             {
                 descriptionScrollRect.verticalNormalizedPosition = 1f; // Reset scroll to top
+            }
+        }
+    }
+
+    private void NormalizeMalaysianMalayUI()
+    {
+        foreach (var tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
+        {
+            if (tmp == null || string.IsNullOrEmpty(tmp.text)) continue;
+
+            if (tmp.text.Contains("Detail Artefak") || tmp.text.Contains("Detail Artifak"))
+            {
+                tmp.text = tmp.text.Replace("Detail Artefak", "Butiran Artifak").Replace("Detail Artifak", "Butiran Artifak");
+            }
+            else if (tmp.text.Contains("Tentang Artefak"))
+            {
+                tmp.text = tmp.text.Replace("Tentang Artefak", "Tentang Artifak");
+            }
+            else if (tmp.text.StartsWith("Artefak"))
+            {
+                tmp.text = tmp.text.Replace("Artefak", "Artifak");
             }
         }
     }
