@@ -122,6 +122,9 @@ public class Room : MonoBehaviour
             artifactCountText.text = "Jumlah Artefak: " + count;
         }
 
+        // Dynamically scale panel height to fit artifact count (e.g. compact for Galeri Kraf)
+        AdjustPanelHeight(count);
+
         // Clear existing artifact items
         if (artifactListContainer != null)
         {
@@ -318,6 +321,65 @@ public class Room : MonoBehaviour
         {
             WristWatch ww = FindObjectOfType<WristWatch>();
             if (ww != null) ww.EnsureWatchButtonVisible();
+        }
+    }
+
+    private void AdjustPanelHeight(int artifactCount)
+    {
+        RectTransform panelRT = GetComponent<RectTransform>();
+        if (panelRT == null) return;
+
+        // Base height for header (title, subtitle, buttons, "Artefak di Ruangan ini", separator)
+        // Header occupies top ~108px.
+        // Each artifact button is ~68px high + 8px spacing = ~76px.
+        // Bottom padding = ~22px.
+        float headerHeight = 108f;
+        float itemRowHeight = 76f;
+        float bottomPadding = 22f;
+
+        float targetHeight;
+        if (artifactCount <= 1)
+        {
+            targetHeight = 210f; // Compact card for Galeri Kraf (1 artifact)
+        }
+        else if (artifactCount == 2)
+        {
+            targetHeight = 290f;
+        }
+        else if (artifactCount == 3)
+        {
+            targetHeight = 370f;
+        }
+        else
+        {
+            targetHeight = headerHeight + (artifactCount * itemRowHeight) + bottomPadding;
+        }
+
+        // Clamp between 210f and 460f
+        targetHeight = Mathf.Clamp(targetHeight, 210f, 460f);
+
+        // Preserve authored width or default to 520f
+        float width = panelRT.rect.width > 200f ? panelRT.rect.width : 520f;
+
+        panelRT.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRT.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRT.pivot = new Vector2(0.5f, 0.5f);
+        panelRT.sizeDelta = new Vector2(width, targetHeight);
+        panelRT.anchoredPosition = Vector2.zero;
+
+        // Ensure background image stretches with the panel
+        Image bg = GetComponent<Image>();
+        if (bg == null) bg = transform.Find("Background")?.GetComponent<Image>();
+        if (bg != null)
+        {
+            RectTransform bgRT = bg.rectTransform;
+            if (bgRT != null && bgRT != panelRT)
+            {
+                bgRT.anchorMin = Vector2.zero;
+                bgRT.anchorMax = Vector2.one;
+                bgRT.offsetMin = Vector2.zero;
+                bgRT.offsetMax = Vector2.zero;
+            }
         }
     }
 }
