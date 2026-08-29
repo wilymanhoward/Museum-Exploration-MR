@@ -122,8 +122,8 @@ public class Room : MonoBehaviour
             artifactCountText.text = "Jumlah Artefak: " + count;
         }
 
-        // Dynamically scale panel height to fit artifact count (e.g. compact for Galeri Kraf)
-        AdjustPanelHeight(count);
+        // Dynamically crop background and position panel for artifact count (e.g. Galeri Kraf)
+        AdjustPanelLayoutForArtifactCount(count);
 
         // Clear existing artifact items
         if (artifactListContainer != null)
@@ -324,62 +324,68 @@ public class Room : MonoBehaviour
         }
     }
 
-    private void AdjustPanelHeight(int artifactCount)
+    private void AdjustPanelLayoutForArtifactCount(int artifactCount)
     {
         RectTransform panelRT = GetComponent<RectTransform>();
         if (panelRT == null) return;
 
-        // Base height for header (title, subtitle, buttons, "Artefak di Ruangan ini", separator)
-        // Header occupies top ~108px.
-        // Each artifact button is ~68px high + 8px spacing = ~76px.
-        // Bottom padding = ~22px.
-        float headerHeight = 108f;
-        float itemRowHeight = 76f;
-        float bottomPadding = 22f;
+        // Reset panel anchors to stretch normally inside parent canvas
+        panelRT.anchorMin = Vector2.zero;
+        panelRT.anchorMax = Vector2.one;
+        panelRT.sizeDelta = Vector2.zero;
+        panelRT.pivot = new Vector2(0.5f, 0.5f);
 
-        float targetHeight;
+        // Find the background card graphic
+        Image bgImg = null;
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            Image img = child.GetComponent<Image>();
+            if (img != null && (child.name.ToLower().Contains("bg") || child.name.ToLower().Contains("back") || child.name.ToLower().Contains("panel") || i == 0))
+            {
+                bgImg = img;
+                break;
+            }
+        }
+        if (bgImg == null) bgImg = GetComponent<Image>();
+
         if (artifactCount <= 1)
         {
-            targetHeight = 210f; // Compact card for Galeri Kraf (1 artifact)
+            // 1 artifact (Galeri Kraf): crop the bottom empty area and lower the panel into comfortable eye level
+            if (bgImg != null)
+            {
+                RectTransform bgRT = bgImg.rectTransform;
+                bgRT.anchorMin = Vector2.zero;
+                bgRT.anchorMax = Vector2.one;
+                bgRT.offsetMin = new Vector2(0f, 170f);
+                bgRT.offsetMax = Vector2.zero;
+            }
+            panelRT.anchoredPosition = new Vector2(0f, -75f);
         }
         else if (artifactCount == 2)
         {
-            targetHeight = 290f;
-        }
-        else if (artifactCount == 3)
-        {
-            targetHeight = 370f;
+            if (bgImg != null)
+            {
+                RectTransform bgRT = bgImg.rectTransform;
+                bgRT.anchorMin = Vector2.zero;
+                bgRT.anchorMax = Vector2.one;
+                bgRT.offsetMin = new Vector2(0f, 85f);
+                bgRT.offsetMax = Vector2.zero;
+            }
+            panelRT.anchoredPosition = new Vector2(0f, -35f);
         }
         else
         {
-            targetHeight = headerHeight + (artifactCount * itemRowHeight) + bottomPadding;
-        }
-
-        // Clamp between 210f and 460f
-        targetHeight = Mathf.Clamp(targetHeight, 210f, 460f);
-
-        // Preserve authored width or default to 520f
-        float width = panelRT.rect.width > 200f ? panelRT.rect.width : 520f;
-
-        panelRT.anchorMin = new Vector2(0.5f, 0.5f);
-        panelRT.anchorMax = new Vector2(0.5f, 0.5f);
-        panelRT.pivot = new Vector2(0.5f, 0.5f);
-        panelRT.sizeDelta = new Vector2(width, targetHeight);
-        panelRT.anchoredPosition = Vector2.zero;
-
-        // Ensure background image stretches with the panel
-        Image bg = GetComponent<Image>();
-        if (bg == null) bg = transform.Find("Background")?.GetComponent<Image>();
-        if (bg != null)
-        {
-            RectTransform bgRT = bg.rectTransform;
-            if (bgRT != null && bgRT != panelRT)
+            // Full room (3+ artifacts): full-height background and centered
+            if (bgImg != null)
             {
+                RectTransform bgRT = bgImg.rectTransform;
                 bgRT.anchorMin = Vector2.zero;
                 bgRT.anchorMax = Vector2.one;
                 bgRT.offsetMin = Vector2.zero;
                 bgRT.offsetMax = Vector2.zero;
             }
+            panelRT.anchoredPosition = Vector2.zero;
         }
     }
 }
