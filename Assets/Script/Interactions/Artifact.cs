@@ -275,42 +275,8 @@ public class Artifact : MonoBehaviour
             bottomTitleText.fontSizeMax = 20f;
             bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
         }
-        if (descriptionText != null)
-        {
-            EnsureDescriptionScrollView();
-
-            descriptionText.text = string.IsNullOrEmpty(data.description) ? "" : data.description;
-            descriptionText.enableWordWrapping = true;
-            descriptionText.enableAutoSizing = false;
-            descriptionText.fontSize = 12f;
-            descriptionText.overflowMode = TextOverflowModes.Overflow;
-            descriptionText.raycastTarget = true;
-
-            descriptionText.ForceMeshUpdate();
-
-            RectTransform contentRect = descriptionText.transform.parent as RectTransform;
-            if (contentRect != null)
-            {
-                float textHeight = descriptionText.preferredHeight;
-                float viewportHeight = 100f;
-                if (descriptionScrollRect != null && descriptionScrollRect.viewport != null)
-                {
-                    viewportHeight = descriptionScrollRect.viewport.rect.height;
-                    if (viewportHeight <= 1f) viewportHeight = 100f;
-                }
-
-                float totalHeight = Mathf.Max(textHeight + 16f, viewportHeight);
-                contentRect.sizeDelta = new Vector2(0f, totalHeight);
-                descriptionText.rectTransform.sizeDelta = new Vector2(0f, totalHeight);
-
-                LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
-            }
-
-            if (descriptionScrollRect != null)
-            {
-                descriptionScrollRect.verticalNormalizedPosition = 1f; // Reset scroll to top
-            }
-        }
+        // Populate Description with scroll view
+        PopulateDescription(data);
 
         // Populate Details
         if (timePeriodText != null) timePeriodText.text = data.timePeriod;
@@ -902,7 +868,7 @@ public class Artifact : MonoBehaviour
             bottomTitleText.fontSizeMax = 20f;
             bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
         }
-        if (descriptionText != null) descriptionText.text = data.description;
+        PopulateDescription(data);
 
         // Populate Details
         if (timePeriodText != null) timePeriodText.text = data.timePeriod;
@@ -1259,6 +1225,56 @@ public class Artifact : MonoBehaviour
         }
     }
 
+    private void PopulateDescription(ArtifactData data)
+    {
+        if (data == null) return;
+
+        EnsureDescriptionScrollView();
+
+        if (descriptionText != null)
+        {
+            descriptionText.gameObject.SetActive(true);
+            descriptionText.text = string.IsNullOrEmpty(data.description) ? "" : data.description;
+            descriptionText.enableWordWrapping = true;
+            descriptionText.overflowMode = TextOverflowModes.Overflow;
+            descriptionText.alignment = TextAlignmentOptions.TopLeft;
+            descriptionText.color = new Color(0.92f, 0.92f, 0.92f, 1f);
+            descriptionText.raycastTarget = true;
+
+            // Ensure text RectTransform fills Content container
+            RectTransform tRect = descriptionText.rectTransform;
+            tRect.anchorMin = new Vector2(0f, 1f);
+            tRect.anchorMax = new Vector2(1f, 1f);
+            tRect.pivot = new Vector2(0.5f, 1f);
+            tRect.anchoredPosition = Vector2.zero;
+
+            descriptionText.ForceMeshUpdate();
+
+            RectTransform contentRect = descriptionText.transform.parent as RectTransform;
+            if (contentRect != null)
+            {
+                float textHeight = descriptionText.preferredHeight;
+                float viewportHeight = 110f;
+                if (descriptionScrollRect != null && descriptionScrollRect.viewport != null)
+                {
+                    float vh = descriptionScrollRect.viewport.rect.height;
+                    if (vh > 10f) viewportHeight = vh;
+                }
+
+                float totalHeight = Mathf.Max(textHeight + 16f, viewportHeight);
+                contentRect.sizeDelta = new Vector2(0f, totalHeight);
+                tRect.sizeDelta = new Vector2(0f, totalHeight);
+
+                LayoutRebuilder.ForceRebuildLayoutImmediate(contentRect);
+            }
+
+            if (descriptionScrollRect != null)
+            {
+                descriptionScrollRect.verticalNormalizedPosition = 1f; // Reset scroll to top
+            }
+        }
+    }
+
     private void EnsureDescriptionScrollView()
     {
         if (descriptionText == null)
@@ -1279,13 +1295,8 @@ public class Artifact : MonoBehaviour
         descriptionScrollRect = descriptionText.GetComponentInParent<ScrollRect>();
         if (descriptionScrollRect != null)
         {
+            descriptionText.gameObject.SetActive(true);
             descriptionText.raycastTarget = true;
-            Transform currentContent = descriptionText.transform.parent;
-            if (currentContent != null)
-            {
-                ContentSizeFitter csf = currentContent.GetComponent<ContentSizeFitter>();
-                if (csf != null) Destroy(csf);
-            }
             if (descriptionScrollRect.verticalScrollbar == null)
             {
                 BuildScrollbarForScrollRect(descriptionScrollRect);
@@ -1339,7 +1350,7 @@ public class Artifact : MonoBehaviour
         contentRect.anchorMax = new Vector2(1f, 1f);
         contentRect.pivot = new Vector2(0.5f, 1f);
         contentRect.anchoredPosition = Vector2.zero;
-        contentRect.sizeDelta = new Vector2(0f, sizeDelta.y);
+        contentRect.sizeDelta = new Vector2(0f, 120f);
 
         // 4. Re-parent descriptionText inside Content
         descriptionText.transform.SetParent(contentGo.transform, false);
@@ -1347,7 +1358,8 @@ public class Artifact : MonoBehaviour
         textRect.anchorMax = new Vector2(1f, 1f);
         textRect.pivot = new Vector2(0.5f, 1f);
         textRect.anchoredPosition = Vector2.zero;
-        textRect.sizeDelta = Vector2.zero;
+        textRect.sizeDelta = new Vector2(0f, 120f);
+        descriptionText.gameObject.SetActive(true);
         descriptionText.raycastTarget = true;
 
         // 5. Setup ScrollRect
