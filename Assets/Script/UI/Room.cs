@@ -122,8 +122,7 @@ public class Room : MonoBehaviour
             artifactCountText.text = "Jumlah Artefak: " + count;
         }
 
-        // Adjust background height so single-artifact rooms (Galeri Kraf) don't have massive empty space reaching past the hand
-        AdjustBackgroundCardHeight(count);
+
 
         // Clear existing artifact items
         if (artifactListContainer != null)
@@ -324,68 +323,5 @@ public class Room : MonoBehaviour
         }
     }
 
-    private void AdjustBackgroundCardHeight(int artifactCount)
-    {
-        // Width and height with clean widescreen ratio (500px wide)
-        float cardWidth = 500f;
-        float cardHeight;
 
-        if (artifactCount <= 1)
-        {
-            cardHeight = 270f; // Spacious widescreen card that perfectly frames title down to 25px below 01 Keris
-        }
-        else if (artifactCount == 2)
-        {
-            cardHeight = 350f;
-        }
-        else if (artifactCount == 3)
-        {
-            cardHeight = 430f;
-        }
-        else
-        {
-            cardHeight = 500f;
-        }
-
-        void SizeBackground(Image img)
-        {
-            if (img == null) return;
-            RectTransform rt = img.rectTransform;
-            if (rt == null) return;
-
-            // Anchor to top-center and expand downward to frame all header elements and artifact rows
-            rt.anchorMin = new Vector2(0.5f, 1f);
-            rt.anchorMax = new Vector2(0.5f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0f, 18f); // 18px above the top title icon for breathing room
-            rt.sizeDelta = new Vector2(cardWidth, cardHeight);
-        }
-
-        // Apply to Room's background card
-        for (int i = 0; i < transform.childCount; i++)
-        {
-            Transform child = transform.GetChild(i);
-            if (child == artifactListContainer) continue;
-            string n = child.name.ToLower();
-            if (n.Contains("bg") || n.Contains("back") || n.Contains("panel") || i == 0)
-            {
-                Image img = child.GetComponent<Image>();
-                if (img != null && !n.Contains("icon") && !n.Contains("button") && !n.Contains("line") && !n.Contains("separator"))
-                {
-                    SizeBackground(img);
-                }
-            }
-        }
-        SizeBackground(GetComponent<Image>());
-
-        // Also apply to parent canvas background if present
-        if (transform.parent != null)
-        {
-            Image parentBg = transform.parent.Find("Background")?.GetComponent<Image>() ?? transform.parent.GetComponent<Image>();
-            if (parentBg != null)
-            {
-                SizeBackground(parentBg);
-            }
-        }
-    }
 }
