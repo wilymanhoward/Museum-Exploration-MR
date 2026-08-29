@@ -278,11 +278,8 @@ public class Artifact : MonoBehaviour
         // Populate Description with scroll view
         PopulateDescription(data);
 
-        // Populate Details
-        if (timePeriodText != null) timePeriodText.text = data.timePeriod;
-        if (locationText != null) locationText.text = data.location;
-        if (dimensionText != null) dimensionText.text = $"{data.height}cm x {data.width}cm x {data.length}cm";
-        if (materialText != null) materialText.text = data.material;
+        // Populate Details (Tempoh Masa, Lokasi, Dimensi, Material)
+        PopulateDetails(data);
 
         // Reset image gallery index & show photo
         currentImageIndex = 0;
@@ -870,11 +867,8 @@ public class Artifact : MonoBehaviour
         }
         PopulateDescription(data);
 
-        // Populate Details
-        if (timePeriodText != null) timePeriodText.text = data.timePeriod;
-        if (locationText != null) locationText.text = data.location;
-        if (dimensionText != null) dimensionText.text = $"{data.height}cm x {data.width}cm x {data.length}cm";
-        if (materialText != null) materialText.text = data.material;
+        // Populate Details (Tempoh Masa, Lokasi, Dimensi, Material)
+        PopulateDetails(data);
 
         // Reset image gallery index
         currentImageIndex = 0;
@@ -1222,6 +1216,65 @@ public class Artifact : MonoBehaviour
         else
         {
             PlayNarration();
+        }
+    }
+
+    private void PopulateDetails(ArtifactData data)
+    {
+        if (data == null) return;
+
+        SetDetailRow(timePeriodText, data.timePeriod);
+        SetDetailRow(locationText, data.location);
+        SetDetailRow(dimensionText, (data.height > 0 || data.width > 0 || data.length > 0) ? $"{data.height}cm x {data.width}cm x {data.length}cm" : "-");
+        SetDetailRow(materialText, data.material);
+    }
+
+    private void SetDetailRow(TextMeshProUGUI tmp, string text)
+    {
+        if (tmp == null) return;
+
+        tmp.text = string.IsNullOrEmpty(text) ? "-" : text;
+        tmp.enableWordWrapping = true;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 6.5f;
+        tmp.fontSizeMax = 10f;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+        tmp.alignment = TextAlignmentOptions.MidlineRight;
+        tmp.raycastTarget = true;
+        tmp.color = new Color(0.92f, 0.92f, 0.92f, 1f);
+
+        RectTransform rt = tmp.rectTransform;
+        if (rt != null)
+        {
+            // Confine value text to the right side of the card so it never overlaps left labels
+            Vector2 min = rt.anchorMin;
+            Vector2 max = rt.anchorMax;
+            min.x = Mathf.Max(min.x, 0.44f);
+            max.x = Mathf.Min(max.x, 0.96f);
+            rt.anchorMin = min;
+            rt.anchorMax = max;
+            rt.offsetMin = new Vector2(0f, rt.offsetMin.y);
+            rt.offsetMax = new Vector2(0f, rt.offsetMax.y);
+            rt.pivot = new Vector2(1f, 0.5f);
+        }
+
+        // Tidy up sibling label (e.g. "Tempoh Masa", "Lokasi", "Dimensi", "Material")
+        if (tmp.transform.parent != null)
+        {
+            foreach (TextMeshProUGUI sib in tmp.transform.parent.GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                if (sib != null && sib != tmp && sib != timePeriodText && sib != locationText && sib != dimensionText && sib != materialText)
+                {
+                    sib.alignment = TextAlignmentOptions.MidlineLeft;
+                    RectTransform srt = sib.rectTransform;
+                    if (srt != null && srt.anchorMax.x > 0.43f)
+                    {
+                        Vector2 smax = srt.anchorMax;
+                        smax.x = 0.43f;
+                        srt.anchorMax = smax;
+                    }
+                }
+            }
         }
     }
 
