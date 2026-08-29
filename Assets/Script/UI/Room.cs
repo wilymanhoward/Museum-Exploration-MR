@@ -122,6 +122,9 @@ public class Room : MonoBehaviour
             artifactCountText.text = "Jumlah Artefak: " + count;
         }
 
+        // Adjust background height so single-artifact rooms (Galeri Kraf) don't have massive empty space reaching past the hand
+        AdjustBackgroundCardHeight(count);
+
         // Clear existing artifact items
         if (artifactListContainer != null)
         {
@@ -318,6 +321,62 @@ public class Room : MonoBehaviour
         {
             WristWatch ww = FindObjectOfType<WristWatch>();
             if (ww != null) ww.EnsureWatchButtonVisible();
+        }
+    }
+
+    private void AdjustBackgroundCardHeight(int artifactCount)
+    {
+        float bottomCrop = 0f;
+        if (artifactCount <= 1)
+        {
+            bottomCrop = 235f; // Raises bottom edge by 235px to hug cleanly below 01 Keris
+        }
+        else if (artifactCount == 2)
+        {
+            bottomCrop = 150f;
+        }
+        else
+        {
+            bottomCrop = 0f; // Full height for rooms with 3+ artifacts
+        }
+
+        void CropImageBottom(Image img)
+        {
+            if (img == null) return;
+            RectTransform rt = img.rectTransform;
+            if (rt == null) return;
+
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMax = Vector2.zero;
+            rt.offsetMin = new Vector2(0f, bottomCrop);
+        }
+
+        // Crop Room's own background card
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            Transform child = transform.GetChild(i);
+            if (child == artifactListContainer) continue;
+            string n = child.name.ToLower();
+            if (n.Contains("bg") || n.Contains("back") || n.Contains("panel") || i == 0)
+            {
+                Image img = child.GetComponent<Image>();
+                if (img != null && !n.Contains("icon") && !n.Contains("button") && !n.Contains("line") && !n.Contains("separator"))
+                {
+                    CropImageBottom(img);
+                }
+            }
+        }
+        CropImageBottom(GetComponent<Image>());
+
+        // Also crop parent canvas background if present
+        if (transform.parent != null)
+        {
+            Image parentBg = transform.parent.Find("Background")?.GetComponent<Image>() ?? transform.parent.GetComponent<Image>();
+            if (parentBg != null)
+            {
+                CropImageBottom(parentBg);
+            }
         }
     }
 }
