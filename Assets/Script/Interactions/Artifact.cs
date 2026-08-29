@@ -363,6 +363,15 @@ public class Artifact : MonoBehaviour
 
         if (threeDViewButton != null)
         {
+            // Ensure button text is concisely labeled "3D"
+            foreach (var txt in threeDViewButton.GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                if (txt != null && (txt.text.Contains("3D") || txt.text.Contains("Paparan")))
+                {
+                    txt.text = "3D";
+                }
+            }
+
             // Only show the 3D View button if this artifact actually has a 3D model prefab!
             threeDViewButton.gameObject.SetActive(hasModel);
         }

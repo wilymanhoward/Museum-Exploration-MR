@@ -3608,7 +3608,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Paparan 3D
+  m_text: 3D
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
