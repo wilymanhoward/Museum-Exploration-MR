@@ -329,11 +329,12 @@ public class Room : MonoBehaviour
         RectTransform panelRT = GetComponent<RectTransform>();
         if (panelRT == null) return;
 
-        // Reset panel anchors to stretch normally inside parent canvas
+        // Reset panel anchors and position
         panelRT.anchorMin = Vector2.zero;
         panelRT.anchorMax = Vector2.one;
         panelRT.sizeDelta = Vector2.zero;
         panelRT.pivot = new Vector2(0.5f, 0.5f);
+        panelRT.anchoredPosition = Vector2.zero;
 
         // Find the background card graphic
         Image bgImg = null;
@@ -349,43 +350,37 @@ public class Room : MonoBehaviour
         }
         if (bgImg == null) bgImg = GetComponent<Image>();
 
+        // Calculate exact required height from top of header to bottom of artifact list
+        float targetHeight;
         if (artifactCount <= 1)
         {
-            // 1 artifact (Galeri Kraf): crop the bottom empty area and lower the panel into comfortable eye level
-            if (bgImg != null)
-            {
-                RectTransform bgRT = bgImg.rectTransform;
-                bgRT.anchorMin = Vector2.zero;
-                bgRT.anchorMax = Vector2.one;
-                bgRT.offsetMin = new Vector2(0f, 170f);
-                bgRT.offsetMax = Vector2.zero;
-            }
-            panelRT.anchoredPosition = new Vector2(0f, -75f);
+            targetHeight = 225f; // Perfectly covers header down to 20px below 01 Keris
         }
         else if (artifactCount == 2)
         {
-            if (bgImg != null)
-            {
-                RectTransform bgRT = bgImg.rectTransform;
-                bgRT.anchorMin = Vector2.zero;
-                bgRT.anchorMax = Vector2.one;
-                bgRT.offsetMin = new Vector2(0f, 85f);
-                bgRT.offsetMax = Vector2.zero;
-            }
-            panelRT.anchoredPosition = new Vector2(0f, -35f);
+            targetHeight = 305f;
+        }
+        else if (artifactCount == 3)
+        {
+            targetHeight = 385f;
         }
         else
         {
-            // Full room (3+ artifacts): full-height background and centered
-            if (bgImg != null)
+            targetHeight = 465f;
+        }
+
+        if (bgImg != null)
+        {
+            RectTransform bgRT = bgImg.rectTransform;
+            if (bgRT != null && bgRT != panelRT)
             {
-                RectTransform bgRT = bgImg.rectTransform;
-                bgRT.anchorMin = Vector2.zero;
-                bgRT.anchorMax = Vector2.one;
-                bgRT.offsetMin = Vector2.zero;
-                bgRT.offsetMax = Vector2.zero;
+                // Anchor to the top edge and stretch horizontally, expanding down by targetHeight
+                bgRT.anchorMin = new Vector2(0f, 1f);
+                bgRT.anchorMax = new Vector2(1f, 1f);
+                bgRT.pivot = new Vector2(0.5f, 1f);
+                bgRT.anchoredPosition = Vector2.zero;
+                bgRT.sizeDelta = new Vector2(0f, targetHeight);
             }
-            panelRT.anchoredPosition = Vector2.zero;
         }
     }
 }
