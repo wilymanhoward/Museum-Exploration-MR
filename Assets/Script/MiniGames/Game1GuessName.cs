@@ -282,6 +282,12 @@ public class Game1GuessName : BaseGame
                     Resources.Load<GameObject>("Prefabs/model_artifact_wayang");
             if (model != null) return model;
         }
+        if (id.Contains("batik") || name.Contains("batik") || id.Contains("canting") || name.Contains("canting"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_batik") ??
+                    Resources.Load<GameObject>("Prefabs/model_artifact_batik");
+            if (model != null) return model;
+        }
 
         return null;
     }

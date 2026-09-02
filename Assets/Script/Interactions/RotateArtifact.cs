@@ -183,7 +183,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
     {
         if (key.Contains("wayang")) return 0.26f;
         if (key.Contains("batu")) return 0.28f;
-        if (key.Contains("songket") || key.Contains("batik")) return 0.30f;
+        if (key.Contains("songket") || key.Contains("batik") || key.Contains("canting")) return 0.30f;
         return 0.18f;
     }
 
