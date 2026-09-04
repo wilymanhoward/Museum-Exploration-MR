@@ -115,6 +115,12 @@ public class HistoryPanel : MonoBehaviour
     private ScrollRect photoScrollRect;
     private RectTransform photoContentRect;
     private PhotoSnapScroller photoSnapScroller;
+    private Transform photoDotsContainer;
+    private readonly System.Collections.Generic.List<Image> photoDotImages = new System.Collections.Generic.List<Image>();
+    private readonly System.Collections.Generic.List<RectTransform> photoDotRects = new System.Collections.Generic.List<RectTransform>();
+
+    private static readonly Color ActiveDotColor = new Color(0.90f, 0.93f, 0.63f, 1f); // Pale lime yellow accent (#E5EE9C)
+    private static readonly Color InactiveDotColor = new Color(1f, 1f, 1f, 0.35f);     // Translucent white
 
     private struct RectTransformSnapshot
     {
@@ -669,7 +675,7 @@ public class HistoryPanel : MonoBehaviour
         XRSimpleInteractable[] allInteractables = parentSlot.GetComponentsInChildren<XRSimpleInteractable>(true);
         foreach (var inter in allInteractables)
         {
-            if (!(inter is PhotoSnapScroller) && !(inter is ScrollbarSnapHook))
+            if (!(inter is PhotoSnapScroller))
             {
                 Destroy(inter);
             }
@@ -692,13 +698,13 @@ public class HistoryPanel : MonoBehaviour
         scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
         scrollBg.raycastTarget = true;
 
-        // 2. Viewport - leaves 16px bottom margin for the horizontal scrollbar
+        // 2. Viewport - leaves 18px bottom margin for the pagination dots
         GameObject viewportGo = new GameObject("Viewport");
         RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
         viewportGo.transform.SetParent(scrollGo.transform, false);
         viewportRect.anchorMin = Vector2.zero;
         viewportRect.anchorMax = Vector2.one;
-        viewportRect.offsetMin = new Vector2(0f, 16f);
+        viewportRect.offsetMin = new Vector2(0f, 18f);
         viewportRect.offsetMax = Vector2.zero;
         viewportGo.AddComponent<RectMask2D>();
         Image viewportImg = viewportGo.AddComponent<Image>();
@@ -743,9 +749,10 @@ public class HistoryPanel : MonoBehaviour
         // 5. Page Snap Controller
         photoSnapScroller = scrollGo.AddComponent<PhotoSnapScroller>();
         photoSnapScroller.scrollRect = photoScrollRect;
+        photoSnapScroller.historyPanel = this;
 
-        // 6. Build horizontal scrollbar indicator
-        BuildHorizontalScrollbarForScrollRect(photoScrollRect);
+        // 6. Build pagination dots container
+        BuildPaginationDotsContainer(scrollGo.transform);
     }
 
     /// <summary>
@@ -857,7 +864,10 @@ public class HistoryPanel : MonoBehaviour
         {
             photoSnapScroller.totalPages = Mathf.Max(1, validCount);
             photoSnapScroller.currentPage = 0;
+            photoSnapScroller.historyPanel = this;
         }
+
+        BuildPaginationDots(validCount);
 
         LayoutRebuilder.ForceRebuildLayoutImmediate(photoContentRect);
 
@@ -1092,68 +1102,110 @@ public class HistoryPanel : MonoBehaviour
         scrollRect.verticalScrollbarSpacing = 4f;
     }
 
-    private void BuildHorizontalScrollbarForScrollRect(ScrollRect scrollRect)
+    private void BuildPaginationDotsContainer(Transform parent)
     {
-        if (scrollRect == null || scrollRect.gameObject == null) return;
+        if (photoDotsContainer != null) return;
 
-        Sprite roundedRect = GetOrCreateRoundedRectSprite();
+        GameObject dotsGo = new GameObject("PhotoPaginationDots");
+        photoDotsContainer = dotsGo.transform;
+        dotsGo.transform.SetParent(parent, false);
 
-        Scrollbar existingSb = scrollRect.gameObject.GetComponentInChildren<Scrollbar>(true);
-        if (existingSb != null)
+        RectTransform dotsRt = dotsGo.AddComponent<RectTransform>();
+        dotsRt.anchorMin = new Vector2(0f, 0f);
+        dotsRt.anchorMax = new Vector2(1f, 0f);
+        dotsRt.pivot = new Vector2(0.5f, 0f);
+        dotsRt.anchoredPosition = new Vector2(0f, 4f);
+        dotsRt.sizeDelta = new Vector2(0f, 14f);
+
+        HorizontalLayoutGroup dotsHlg = dotsGo.AddComponent<HorizontalLayoutGroup>();
+        dotsHlg.spacing = 8f;
+        dotsHlg.childAlignment = TextAnchor.MiddleCenter;
+        dotsHlg.childControlWidth = false;
+        dotsHlg.childControlHeight = false;
+        dotsHlg.childForceExpandWidth = false;
+        dotsHlg.childForceExpandHeight = false;
+    }
+
+    private void BuildPaginationDots(int totalPages)
+    {
+        if (photoDotsContainer == null) return;
+
+        // Clear existing dots
+        for (int i = photoDotsContainer.childCount - 1; i >= 0; i--)
         {
-            scrollRect.horizontalScrollbar = existingSb;
-            scrollRect.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+            Destroy(photoDotsContainer.GetChild(i).gameObject);
+        }
+        photoDotImages.Clear();
+        photoDotRects.Clear();
+
+        if (totalPages <= 1)
+        {
+            photoDotsContainer.gameObject.SetActive(false);
             return;
         }
 
-        GameObject scrollbarGo = new GameObject("ScrollbarHorizontal");
-        scrollbarGo.transform.SetParent(scrollRect.transform, false);
+        photoDotsContainer.gameObject.SetActive(true);
+        Sprite dotSprite = GetOrCreateRoundedRectSprite();
 
-        RectTransform sbRect = scrollbarGo.AddComponent<RectTransform>();
-        sbRect.anchorMin = new Vector2(0.12f, 0f);
-        sbRect.anchorMax = new Vector2(0.88f, 0f);
-        sbRect.pivot = new Vector2(0.5f, 0f);
-        sbRect.anchoredPosition = new Vector2(0f, 2f);
-        sbRect.sizeDelta = new Vector2(0f, 6f); // Sleek 6px tall horizontal bar
+        for (int i = 0; i < totalPages; i++)
+        {
+            int pageIndex = i;
+            GameObject dotGo = new GameObject("Dot_" + i);
+            dotGo.transform.SetParent(photoDotsContainer, false);
 
-        Image trackImg = scrollbarGo.AddComponent<Image>();
-        trackImg.sprite = roundedRect;
-        trackImg.type = Image.Type.Sliced;
-        trackImg.color = new Color(1f, 1f, 1f, 0.15f); // Translucent track
-        trackImg.raycastTarget = true;
+            RectTransform dotRt = dotGo.AddComponent<RectTransform>();
+            dotRt.sizeDelta = (i == 0) ? new Vector2(16f, 8f) : new Vector2(8f, 8f);
 
-        Scrollbar sbComp = scrollbarGo.AddComponent<Scrollbar>();
-        sbComp.direction = Scrollbar.Direction.LeftToRight;
+            Image dotImg = dotGo.AddComponent<Image>();
+            dotImg.sprite = dotSprite;
+            dotImg.type = Image.Type.Sliced;
+            dotImg.color = (i == 0) ? ActiveDotColor : InactiveDotColor;
+            dotImg.raycastTarget = true;
 
-        GameObject slidingAreaGo = new GameObject("Sliding Area");
-        slidingAreaGo.transform.SetParent(scrollbarGo.transform, false);
-        RectTransform slidingRect = slidingAreaGo.AddComponent<RectTransform>();
-        slidingRect.anchorMin = Vector2.zero;
-        slidingRect.anchorMax = Vector2.one;
-        slidingRect.sizeDelta = Vector2.zero;
+            BoxCollider col = dotGo.AddComponent<BoxCollider>();
+            col.size = new Vector3(22f, 22f, 5f); // Generous touch target in MR
 
-        GameObject handleGo = new GameObject("Handle");
-        handleGo.transform.SetParent(slidingAreaGo.transform, false);
-        RectTransform handleRect = handleGo.AddComponent<RectTransform>();
-        handleRect.anchorMin = Vector2.zero;
-        handleRect.anchorMax = Vector2.one;
-        handleRect.sizeDelta = Vector2.zero;
+            Button btn = dotGo.AddComponent<Button>();
+            btn.targetGraphic = dotImg;
+            btn.onClick.AddListener(() =>
+            {
+                if (photoSnapScroller != null)
+                {
+                    photoSnapScroller.GoToPage(pageIndex);
+                }
+            });
 
-        Image handleImg = handleGo.AddComponent<Image>();
-        handleImg.sprite = roundedRect;
-        handleImg.type = Image.Type.Sliced;
-        handleImg.color = new Color(0.90f, 0.93f, 0.63f, 0.85f); // Pale lime yellow accent (#E5EE9C)
-        handleImg.raycastTarget = true;
+            XRButtonSelection xr = dotGo.AddComponent<XRButtonSelection>();
+            xr.buttonImage = dotImg;
+            xr.onClick.AddListener(() =>
+            {
+                if (photoSnapScroller != null)
+                {
+                    photoSnapScroller.GoToPage(pageIndex);
+                }
+            });
 
-        sbComp.targetGraphic = handleImg;
-        sbComp.handleRect = handleRect;
+            photoDotImages.Add(dotImg);
+            photoDotRects.Add(dotRt);
+        }
 
-        scrollRect.horizontalScrollbar = sbComp;
-        scrollRect.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
-        scrollRect.horizontalScrollbarSpacing = 2f;
+        UpdatePaginationDots(0);
+    }
 
-        ScrollbarSnapHook sbHook = scrollbarGo.AddComponent<ScrollbarSnapHook>();
-        sbHook.snapScroller = photoSnapScroller;
+    public void UpdatePaginationDots(int activeIndex)
+    {
+        for (int i = 0; i < photoDotImages.Count; i++)
+        {
+            if (photoDotImages[i] == null) continue;
+
+            bool isActive = (i == activeIndex);
+            photoDotImages[i].color = isActive ? ActiveDotColor : InactiveDotColor;
+
+            if (photoDotRects != null && i < photoDotRects.Count && photoDotRects[i] != null)
+            {
+                photoDotRects[i].sizeDelta = isActive ? new Vector2(16f, 8f) : new Vector2(8f, 8f);
+            }
+        }
     }
 
     private void OnEnable()
@@ -2269,13 +2321,14 @@ public class HistoryPanel : MonoBehaviour
 }
 
 /// <summary>
-/// Handles smooth snapping to each full-mode photo page so the picture never stops halfway between 2 images.
+/// Handles smooth snapping to each full-mode photo page and coordinates pagination dot states.
 /// </summary>
-public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IEndDragHandler, IPointerUpHandler
+public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerUpHandler
 {
     public ScrollRect scrollRect;
     public int totalPages = 1;
     public int currentPage = 0;
+    public HistoryPanel historyPanel;
     private Coroutine snapCoroutine;
     private bool isDragging = false;
 
@@ -2287,6 +2340,11 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IEndDragHandl
             StopCoroutine(snapCoroutine);
             snapCoroutine = null;
         }
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        UpdateCurrentPageFromPosition();
     }
 
     public void OnEndDrag(PointerEventData eventData)
@@ -2303,6 +2361,23 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IEndDragHandl
         }
     }
 
+    private void UpdateCurrentPageFromPosition()
+    {
+        if (totalPages <= 1 || scrollRect == null) return;
+        float pos = Mathf.Clamp01(scrollRect.horizontalNormalizedPosition);
+        float step = 1f / (totalPages - 1);
+        int page = Mathf.RoundToInt(pos / step);
+        page = Mathf.Clamp(page, 0, totalPages - 1);
+        if (page != currentPage)
+        {
+            currentPage = page;
+            if (historyPanel != null)
+            {
+                historyPanel.UpdatePaginationDots(currentPage);
+            }
+        }
+    }
+
     public void SnapToNearestPage()
     {
         if (totalPages <= 1 || scrollRect == null) return;
@@ -2311,9 +2386,24 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IEndDragHandl
         float step = 1f / (totalPages - 1);
         int targetPage = Mathf.RoundToInt(pos / step);
         targetPage = Mathf.Clamp(targetPage, 0, totalPages - 1);
+
+        GoToPage(targetPage);
+    }
+
+    public void GoToPage(int targetPage)
+    {
+        if (scrollRect == null) return;
+        targetPage = Mathf.Clamp(targetPage, 0, Mathf.Max(0, totalPages - 1));
         currentPage = targetPage;
 
+        if (historyPanel != null)
+        {
+            historyPanel.UpdatePaginationDots(currentPage);
+        }
+
+        float step = (totalPages > 1) ? (1f / (totalPages - 1)) : 0f;
         float targetPos = targetPage * step;
+
         if (snapCoroutine != null) StopCoroutine(snapCoroutine);
         snapCoroutine = StartCoroutine(LerpToPage(targetPos));
     }
@@ -2335,19 +2425,6 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IEndDragHandl
 
         scrollRect.horizontalNormalizedPosition = targetPos;
         snapCoroutine = null;
-    }
-}
-
-/// <summary>
-/// Catches pointer release events on the horizontal scrollbar to trigger page snapping.
-/// </summary>
-public class ScrollbarSnapHook : MonoBehaviour, IPointerUpHandler
-{
-    public PhotoSnapScroller snapScroller;
-
-    public void OnPointerUp(PointerEventData eventData)
-    {
-        snapScroller?.SnapToNearestPage();
     }
 }
 
