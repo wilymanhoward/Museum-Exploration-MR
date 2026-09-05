@@ -167,6 +167,9 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         modelInstance.transform.localRotation = GetUprightOrientation(prefab.name, artifactId);
         modelInstance.transform.localScale = Vector3.one;
 
+        // Filter sub-objects (e.g. for Batik Canting, remove BatikCanting2 and BatikPelangi so only BatikCanting1 remains)
+        FilterArtifactSubObjects(modelInstance, key, artifactId);
+
         // 5. Determine target world size in meters
         float targetSize = targetSizeMeters > 0f ? targetSizeMeters : GetTargetWorldSize(key);
 
@@ -208,6 +211,63 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         }
 
         return Quaternion.identity;
+    }
+
+    private void FilterArtifactSubObjects(GameObject modelInstance, string key, string artifactId)
+    {
+        if (modelInstance == null) return;
+
+        bool isPelangi = key.Contains("pelangi") || (artifactId != null && artifactId.Contains("room_1_2"));
+        bool isCanting = key.Contains("canting") || key.Contains("tulis") || (artifactId != null && artifactId.Contains("room_1_1")) || (!isPelangi && key.Contains("batik"));
+
+        if (isCanting && !isPelangi)
+        {
+            // Keep ONLY BatikCanting1 for Batik Canting artifact; remove BatikCanting2 and BatikPelangi
+            List<GameObject> toDestroy = new List<GameObject>();
+            foreach (Transform child in modelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (child == null || child == modelInstance.transform) continue;
+
+                string cName = child.name.ToLower();
+                if (cName.Contains("canting2") || cName.Contains("batikcanting2") || cName.Contains("pelangi") || cName.Contains("batikpelangi"))
+                {
+                    toDestroy.Add(child.gameObject);
+                }
+            }
+
+            foreach (GameObject go in toDestroy)
+            {
+                if (go != null)
+                {
+                    go.SetActive(false);
+                    DestroyImmediate(go);
+                }
+            }
+        }
+        else if (isPelangi)
+        {
+            // Keep ONLY BatikPelangi for Batik Pelangi artifact; remove BatikCanting1 and BatikCanting2
+            List<GameObject> toDestroy = new List<GameObject>();
+            foreach (Transform child in modelInstance.GetComponentsInChildren<Transform>(true))
+            {
+                if (child == null || child == modelInstance.transform) continue;
+
+                string cName = child.name.ToLower();
+                if (cName.Contains("canting") || cName.Contains("batikcanting"))
+                {
+                    toDestroy.Add(child.gameObject);
+                }
+            }
+
+            foreach (GameObject go in toDestroy)
+            {
+                if (go != null)
+                {
+                    go.SetActive(false);
+                    DestroyImmediate(go);
+                }
+            }
+        }
     }
 
     private void FitModelToBounds(GameObject pivot, GameObject modelInstance, float targetWorldSizeMeters = 0.22f)
