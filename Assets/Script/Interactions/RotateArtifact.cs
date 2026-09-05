@@ -199,9 +199,9 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             // Batu Bersurat Terengganu: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
-        if (key.Contains("songket") || key.Contains("pelangi"))
+        if (key.Contains("songket") || key.Contains("pelangi") || key.Contains("canting") || key.Contains("batik"))
         {
-            // Kain Songket & Kain Pelangi: Stand upright and face forward toward player
+            // Kain Songket, Kain Pelangi & Batik Canting: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
         if (key.Contains("gamelan") || key.Contains("gamelen"))
@@ -217,12 +217,29 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
     {
         if (modelInstance == null) return;
 
+        bool hasCanting1 = false;
+        bool hasCanting2 = false;
+        bool hasPelangiObj = false;
+
+        foreach (Transform child in modelInstance.GetComponentsInChildren<Transform>(true))
+        {
+            if (child == null || child == modelInstance.transform) continue;
+            string cName = child.name.ToLower();
+            if (cName.Contains("canting1") || cName.Contains("batikcanting1")) hasCanting1 = true;
+            if (cName.Contains("canting2") || cName.Contains("batikcanting2")) hasCanting2 = true;
+            if (cName.Contains("pelangi") || cName.Contains("batikpelangi")) hasPelangiObj = true;
+        }
+
+        // Only filter if this is a legacy combined 3-in-1 model with multiple distinct artifact objects
+        bool isMultiObjectExport = (hasCanting1 && (hasCanting2 || hasPelangiObj)) || (hasCanting2 && hasPelangiObj);
+        if (!isMultiObjectExport) return;
+
         bool isPelangi = key.Contains("pelangi") || (artifactId != null && artifactId.Contains("room_1_2"));
         bool isCanting = key.Contains("canting") || key.Contains("tulis") || (artifactId != null && artifactId.Contains("room_1_1")) || (!isPelangi && key.Contains("batik"));
 
         if (isCanting && !isPelangi)
         {
-            // Keep ONLY BatikCanting1 for Batik Canting artifact; remove BatikCanting2 and BatikPelangi
+            // In legacy combined model: keep BatikCanting1 for Batik Canting artifact; remove BatikCanting2 and BatikPelangi
             List<GameObject> toDestroy = new List<GameObject>();
             foreach (Transform child in modelInstance.GetComponentsInChildren<Transform>(true))
             {
@@ -246,7 +263,7 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
         }
         else if (isPelangi)
         {
-            // Keep ONLY BatikPelangi for Batik Pelangi artifact; remove BatikCanting1 and BatikCanting2
+            // In legacy combined model: keep BatikPelangi; remove BatikCanting1 and BatikCanting2
             List<GameObject> toDestroy = new List<GameObject>();
             foreach (Transform child in modelInstance.GetComponentsInChildren<Transform>(true))
             {
