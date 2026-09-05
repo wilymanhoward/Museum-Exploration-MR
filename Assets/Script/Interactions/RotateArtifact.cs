@@ -199,9 +199,9 @@ public class RotateArtifact : MonoBehaviour, IPointerDownHandler, IPointerUpHand
             // Batu Bersurat Terengganu: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
-        if (key.Contains("songket"))
+        if (key.Contains("songket") || key.Contains("pelangi"))
         {
-            // Kain Songket: Stand upright and face forward toward player
+            // Kain Songket & Kain Pelangi: Stand upright and face forward toward player
             return Quaternion.Euler(-90f, 180f, 0f);
         }
         if (key.Contains("gamelan") || key.Contains("gamelen"))

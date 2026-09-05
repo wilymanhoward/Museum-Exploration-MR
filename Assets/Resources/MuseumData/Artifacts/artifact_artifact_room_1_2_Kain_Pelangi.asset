@@ -23,7 +23,7 @@ MonoBehaviour:
   length: 0
   material: Kain Tenunan, Tali Pengikat & Pewarna (Ikat & Celup)
   description: "Kain Pelangi mula diperkenalkan di Terengganu oleh seorang tokoh yang dikenali sebagai Che Minah Pelangi pada zaman Sultan Zainal Abidin II (1794-1808).\n\nTekstil jenis ini hanya menggunakan teknik ikat dan celup menggunakan kain yang telah ditenun, tali pengikat dan bahan pewarna sementara proses membuat bentuk motif tidak melalui terapan lilin. Tekstil jenis ini disebut juga sebagai batik kerana ragam hias yang dihasilkan dengan teknik ini dapat meninggalkan kesan teritik yang berbunga-bunga kecil seperti kesan batik lilin. Oleh sebab itu, ada sesetengah negeri memanggilnya dengan Kain Teritik.\n\nKain Pelangi sering dipakai sebagai selendang dan ada juga yang memakainya sebagai sarung dan Kain Dagang Luar."
-  modelPrefab: {fileID: 919132149155446097, guid: dd83aec7ce4704d49838c497abd5b4a2,
+  modelPrefab: {fileID: 919132149155446097, guid: 10e2e754aeb29124f9703f3c344cd950,
     type: 3}
   narrationClip: {fileID: 8300000, guid: 6d0f11b092b71594aac59d05345eebf2, type: 3}
   instrumentClip: {fileID: 0}
