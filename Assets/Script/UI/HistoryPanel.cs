@@ -119,8 +119,8 @@ public class HistoryPanel : MonoBehaviour
     private readonly System.Collections.Generic.List<Image> photoDotImages = new System.Collections.Generic.List<Image>();
     private readonly System.Collections.Generic.List<RectTransform> photoDotRects = new System.Collections.Generic.List<RectTransform>();
 
-    private static readonly Color ActiveDotColor = new Color(0.90f, 0.93f, 0.63f, 1f); // Pale lime yellow accent (#E5EE9C)
-    private static readonly Color InactiveDotColor = new Color(1f, 1f, 1f, 0.35f);     // Translucent white
+    private static readonly Color ActiveDotColor = new Color(0.98f, 0.85f, 0.28f, 1f); // Vibrant warm gold accent (#FBC02D)
+    private static readonly Color InactiveDotColor = new Color(1f, 1f, 1f, 0.65f);     // Crisp translucent white (65% alpha)
 
     private struct RectTransformSnapshot
     {
@@ -698,13 +698,13 @@ public class HistoryPanel : MonoBehaviour
         scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
         scrollBg.raycastTarget = true;
 
-        // 2. Viewport - leaves 18px bottom margin for the pagination dots
+        // 2. Viewport - full height with RectMask2D clipping
         GameObject viewportGo = new GameObject("Viewport");
         RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
         viewportGo.transform.SetParent(scrollGo.transform, false);
         viewportRect.anchorMin = Vector2.zero;
         viewportRect.anchorMax = Vector2.one;
-        viewportRect.offsetMin = new Vector2(0f, 18f);
+        viewportRect.offsetMin = Vector2.zero;
         viewportRect.offsetMax = Vector2.zero;
         viewportGo.AddComponent<RectMask2D>();
         Image viewportImg = viewportGo.AddComponent<Image>();
@@ -752,7 +752,7 @@ public class HistoryPanel : MonoBehaviour
         photoSnapScroller.historyPanel = this;
 
         // 6. Build pagination dots container
-        BuildPaginationDotsContainer(scrollGo.transform);
+        EnsurePhotoDotsContainer();
     }
 
     /// <summary>
@@ -835,8 +835,8 @@ public class HistoryPanel : MonoBehaviour
                 capRt.anchorMin = new Vector2(0f, 0f);
                 capRt.anchorMax = new Vector2(1f, 0f);
                 capRt.pivot = new Vector2(0.5f, 0f);
-                capRt.anchoredPosition = new Vector2(0f, 4f);
-                capRt.sizeDelta = new Vector2(-10f, 22f);
+                capRt.anchoredPosition = new Vector2(0f, 36f);
+                capRt.sizeDelta = new Vector2(-20f, 22f);
 
                 Image capBg = capGo.AddComponent<Image>();
                 capBg.color = new Color(0f, 0f, 0f, 0.55f);
@@ -1028,6 +1028,77 @@ public class HistoryPanel : MonoBehaviour
         return cachedRoundedRectSprite;
     }
 
+    private static Sprite cachedCircleSprite;
+    private static Sprite cachedCapsuleSprite;
+
+    private static Sprite GetOrCreateCircleSprite()
+    {
+        if (cachedCircleSprite != null) return cachedCircleSprite;
+
+        int size = 32;
+        float radius = 15f;
+        float center = size / 2f;
+
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) - center;
+                float dy = (y + 0.5f) - center;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float alpha = Mathf.Clamp01(radius - dist + 0.5f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        cachedCircleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        return cachedCircleSprite;
+    }
+
+    private static Sprite GetOrCreateCapsuleSprite()
+    {
+        if (cachedCapsuleSprite != null) return cachedCapsuleSprite;
+
+        int width = 64;
+        int height = 32;
+        float radius = 15f;
+        float halfH = height / 2f;
+        float leftCenter = 16f;
+        float rightCenter = 48f;
+
+        Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color[] pixels = new Color[width * height];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float cx = Mathf.Clamp(x + 0.5f, leftCenter, rightCenter);
+                float cy = halfH;
+                float dx = (x + 0.5f) - cx;
+                float dy = (y + 0.5f) - cy;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float alpha = Mathf.Clamp01(radius - dist + 0.5f);
+                pixels[y * width + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        Vector4 border = new Vector4(16, 8, 16, 8);
+        cachedCapsuleSprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        return cachedCapsuleSprite;
+    }
+
     private void BuildScrollbarForScrollRect(ScrollRect scrollRect)
     {
         if (scrollRect == null || scrollRect.gameObject == null) return;
@@ -1102,20 +1173,33 @@ public class HistoryPanel : MonoBehaviour
         scrollRect.verticalScrollbarSpacing = 4f;
     }
 
+    private void EnsurePhotoDotsContainer()
+    {
+        if (photoDotsContainer != null && photoDotsContainer.gameObject != null) return;
+        Transform parent = photoScrollRect != null ? photoScrollRect.transform : transform;
+        BuildPaginationDotsContainer(parent);
+    }
+
     private void BuildPaginationDotsContainer(Transform parent)
     {
-        if (photoDotsContainer != null) return;
+        if (photoDotsContainer != null && photoDotsContainer.gameObject != null) return;
 
         GameObject dotsGo = new GameObject("PhotoPaginationDots");
         photoDotsContainer = dotsGo.transform;
         dotsGo.transform.SetParent(parent, false);
 
         RectTransform dotsRt = dotsGo.AddComponent<RectTransform>();
-        dotsRt.anchorMin = new Vector2(0f, 0f);
-        dotsRt.anchorMax = new Vector2(1f, 0f);
+        dotsRt.anchorMin = new Vector2(0.5f, 0f);
+        dotsRt.anchorMax = new Vector2(0.5f, 0f);
         dotsRt.pivot = new Vector2(0.5f, 0f);
-        dotsRt.anchoredPosition = new Vector2(0f, 4f);
-        dotsRt.sizeDelta = new Vector2(0f, 14f);
+        dotsRt.anchoredPosition = new Vector2(0f, 10f); // Floating capsule 10px above the bottom of photo area
+
+        // Sleek translucent dark capsule backdrop ensuring dots are 100% visible against any photo background
+        Image bgImg = dotsGo.AddComponent<Image>();
+        bgImg.sprite = GetOrCreateCapsuleSprite();
+        bgImg.type = Image.Type.Sliced;
+        bgImg.color = new Color(0.05f, 0.05f, 0.08f, 0.70f);
+        bgImg.raycastTarget = false;
 
         HorizontalLayoutGroup dotsHlg = dotsGo.AddComponent<HorizontalLayoutGroup>();
         dotsHlg.spacing = 8f;
@@ -1124,16 +1208,24 @@ public class HistoryPanel : MonoBehaviour
         dotsHlg.childControlHeight = false;
         dotsHlg.childForceExpandWidth = false;
         dotsHlg.childForceExpandHeight = false;
+        dotsHlg.padding = new RectOffset(12, 12, 5, 5);
+
+        ContentSizeFitter csf = dotsGo.AddComponent<ContentSizeFitter>();
+        csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     }
 
     private void BuildPaginationDots(int totalPages)
     {
+        EnsurePhotoDotsContainer();
         if (photoDotsContainer == null) return;
 
-        // Clear existing dots
+        // Clear existing dots immediately so layout calculations don't consider pending-destruction objects
         for (int i = photoDotsContainer.childCount - 1; i >= 0; i--)
         {
-            Destroy(photoDotsContainer.GetChild(i).gameObject);
+            GameObject child = photoDotsContainer.GetChild(i).gameObject;
+            child.SetActive(false);
+            Destroy(child);
         }
         photoDotImages.Clear();
         photoDotRects.Clear();
@@ -1145,7 +1237,9 @@ public class HistoryPanel : MonoBehaviour
         }
 
         photoDotsContainer.gameObject.SetActive(true);
-        Sprite dotSprite = GetOrCreateRoundedRectSprite();
+        photoDotsContainer.SetAsLastSibling(); // Guarantee dots stay on top of all images
+
+        Sprite circleSprite = GetOrCreateCircleSprite();
 
         for (int i = 0; i < totalPages; i++)
         {
@@ -1154,16 +1248,19 @@ public class HistoryPanel : MonoBehaviour
             dotGo.transform.SetParent(photoDotsContainer, false);
 
             RectTransform dotRt = dotGo.AddComponent<RectTransform>();
-            dotRt.sizeDelta = (i == 0) ? new Vector2(16f, 8f) : new Vector2(8f, 8f);
+            bool isActive = (i == 0);
+            dotRt.sizeDelta = isActive ? new Vector2(24f, 10f) : new Vector2(10f, 10f);
 
             Image dotImg = dotGo.AddComponent<Image>();
-            dotImg.sprite = dotSprite;
-            dotImg.type = Image.Type.Sliced;
-            dotImg.color = (i == 0) ? ActiveDotColor : InactiveDotColor;
+            dotImg.sprite = circleSprite;
+            dotImg.type = Image.Type.Simple;
+            dotImg.color = isActive ? ActiveDotColor : InactiveDotColor;
             dotImg.raycastTarget = true;
+            dotImg.raycastPadding = new Vector4(-4f, -4f, -4f, -4f); // Expanded hit-test area for easy VR ray selection
 
-            BoxCollider col = dotGo.AddComponent<BoxCollider>();
-            col.size = new Vector3(22f, 22f, 5f); // Generous touch target in MR
+            LayoutElement le = dotGo.AddComponent<LayoutElement>();
+            le.preferredWidth = isActive ? 24f : 10f;
+            le.preferredHeight = 10f;
 
             Button btn = dotGo.AddComponent<Button>();
             btn.targetGraphic = dotImg;
@@ -1203,8 +1300,22 @@ public class HistoryPanel : MonoBehaviour
 
             if (photoDotRects != null && i < photoDotRects.Count && photoDotRects[i] != null)
             {
-                photoDotRects[i].sizeDelta = isActive ? new Vector2(16f, 8f) : new Vector2(8f, 8f);
+                photoDotRects[i].sizeDelta = isActive ? new Vector2(24f, 10f) : new Vector2(10f, 10f);
             }
+
+            if (photoDotImages[i].transform is RectTransform rt)
+            {
+                LayoutElement le = rt.GetComponent<LayoutElement>();
+                if (le != null)
+                {
+                    le.preferredWidth = isActive ? 24f : 10f;
+                }
+            }
+        }
+
+        if (photoDotsContainer != null && photoDotsContainer is RectTransform containerRt)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(containerRt);
         }
     }
 
