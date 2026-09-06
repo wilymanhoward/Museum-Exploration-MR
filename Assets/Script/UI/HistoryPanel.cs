@@ -237,7 +237,7 @@ public class HistoryPanel : MonoBehaviour
             if (eventTitleText != null)
             {
                 origEventTitle.Restore(eventTitleText.rectTransform);
-                eventTitleText.gameObject.SetActive(true);
+                eventTitleText.gameObject.SetActive(false); // Hide title below photo
             }
             if (photoScrollRect != null)
             {
@@ -825,38 +825,7 @@ public class HistoryPanel : MonoBehaviour
                 fitter.aspectRatio = (float)s.rect.width / (float)s.rect.height;
             }
 
-            // Caption overlay (if present)
-            if (!string.IsNullOrEmpty(historyImg.caption))
-            {
-                GameObject capGo = new GameObject("Caption", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                capGo.transform.SetParent(cardGo.transform, false);
-                RectTransform capRt = capGo.GetComponent<RectTransform>();
-                capRt.anchorMin = new Vector2(0f, 0f);
-                capRt.anchorMax = new Vector2(1f, 0f);
-                capRt.pivot = new Vector2(0.5f, 0f);
-                capRt.anchoredPosition = new Vector2(0f, 36f);
-                capRt.sizeDelta = new Vector2(-20f, 22f);
-
-                Image capBg = capGo.GetComponent<Image>();
-                capBg.color = new Color(0f, 0f, 0f, 0.55f);
-                capBg.raycastTarget = false;
-
-                GameObject capTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-                capTextGo.transform.SetParent(capGo.transform, false);
-                RectTransform textRt = capTextGo.GetComponent<RectTransform>();
-                textRt.anchorMin = Vector2.zero;
-                textRt.anchorMax = Vector2.one;
-                textRt.sizeDelta = Vector2.zero;
-
-                TextMeshProUGUI capTmp = capTextGo.GetComponent<TextMeshProUGUI>();
-                capTmp.text = historyImg.caption;
-                capTmp.fontSize = 11f;
-                capTmp.alignment = TextAlignmentOptions.Center;
-                capTmp.color = Color.white;
-                capTmp.enableWordWrapping = false;
-                capTmp.overflowMode = TextOverflowModes.Ellipsis;
-                capTmp.raycastTarget = false;
-            }
+            // No text overlay below or on the photo
         }
 
         if (photoSnapScroller != null)
