@@ -237,7 +237,7 @@ public class HistoryPanel : MonoBehaviour
             if (eventTitleText != null)
             {
                 origEventTitle.Restore(eventTitleText.rectTransform);
-                eventTitleText.gameObject.SetActive(false); // Hide title below photo
+                eventTitleText.gameObject.SetActive(true);
             }
             if (photoScrollRect != null)
             {
@@ -1393,8 +1393,32 @@ public class HistoryPanel : MonoBehaviour
         if (topTitleText != null) SetCappedTwoLineText(topTitleText, string.IsNullOrEmpty(data.topTitle) ? "Sejarah" : data.topTitle, 20f);
         if (categoryText != null) SetCappedTwoLineText(categoryText, string.IsNullOrEmpty(data.category) ? "" : data.category, 15f);
 
-        // Event / Story Title
-        if (eventTitleText != null) SetCappedTwoLineText(eventTitleText, string.IsNullOrEmpty(data.eventTitle) ? data.name : data.eventTitle, 16f);
+        // Event / Story Title (BottomTitleText below photo)
+        if (eventTitleText != null)
+        {
+            string title = !string.IsNullOrEmpty(data.eventTitle) ? data.eventTitle : (!string.IsNullOrEmpty(data.name) ? data.name : "Peristiwa");
+            string timeStr = (!string.IsNullOrEmpty(data.timePeriod) && data.timePeriod != "-") ? $" ({data.timePeriod})" : "";
+
+            HistoryImage[] currentImages = GetCurrentImages();
+            bool hasImages = currentImages != null && currentImages.Length > 0;
+
+            if (hasImages)
+            {
+                eventTitleText.text = $"Peristiwa:\n{title}{timeStr}";
+                eventTitleText.alignment = TextAlignmentOptions.Center;
+            }
+            else
+            {
+                eventTitleText.text = $"{title}{timeStr}";
+                eventTitleText.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+
+            eventTitleText.enableAutoSizing = true;
+            eventTitleText.fontSizeMin = 10f;
+            eventTitleText.fontSizeMax = 15f;
+            eventTitleText.overflowMode = TextOverflowModes.Ellipsis;
+            eventTitleText.enableWordWrapping = true;
+        }
 
         // Detail Sejarah (Time Period & Location)
         if (timePeriodText != null) SetCappedTwoLineText(timePeriodText, string.IsNullOrEmpty(data.timePeriod) ? "-" : data.timePeriod, 13f);
