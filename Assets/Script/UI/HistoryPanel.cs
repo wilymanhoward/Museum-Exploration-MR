@@ -119,8 +119,8 @@ public class HistoryPanel : MonoBehaviour
     private readonly System.Collections.Generic.List<Image> photoDotImages = new System.Collections.Generic.List<Image>();
     private readonly System.Collections.Generic.List<RectTransform> photoDotRects = new System.Collections.Generic.List<RectTransform>();
 
-    private static readonly Color ActiveDotColor = new Color(0.98f, 0.85f, 0.28f, 1f); // Vibrant warm gold accent (#FBC02D)
-    private static readonly Color InactiveDotColor = new Color(1f, 1f, 1f, 0.65f);     // Crisp translucent white (65% alpha)
+    private static readonly Color ActiveDotColor = new Color(1.0f, 0.84f, 0.20f, 1f); // Bright Gold accent (#FFD700)
+    private static readonly Color InactiveDotColor = new Color(1f, 1f, 1f, 0.70f);    // Crisp translucent white (70% alpha)
 
     private struct RectTransformSnapshot
     {
@@ -682,8 +682,8 @@ public class HistoryPanel : MonoBehaviour
         }
 
         // 1. Root ScrollView container
-        GameObject scrollGo = new GameObject("PhotoScrollView");
-        RectTransform scrollRootRect = scrollGo.AddComponent<RectTransform>();
+        GameObject scrollGo = new GameObject("PhotoScrollView", typeof(RectTransform), typeof(CanvasGroup), typeof(Image), typeof(ScrollRect), typeof(PhotoSnapScroller));
+        RectTransform scrollRootRect = scrollGo.GetComponent<RectTransform>();
         scrollGo.transform.SetParent(parentSlot, false);
         scrollRootRect.anchorMin = new Vector2(0.02f, 0.02f);
         scrollRootRect.anchorMax = new Vector2(0.98f, 0.98f);
@@ -692,28 +692,26 @@ public class HistoryPanel : MonoBehaviour
         scrollRootRect.pivot = new Vector2(0.5f, 0.5f);
 
         photoCanvasGroup = scrollGo.GetComponent<CanvasGroup>();
-        if (photoCanvasGroup == null) photoCanvasGroup = scrollGo.AddComponent<CanvasGroup>();
 
-        Image scrollBg = scrollGo.AddComponent<Image>();
+        Image scrollBg = scrollGo.GetComponent<Image>();
         scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
         scrollBg.raycastTarget = true;
 
         // 2. Viewport - full height with RectMask2D clipping
-        GameObject viewportGo = new GameObject("Viewport");
-        RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
+        GameObject viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
+        RectTransform viewportRect = viewportGo.GetComponent<RectTransform>();
         viewportGo.transform.SetParent(scrollGo.transform, false);
         viewportRect.anchorMin = Vector2.zero;
         viewportRect.anchorMax = Vector2.one;
         viewportRect.offsetMin = Vector2.zero;
         viewportRect.offsetMax = Vector2.zero;
-        viewportGo.AddComponent<RectMask2D>();
-        Image viewportImg = viewportGo.AddComponent<Image>();
+        Image viewportImg = viewportGo.GetComponent<Image>();
         viewportImg.color = new Color(1f, 1f, 1f, 0.001f);
         viewportImg.raycastTarget = true;
 
         // 3. Content - horizontal layout
-        GameObject contentGo = new GameObject("Content");
-        photoContentRect = contentGo.AddComponent<RectTransform>();
+        GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+        photoContentRect = contentGo.GetComponent<RectTransform>();
         contentGo.transform.SetParent(viewportGo.transform, false);
         photoContentRect.anchorMin = new Vector2(0f, 0f);
         photoContentRect.anchorMax = new Vector2(0f, 1f);
@@ -721,7 +719,7 @@ public class HistoryPanel : MonoBehaviour
         photoContentRect.anchoredPosition = Vector2.zero;
         photoContentRect.sizeDelta = Vector2.zero;
 
-        HorizontalLayoutGroup hlg = contentGo.AddComponent<HorizontalLayoutGroup>();
+        HorizontalLayoutGroup hlg = contentGo.GetComponent<HorizontalLayoutGroup>();
         hlg.spacing = 0f;
         hlg.childAlignment = TextAnchor.MiddleCenter;
         hlg.childControlWidth = false;
@@ -730,12 +728,12 @@ public class HistoryPanel : MonoBehaviour
         hlg.childForceExpandHeight = true;
         hlg.padding = new RectOffset(0, 0, 0, 0);
 
-        ContentSizeFitter csf = contentGo.AddComponent<ContentSizeFitter>();
+        ContentSizeFitter csf = contentGo.GetComponent<ContentSizeFitter>();
         csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
         // 4. ScrollRect - horizontal only with snappy deceleration
-        photoScrollRect = scrollGo.AddComponent<ScrollRect>();
+        photoScrollRect = scrollGo.GetComponent<ScrollRect>();
         photoScrollRect.content = photoContentRect;
         photoScrollRect.viewport = viewportRect;
         photoScrollRect.horizontal = true;
@@ -747,7 +745,7 @@ public class HistoryPanel : MonoBehaviour
         photoScrollRect.scrollSensitivity = 25f;
 
         // 5. Page Snap Controller
-        photoSnapScroller = scrollGo.AddComponent<PhotoSnapScroller>();
+        photoSnapScroller = scrollGo.GetComponent<PhotoSnapScroller>();
         photoSnapScroller.scrollRect = photoScrollRect;
         photoSnapScroller.historyPanel = this;
 
@@ -780,6 +778,7 @@ public class HistoryPanel : MonoBehaviour
             Destroy(photoContentRect.GetChild(i).gameObject);
         }
 
+        Canvas.ForceUpdateCanvases();
         RectTransform viewportRect = photoScrollRect != null ? photoScrollRect.viewport : null;
         float viewportWidth = (viewportRect != null && viewportRect.rect.width > 50f) ? viewportRect.rect.width : 246f;
 
@@ -790,36 +789,36 @@ public class HistoryPanel : MonoBehaviour
             validCount++;
 
             Sprite s = historyImg.sprite;
-            GameObject cardGo = new GameObject("PhotoPage_" + validCount);
+            GameObject cardGo = new GameObject("PhotoPage_" + validCount, typeof(RectTransform), typeof(LayoutElement));
             cardGo.transform.SetParent(photoContentRect, false);
 
-            RectTransform cardRect = cardGo.AddComponent<RectTransform>();
+            RectTransform cardRect = cardGo.GetComponent<RectTransform>();
             cardRect.anchorMin = new Vector2(0f, 0f);
             cardRect.anchorMax = new Vector2(0f, 1f);
             cardRect.pivot = new Vector2(0.5f, 0.5f);
             cardRect.sizeDelta = new Vector2(viewportWidth, 0f);
 
-            LayoutElement le = cardGo.AddComponent<LayoutElement>();
+            LayoutElement le = cardGo.GetComponent<LayoutElement>();
             le.preferredWidth = viewportWidth;
             le.flexibleHeight = 1f;
 
             // Full-mode photo image container
-            GameObject imgGo = new GameObject("Photo");
+            GameObject imgGo = new GameObject("Photo", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(AspectRatioFitter));
             imgGo.transform.SetParent(cardGo.transform, false);
-            RectTransform imgRt = imgGo.AddComponent<RectTransform>();
+            RectTransform imgRt = imgGo.GetComponent<RectTransform>();
             imgRt.anchorMin = Vector2.zero;
             imgRt.anchorMax = Vector2.one;
             imgRt.pivot = new Vector2(0.5f, 0.5f);
             imgRt.offsetMin = Vector2.zero;
             imgRt.offsetMax = Vector2.zero;
 
-            Image imgComp = imgGo.AddComponent<Image>();
+            Image imgComp = imgGo.GetComponent<Image>();
             imgComp.sprite = s;
             imgComp.color = Color.white;
             imgComp.preserveAspect = true;
             imgComp.raycastTarget = true;
 
-            AspectRatioFitter fitter = imgGo.AddComponent<AspectRatioFitter>();
+            AspectRatioFitter fitter = imgGo.GetComponent<AspectRatioFitter>();
             fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             if (s.rect.height > 0f)
             {
@@ -829,27 +828,27 @@ public class HistoryPanel : MonoBehaviour
             // Caption overlay (if present)
             if (!string.IsNullOrEmpty(historyImg.caption))
             {
-                GameObject capGo = new GameObject("Caption");
+                GameObject capGo = new GameObject("Caption", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 capGo.transform.SetParent(cardGo.transform, false);
-                RectTransform capRt = capGo.AddComponent<RectTransform>();
+                RectTransform capRt = capGo.GetComponent<RectTransform>();
                 capRt.anchorMin = new Vector2(0f, 0f);
                 capRt.anchorMax = new Vector2(1f, 0f);
                 capRt.pivot = new Vector2(0.5f, 0f);
                 capRt.anchoredPosition = new Vector2(0f, 36f);
                 capRt.sizeDelta = new Vector2(-20f, 22f);
 
-                Image capBg = capGo.AddComponent<Image>();
+                Image capBg = capGo.GetComponent<Image>();
                 capBg.color = new Color(0f, 0f, 0f, 0.55f);
                 capBg.raycastTarget = false;
 
-                GameObject capTextGo = new GameObject("Text");
+                GameObject capTextGo = new GameObject("Text", typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
                 capTextGo.transform.SetParent(capGo.transform, false);
-                RectTransform textRt = capTextGo.AddComponent<RectTransform>();
+                RectTransform textRt = capTextGo.GetComponent<RectTransform>();
                 textRt.anchorMin = Vector2.zero;
                 textRt.anchorMax = Vector2.one;
                 textRt.sizeDelta = Vector2.zero;
 
-                TextMeshProUGUI capTmp = capTextGo.AddComponent<TextMeshProUGUI>();
+                TextMeshProUGUI capTmp = capTextGo.GetComponent<TextMeshProUGUI>();
                 capTmp.text = historyImg.caption;
                 capTmp.fontSize = 11f;
                 capTmp.alignment = TextAlignmentOptions.Center;
@@ -1035,8 +1034,8 @@ public class HistoryPanel : MonoBehaviour
     {
         if (cachedCircleSprite != null) return cachedCircleSprite;
 
-        int size = 32;
-        float radius = 15f;
+        int size = 64;
+        float radius = 30f;
         float center = size / 2f;
 
         Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
@@ -1175,7 +1174,12 @@ public class HistoryPanel : MonoBehaviour
 
     private void EnsurePhotoDotsContainer()
     {
-        if (photoDotsContainer != null && photoDotsContainer.gameObject != null) return;
+        if (photoDotsContainer != null && photoDotsContainer.gameObject != null)
+        {
+            Image existingBg = photoDotsContainer.GetComponent<Image>();
+            if (existingBg != null) Destroy(existingBg);
+            return;
+        }
         Transform parent = photoScrollRect != null ? photoScrollRect.transform : transform;
         BuildPaginationDotsContainer(parent);
     }
@@ -1184,33 +1188,29 @@ public class HistoryPanel : MonoBehaviour
     {
         if (photoDotsContainer != null && photoDotsContainer.gameObject != null) return;
 
-        GameObject dotsGo = new GameObject("PhotoPaginationDots");
+        GameObject dotsGo = new GameObject("PhotoPaginationDots", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
         photoDotsContainer = dotsGo.transform;
         dotsGo.transform.SetParent(parent, false);
 
-        RectTransform dotsRt = dotsGo.AddComponent<RectTransform>();
+        RectTransform dotsRt = dotsGo.GetComponent<RectTransform>();
         dotsRt.anchorMin = new Vector2(0.5f, 0f);
         dotsRt.anchorMax = new Vector2(0.5f, 0f);
         dotsRt.pivot = new Vector2(0.5f, 0f);
-        dotsRt.anchoredPosition = new Vector2(0f, 10f); // Floating capsule 10px above the bottom of photo area
+        dotsRt.anchoredPosition = new Vector2(0f, 12f); // Floating 12px above the bottom of photo area
 
-        // Sleek translucent dark capsule backdrop ensuring dots are 100% visible against any photo background
-        Image bgImg = dotsGo.AddComponent<Image>();
-        bgImg.sprite = GetOrCreateCapsuleSprite();
-        bgImg.type = Image.Type.Sliced;
-        bgImg.color = new Color(0.05f, 0.05f, 0.08f, 0.70f);
-        bgImg.raycastTarget = false;
+        Image existingBg = dotsGo.GetComponent<Image>();
+        if (existingBg != null) Destroy(existingBg);
 
-        HorizontalLayoutGroup dotsHlg = dotsGo.AddComponent<HorizontalLayoutGroup>();
-        dotsHlg.spacing = 8f;
+        HorizontalLayoutGroup dotsHlg = dotsGo.GetComponent<HorizontalLayoutGroup>();
+        dotsHlg.spacing = 10f;
         dotsHlg.childAlignment = TextAnchor.MiddleCenter;
         dotsHlg.childControlWidth = false;
         dotsHlg.childControlHeight = false;
         dotsHlg.childForceExpandWidth = false;
         dotsHlg.childForceExpandHeight = false;
-        dotsHlg.padding = new RectOffset(12, 12, 5, 5);
+        dotsHlg.padding = new RectOffset(6, 6, 4, 4);
 
-        ContentSizeFitter csf = dotsGo.AddComponent<ContentSizeFitter>();
+        ContentSizeFitter csf = dotsGo.GetComponent<ContentSizeFitter>();
         csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     }
@@ -1244,38 +1244,37 @@ public class HistoryPanel : MonoBehaviour
         for (int i = 0; i < totalPages; i++)
         {
             int pageIndex = i;
-            GameObject dotGo = new GameObject("Dot_" + i);
+            GameObject dotGo = new GameObject("Dot_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
             dotGo.transform.SetParent(photoDotsContainer, false);
 
-            RectTransform dotRt = dotGo.AddComponent<RectTransform>();
+            RectTransform dotRt = dotGo.GetComponent<RectTransform>();
             bool isActive = (i == 0);
-            dotRt.sizeDelta = isActive ? new Vector2(24f, 10f) : new Vector2(10f, 10f);
+            float dotSize = isActive ? 16f : 12f;
+            dotRt.sizeDelta = new Vector2(dotSize, dotSize);
 
-            Image dotImg = dotGo.AddComponent<Image>();
+            Image dotImg = dotGo.GetComponent<Image>();
             dotImg.sprite = circleSprite;
             dotImg.type = Image.Type.Simple;
+            dotImg.preserveAspect = true;
             dotImg.color = isActive ? ActiveDotColor : InactiveDotColor;
             dotImg.raycastTarget = true;
-            dotImg.raycastPadding = new Vector4(-4f, -4f, -4f, -4f); // Expanded hit-test area for easy VR ray selection
+            dotImg.raycastPadding = new Vector4(-8f, -8f, -8f, -8f); // Expanded hit-test area for easy VR ray selection
+
+            // Soft outline so dots are easily visible against both bright and dark photo backgrounds
+            Outline outline = dotGo.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.60f);
+            outline.effectDistance = new Vector2(1f, -1f);
 
             LayoutElement le = dotGo.AddComponent<LayoutElement>();
-            le.preferredWidth = isActive ? 24f : 10f;
-            le.preferredHeight = 10f;
+            le.preferredWidth = dotSize;
+            le.preferredHeight = dotSize;
 
-            Button btn = dotGo.AddComponent<Button>();
+            Button btn = dotGo.GetComponent<Button>();
             btn.targetGraphic = dotImg;
+            btn.transition = Selectable.Transition.None; // Prevent Button from overriding custom Active/Inactive dot colors
             btn.onClick.AddListener(() =>
             {
-                if (photoSnapScroller != null)
-                {
-                    photoSnapScroller.GoToPage(pageIndex);
-                }
-            });
-
-            XRButtonSelection xr = dotGo.AddComponent<XRButtonSelection>();
-            xr.buttonImage = dotImg;
-            xr.onClick.AddListener(() =>
-            {
+                ButtonClickAudio.PlayClickSound();
                 if (photoSnapScroller != null)
                 {
                     photoSnapScroller.GoToPage(pageIndex);
@@ -1298,9 +1297,11 @@ public class HistoryPanel : MonoBehaviour
             bool isActive = (i == activeIndex);
             photoDotImages[i].color = isActive ? ActiveDotColor : InactiveDotColor;
 
+            float dotSize = isActive ? 16f : 12f;
+
             if (photoDotRects != null && i < photoDotRects.Count && photoDotRects[i] != null)
             {
-                photoDotRects[i].sizeDelta = isActive ? new Vector2(24f, 10f) : new Vector2(10f, 10f);
+                photoDotRects[i].sizeDelta = new Vector2(dotSize, dotSize);
             }
 
             if (photoDotImages[i].transform is RectTransform rt)
@@ -1308,7 +1309,8 @@ public class HistoryPanel : MonoBehaviour
                 LayoutElement le = rt.GetComponent<LayoutElement>();
                 if (le != null)
                 {
-                    le.preferredWidth = isActive ? 24f : 10f;
+                    le.preferredWidth = dotSize;
+                    le.preferredHeight = dotSize;
                 }
             }
         }
@@ -2506,6 +2508,8 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IDragHandler,
         if (scrollRect == null) return;
         targetPage = Mathf.Clamp(targetPage, 0, Mathf.Max(0, totalPages - 1));
         currentPage = targetPage;
+
+        scrollRect.velocity = Vector2.zero;
 
         if (historyPanel != null)
         {
