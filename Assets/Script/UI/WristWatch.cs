@@ -199,11 +199,20 @@ public class WristWatch : MonoBehaviour
         {
             b.onClick.RemoveListener(handler);
             b.onClick.AddListener(handler);
+            if (b.targetGraphic != null) b.targetGraphic.raycastTarget = true;
+            if (b.GetComponent<UIButtonAudio>() == null)
+            {
+                b.gameObject.AddComponent<UIButtonAudio>();
+            }
         }
         foreach (XRButtonSelection xr in row.GetComponentsInChildren<XRButtonSelection>(true))
         {
             xr.onClick.RemoveListener(handler);
             xr.onClick.AddListener(handler);
+            if (xr.GetComponent<UIButtonAudio>() == null)
+            {
+                xr.gameObject.AddComponent<UIButtonAudio>();
+            }
         }
     }
 

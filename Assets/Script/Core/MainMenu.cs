@@ -120,6 +120,7 @@ public class MainMenu : MonoBehaviour
                     {
                         btn.onClick.RemoveAllListeners();
                         btn.onClick.AddListener(StartExploration);
+                        if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
                     }
 
                     XRButtonSelection selection = t.GetComponent<XRButtonSelection>();
@@ -127,6 +128,11 @@ public class MainMenu : MonoBehaviour
                     {
                         selection.onClick.RemoveAllListeners();
                         selection.onClick.AddListener(StartExploration);
+                    }
+
+                    if (t.GetComponent<UIButtonAudio>() == null)
+                    {
+                        t.gameObject.AddComponent<UIButtonAudio>();
                     }
                 }
             }

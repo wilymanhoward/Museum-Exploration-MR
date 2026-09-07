@@ -162,6 +162,7 @@ public class BaseGame : MonoBehaviour
 
         closeButton.onClick.RemoveAllListeners();
         closeButton.onClick.AddListener(OnClose);
+        if (closeButton.targetGraphic != null) closeButton.targetGraphic.raycastTarget = true;
 
         // Also wire XRButtonSelection so hand-ray / poke works
         XRButtonSelection xr = closeButton.GetComponent<XRButtonSelection>();
@@ -169,6 +170,11 @@ public class BaseGame : MonoBehaviour
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(OnClose);
+        }
+
+        if (closeButton.GetComponent<UIButtonAudio>() == null)
+        {
+            closeButton.gameObject.AddComponent<UIButtonAudio>();
         }
     }
 

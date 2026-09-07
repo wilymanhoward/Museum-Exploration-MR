@@ -44,20 +44,24 @@ public class Room : MonoBehaviour
         if (closeButton != null)
         {
             closeButton.onClick.AddListener(CloseCanvas);
+            if (closeButton.GetComponent<UIButtonAudio>() == null) closeButton.gameObject.AddComponent<UIButtonAudio>();
         }
         if (closeButtonXR != null)
         {
             closeButtonXR.onClick.AddListener(CloseCanvas);
+            if (closeButtonXR.GetComponent<UIButtonAudio>() == null) closeButtonXR.gameObject.AddComponent<UIButtonAudio>();
         }
 
         // Hook back button click to return to the room list
         if (backButton != null)
         {
             backButton.onClick.AddListener(OnBackPressed);
+            if (backButton.GetComponent<UIButtonAudio>() == null) backButton.gameObject.AddComponent<UIButtonAudio>();
         }
         if (backButtonXR != null)
         {
             backButtonXR.onClick.AddListener(OnBackPressed);
+            if (backButtonXR.GetComponent<UIButtonAudio>() == null) backButtonXR.gameObject.AddComponent<UIButtonAudio>();
         }
 
         EnsureTitleFitsAndClearsCornerButtons();
@@ -233,6 +237,7 @@ public class Room : MonoBehaviour
                 {
                     btn.onClick.RemoveAllListeners();
                     btn.onClick.AddListener(() => OnArtifactSelected(currentArtifact));
+                    if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
                 }
 
                 XRButtonSelection xrBtn = itemObj.GetComponent<XRButtonSelection>();
@@ -241,6 +246,11 @@ public class Room : MonoBehaviour
                 {
                     xrBtn.onClick.RemoveAllListeners();
                     xrBtn.onClick.AddListener(() => OnArtifactSelected(currentArtifact));
+                }
+
+                if (itemObj.GetComponent<UIButtonAudio>() == null)
+                {
+                    itemObj.AddComponent<UIButtonAudio>();
                 }
 
                 index++;

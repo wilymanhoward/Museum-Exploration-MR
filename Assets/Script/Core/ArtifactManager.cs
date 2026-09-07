@@ -627,6 +627,7 @@ public class ArtifactManager : MonoBehaviour
 
             UpdateArtifact(artifact);
         });
+        if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
 
         XRButtonSelection selection = item.GetComponent<XRButtonSelection>();
         if (selection == null) selection = item.AddComponent<XRButtonSelection>();
@@ -634,6 +635,11 @@ public class ArtifactManager : MonoBehaviour
         selection.onClick.AddListener(() => {
             btn.onClick.Invoke();
         });
+
+        if (item.GetComponent<UIButtonAudio>() == null)
+        {
+            item.AddComponent<UIButtonAudio>();
+        }
 
         UnityEngine.UI.Image thumbImg = item.transform.Find("Thumb")?.GetComponent<UnityEngine.UI.Image>();
         if (thumbImg != null)

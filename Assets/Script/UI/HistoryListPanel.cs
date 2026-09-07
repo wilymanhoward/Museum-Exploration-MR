@@ -333,6 +333,7 @@ public class HistoryListPanel : MonoBehaviour
         HistoryData captured = data;
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(() => OnHistoryItemClicked(captured));
+        if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
 
         XRButtonSelection xr = itemObj.GetComponent<XRButtonSelection>();
         if (xr != null)
@@ -340,6 +341,11 @@ public class HistoryListPanel : MonoBehaviour
             xr.scaleTarget = itemObj.GetComponent<RectTransform>();
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(() => OnHistoryItemClicked(captured));
+        }
+
+        if (itemObj.GetComponent<UIButtonAudio>() == null)
+        {
+            itemObj.AddComponent<UIButtonAudio>();
         }
     }
 
@@ -569,21 +575,25 @@ public class HistoryListPanel : MonoBehaviour
         {
             closeButton.onClick.RemoveAllListeners();
             closeButton.onClick.AddListener(ClosePanel);
+            if (closeButton.GetComponent<UIButtonAudio>() == null) closeButton.gameObject.AddComponent<UIButtonAudio>();
         }
         if (closeButtonXR != null)
         {
             closeButtonXR.onClick.RemoveAllListeners();
             closeButtonXR.onClick.AddListener(ClosePanel);
+            if (closeButtonXR.GetComponent<UIButtonAudio>() == null) closeButtonXR.gameObject.AddComponent<UIButtonAudio>();
         }
         if (backButton != null)
         {
             backButton.onClick.RemoveAllListeners();
             backButton.onClick.AddListener(OnBackPressed);
+            if (backButton.GetComponent<UIButtonAudio>() == null) backButton.gameObject.AddComponent<UIButtonAudio>();
         }
         if (backButtonXR != null)
         {
             backButtonXR.onClick.RemoveAllListeners();
             backButtonXR.onClick.AddListener(OnBackPressed);
+            if (backButtonXR.GetComponent<UIButtonAudio>() == null) backButtonXR.gameObject.AddComponent<UIButtonAudio>();
         }
     }
 

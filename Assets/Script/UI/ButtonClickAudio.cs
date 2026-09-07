@@ -12,7 +12,7 @@ public class ButtonClickAudio : MonoBehaviour
     private AudioSource audioSource;
     private AudioClip clickClip;
     private float lastPlayTime = -1f;
-    private const float DEBOUNCE_INTERVAL = 0.03f; // 30ms threshold
+    private const float DEBOUNCE_INTERVAL = 0.04f; // 40ms threshold
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoInitialize()
@@ -70,7 +70,7 @@ public class ButtonClickAudio : MonoBehaviour
     private void Update()
     {
         // Periodically scan for newly instantiated UI buttons (e.g. dynamically spawned room/game list items)
-        if (Time.unscaledTime - lastScanTime > 0.3f)
+        if (Time.unscaledTime - lastScanTime > 0.25f)
         {
             lastScanTime = Time.unscaledTime;
             AttachListenersToAllButtons();
@@ -131,16 +131,61 @@ public class ButtonClickAudio : MonoBehaviour
 
     public void AttachListenersToAllButtons()
     {
+        // 1. Scan all Button components (including inactive)
         Button[] buttons = Object.FindObjectsOfType<Button>(true);
-        foreach (Button b in buttons)
+        for (int i = 0; i < buttons.Length; i++)
         {
+            Button b = buttons[i];
             if (b != null && b.gameObject != null)
             {
-                if (b.gameObject.GetComponent<UIButtonAudio>() == null)
-                {
-                    b.gameObject.AddComponent<UIButtonAudio>();
-                }
+                EnsureButtonAudio(b.gameObject, b.targetGraphic);
             }
+        }
+
+        // 2. Scan all XRButtonSelection components
+        XRButtonSelection[] xrButtons = Object.FindObjectsOfType<XRButtonSelection>(true);
+        for (int i = 0; i < xrButtons.Length; i++)
+        {
+            XRButtonSelection xr = xrButtons[i];
+            if (xr != null && xr.gameObject != null)
+            {
+                EnsureButtonAudio(xr.gameObject, xr.buttonImage);
+            }
+        }
+
+        // 3. Scan all Selectable components
+        Selectable[] selectables = Object.FindObjectsOfType<Selectable>(true);
+        for (int i = 0; i < selectables.Length; i++)
+        {
+            Selectable s = selectables[i];
+            if (s != null && s.gameObject != null)
+            {
+                EnsureButtonAudio(s.gameObject, s.targetGraphic);
+            }
+        }
+    }
+
+    private void EnsureButtonAudio(GameObject go, Graphic graphic)
+    {
+        if (go == null) return;
+
+        UIButtonAudio audioComp = go.GetComponent<UIButtonAudio>();
+        if (audioComp == null)
+        {
+            audioComp = go.AddComponent<UIButtonAudio>();
+        }
+        else
+        {
+            audioComp.AttachButtonClickListener();
+        }
+
+        if (graphic == null)
+        {
+            graphic = go.GetComponent<Graphic>();
+        }
+        if (graphic != null && !graphic.raycastTarget)
+        {
+            graphic.raycastTarget = true;
         }
     }
 }

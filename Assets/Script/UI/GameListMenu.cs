@@ -361,12 +361,18 @@ public class GameListMenu : MonoBehaviour
         {
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(handler);
+            if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
         }
         XRButtonSelection xr = buttonObj.GetComponent<XRButtonSelection>();
         if (xr != null)
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(handler);
+        }
+
+        if (buttonObj.GetComponent<UIButtonAudio>() == null)
+        {
+            buttonObj.AddComponent<UIButtonAudio>();
         }
     }
 

@@ -249,6 +249,8 @@ public class RoomManager : MonoBehaviour
             {
                 findBtnComponent.onClick.RemoveAllListeners();
                 findBtnComponent.onClick.AddListener(OnFindButtonClicked);
+                if (findBtnComponent.targetGraphic != null) findBtnComponent.targetGraphic.raycastTarget = true;
+                if (findBtnComponent.GetComponent<UIButtonAudio>() == null) findBtnComponent.gameObject.AddComponent<UIButtonAudio>();
             }
         }
 
@@ -501,6 +503,7 @@ public class RoomManager : MonoBehaviour
             btn.onClick.AddListener(() => {
                 SelectArtifactFromList(currentArtifact);
             });
+            if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
 
             XRButtonSelection selection = item.GetComponent<XRButtonSelection>();
             if (selection == null) selection = item.AddComponent<XRButtonSelection>();
@@ -508,6 +511,11 @@ public class RoomManager : MonoBehaviour
             selection.onClick.AddListener(() => {
                 btn.onClick.Invoke();
             });
+
+            if (item.GetComponent<UIButtonAudio>() == null)
+            {
+                item.AddComponent<UIButtonAudio>();
+            }
 
             Debug.Log($"Successfully spawned checklist item for artifact '{artifact.artifactName}' (Scanned: {isScanned})");
         }
@@ -1083,6 +1091,7 @@ public class RoomManager : MonoBehaviour
             ChangeRoom(room);
             OpenRoomDetailPanel();
         });
+        if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
 
         XRButtonSelection selection = card.GetComponent<XRButtonSelection>();
         if (selection == null) selection = card.AddComponent<XRButtonSelection>();
@@ -1090,6 +1099,11 @@ public class RoomManager : MonoBehaviour
         selection.onClick.AddListener(() => {
             btn.onClick.Invoke();
         });
+
+        if (card.GetComponent<UIButtonAudio>() == null)
+        {
+            card.AddComponent<UIButtonAudio>();
+        }
 
         GameObject numObj = new GameObject("NumText");
         numObj.transform.SetParent(card.transform, false);

@@ -41,10 +41,12 @@ public class RoomList : MonoBehaviour
         if (closeButton != null)
         {
             closeButton.onClick.AddListener(CloseCanvas);
+            if (closeButton.GetComponent<UIButtonAudio>() == null) closeButton.gameObject.AddComponent<UIButtonAudio>();
         }
         if (closeButtonXR != null)
         {
             closeButtonXR.onClick.AddListener(CloseCanvas);
+            if (closeButtonXR.GetComponent<UIButtonAudio>() == null) closeButtonXR.gameObject.AddComponent<UIButtonAudio>();
         }
 
         WireSejarahButton();
@@ -63,11 +65,13 @@ public class RoomList : MonoBehaviour
         {
             sejarahRoomButton.onClick.RemoveAllListeners();
             sejarahRoomButton.onClick.AddListener(() => OpenHistoryFromRoomList("Ruang Sejarah", "Sejarah Terengganu"));
+            if (sejarahRoomButton.GetComponent<UIButtonAudio>() == null) sejarahRoomButton.gameObject.AddComponent<UIButtonAudio>();
         }
         if (sejarahRoomButtonXR != null)
         {
             sejarahRoomButtonXR.onClick.RemoveAllListeners();
             sejarahRoomButtonXR.onClick.AddListener(() => OpenHistoryFromRoomList("Ruang Sejarah", "Sejarah Terengganu"));
+            if (sejarahRoomButtonXR.GetComponent<UIButtonAudio>() == null) sejarahRoomButtonXR.gameObject.AddComponent<UIButtonAudio>();
         }
         ApplySejarahButtonLabel();
     }
@@ -173,6 +177,7 @@ public class RoomList : MonoBehaviour
                 {
                     btn.onClick.RemoveAllListeners();
                     btn.onClick.AddListener(() => OnRoomSelected(room));
+                    if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
                 }
 
                 XRButtonSelection xrBtn = btnObj.GetComponent<XRButtonSelection>();
@@ -180,6 +185,11 @@ public class RoomList : MonoBehaviour
                 {
                     xrBtn.onClick.RemoveAllListeners();
                     xrBtn.onClick.AddListener(() => OnRoomSelected(room));
+                }
+
+                if (btnObj.GetComponent<UIButtonAudio>() == null)
+                {
+                    btnObj.AddComponent<UIButtonAudio>();
                 }
 
                 roomIndex++;
@@ -247,6 +257,7 @@ public class RoomList : MonoBehaviour
                         btn.onClick.AddListener(() => OnRoomSelected(matchedData));
                     }
                 }
+                if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
             }
 
             XRButtonSelection xrBtn = child.GetComponent<XRButtonSelection>();
@@ -265,6 +276,11 @@ public class RoomList : MonoBehaviour
                         xrBtn.onClick.AddListener(() => OnRoomSelected(matchedData));
                     }
                 }
+            }
+
+            if (child.GetComponent<UIButtonAudio>() == null)
+            {
+                child.gameObject.AddComponent<UIButtonAudio>();
             }
 
             index++;

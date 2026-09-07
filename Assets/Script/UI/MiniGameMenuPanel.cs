@@ -279,9 +279,19 @@ public class MiniGameMenuPanel : MonoBehaviour
     {
         if (obj == null) return;
         Button btn = obj.GetComponent<Button>();
-        if (btn != null) { btn.onClick.RemoveAllListeners(); btn.onClick.AddListener(action); }
+        if (btn != null)
+        {
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(action);
+            if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
+        }
         XRButtonSelection xr = obj.GetComponent<XRButtonSelection>();
         if (xr != null) { xr.onClick.RemoveAllListeners(); xr.onClick.AddListener(action); }
+
+        if (obj.GetComponent<UIButtonAudio>() == null)
+        {
+            obj.AddComponent<UIButtonAudio>();
+        }
     }
 
     private Button FindChildButton(params string[] names)

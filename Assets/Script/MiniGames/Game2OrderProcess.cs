@@ -301,12 +301,18 @@ public class Game2OrderProcess : BaseGame
 
         checkAnswerButton.onClick.RemoveAllListeners();
         checkAnswerButton.onClick.AddListener(OnCheckAnswerPressed);
+        if (checkAnswerButton.targetGraphic != null) checkAnswerButton.targetGraphic.raycastTarget = true;
 
         XRButtonSelection xr = checkAnswerButton.GetComponent<XRButtonSelection>();
         if (xr != null)
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(OnCheckAnswerPressed);
+        }
+
+        if (checkAnswerButton.GetComponent<UIButtonAudio>() == null)
+        {
+            checkAnswerButton.gameObject.AddComponent<UIButtonAudio>();
         }
     }
 

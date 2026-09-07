@@ -1250,6 +1250,8 @@ public class HistoryPanel : MonoBehaviour
                 }
             });
 
+            dotGo.AddComponent<UIButtonAudio>();
+
             photoDotImages.Add(dotImg);
             photoDotRects.Add(dotRt);
         }
@@ -2171,6 +2173,7 @@ public class HistoryPanel : MonoBehaviour
         xr.buttonImage = img;
         Button btn = go.AddComponent<Button>();
         btn.targetGraphic = img;
+        go.AddComponent<UIButtonAudio>();
 
         GameObject labelGo = new GameObject("Glyph");
         labelGo.transform.SetParent(go.transform, false);
@@ -2417,11 +2420,19 @@ public class HistoryPanel : MonoBehaviour
         {
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(action);
+            if (btn.GetComponent<UIButtonAudio>() == null)
+            {
+                btn.gameObject.AddComponent<UIButtonAudio>();
+            }
         }
         if (xr != null)
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(action);
+            if (xr.GetComponent<UIButtonAudio>() == null)
+            {
+                xr.gameObject.AddComponent<UIButtonAudio>();
+            }
         }
     }
 }

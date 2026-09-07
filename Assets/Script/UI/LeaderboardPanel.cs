@@ -650,12 +650,18 @@ public class LeaderboardPanel : MonoBehaviour
         if (btn == null) return;
         btn.onClick.RemoveAllListeners();
         btn.onClick.AddListener(action);
+        if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
 
         XRButtonSelection xr = btn.GetComponent<XRButtonSelection>();
         if (xr != null)
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(action);
+        }
+
+        if (btn.GetComponent<UIButtonAudio>() == null)
+        {
+            btn.gameObject.AddComponent<UIButtonAudio>();
         }
     }
 

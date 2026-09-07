@@ -5,7 +5,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
 
-public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler
+public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerClickHandler
 {
     [Header("Visual Configurations")]
     [Tooltip("Target UI Image to color-transition on hover.")]
@@ -40,6 +40,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
     {
         if (Time.unscaledTime - lastInvokeTime < ClickDebounceSeconds) return;
         lastInvokeTime = Time.unscaledTime;
+        ButtonClickAudio.PlayClickSound();
         onClick.Invoke();
     }
 
@@ -114,8 +115,6 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         {
             buttonImage.color = normalColor;
         }
-
-        onClick.AddListener(ButtonClickAudio.PlayClickSound);
     }
 
     private void Update()
@@ -173,7 +172,6 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         base.OnSelectEntered(args);
         
         Debug.Log($"Button Selected/Pressed: {gameObject.name}");
-        ButtonClickAudio.PlayClickSound();
         InvokeClickOnce();
 
         if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
@@ -213,7 +211,17 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
             if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
         }
         Debug.Log($"Button UI Clicked/Pressed: {gameObject.name}");
-        ButtonClickAudio.PlayClickSound();
+        InvokeClickOnce();
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        }
+        // If PointerDown or OnSelectEntered already handled this pinch/click, InvokeClickOnce debounces it cleanly
         InvokeClickOnce();
     }
     #endregion
