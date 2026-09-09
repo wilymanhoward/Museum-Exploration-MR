@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc55c5d32fd5a2c4cae7404cd20bacc0, type: 3}
+  m_Name: artifact_artifact_room_4_2_Barangan_Tembaga
+  m_EditorClassIdentifier: 
+  artifactId: artifact_room_4_2
+  artifactName: Barangan Tembaga (Acuan Kayu)
+  artist: Pandai Tembaga Tradisional (Kampung Ladang)
+  year: Warisan Abad Ke-18 & Ke-19
+  timePeriod: Zaman Kesultanan Terengganu (Abad Ke-18 - Kini)
+  location: Kampung Ladang, Kuala Terengganu
+  height: 0
+  width: 0
+  length: 0
+  material: Tembaga Kuning (Brass), Acuan Kayu (Anak Kasa), Lilin Lebah, Tanah Kuning,
+    Sekam Padi
+  description: "Pertukangan tembaga merupakan salah satu seni kraf logam tradisional
+    yang paling masyhur di Terengganu, berpusat di Kampung Ladang, Kuala Terengganu
+    sejak abad ke-18. Barangan tembaga kuning Terengganu terkenal dengan mutu buatannya
+    yang halus, tahan lama, dan bergemerlapan keemasan untuk pelbagai kegunaan seperti
+    tepak sirih, periuk tembaga, tempat bara kemenyan, dulang berkaki, dan acuan kuih
+    tradisional.\n\nProses pembuatan barangan tembaga ini menggunakan kaedah tradisi
+    acuan lilin hilang (lost-wax casting) yang berasaskan acuan kayu melalui 5 peringkat
+    utama:\n\n1. Acuan Anak Kasa: Model asas barangan diukir dan dilarik daripada kayu
+    keras (anak kasa) mengikut saiz dan bentuk barangan tembaga yang ingin dihasilkan.\n\n2.
+    Celupan Lilin Cair: Acuan kayu dicelup ke dalam leburan lilin lebah cair bagi membentuk
+    satu lapisan kelongsong lilin yang seragam mengikut bentuk acuan kayu.\n\n3. Celupan
+    Tanah Kuning: Acuan lilin disalut dengan bancuhan lumpur tanah kuning halus yang
+    bertindak sebagai lapisan muka dalam untuk mencetak corak ragam hias dan melicinkan
+    permukaan tembaga.\n\n4. Tampalan Tanah Sekam Padi: Lapisan luar acuan ditampal
+    tebal dengan adunan tanah liat bercampur sekam padi bagi mengukuhkan acuan dan
+    memberi rongga udara ketika dibakar di dalam relau. Apabila dibakar, lilin lebah
+    mencair dan mengalir keluar, meninggalkan rongga kosong bagi penuangan leburan
+    tembaga kuning panas.\n\n5. Tuangan, Mencuci dan Mengilap: Selepas leburan tembaga
+    kuning sejuk dan membeku, acuan tanah dipecahkan. Barang tembaga dibersihkan,
+    dilarik pada mesin pelarik kayu, dan digilap hingga berkilat keemasan."
+  modelPrefab: {fileID: 0}
+  narrationClip: {fileID: 0}
+  instrumentClip: {fileID: 0}
+  images:
+  - sprite: {fileID: 21300000, guid: e670055d214d4495bbfcf49a179c8ae7, type: 3}
+    title: Proses Membuat Barang-Barang Tembaga Menggunakan Acuan Kayu

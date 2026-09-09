@@ -325,12 +325,20 @@ public class ArtifactManager : MonoBehaviour
         string cleanId = id.Trim().ToLower();
         ArtifactData match = null;
 
-        // Helper comparison lambda: matches exact ID, case-insensitive ID, or substring payload
         bool Matches(ArtifactData a)
         {
-            if (a == null || string.IsNullOrEmpty(a.artifactId)) return false;
-            string artId = a.artifactId.Trim().ToLower();
-            return artId == cleanId || cleanId.Contains(artId) || artId.Contains(cleanId);
+            if (a == null) return false;
+            if (!string.IsNullOrEmpty(a.artifactId))
+            {
+                string artId = a.artifactId.Trim().ToLower();
+                if (artId == cleanId || cleanId.Contains(artId) || artId.Contains(cleanId)) return true;
+            }
+            if (!string.IsNullOrEmpty(a.artifactName))
+            {
+                string artName = a.artifactName.Trim().ToLower();
+                if (artName == cleanId || cleanId.Contains(artName) || artName.Contains(cleanId)) return true;
+            }
+            return false;
         }
 
         // 1. Try to find via RoomManager active room or loaded room list

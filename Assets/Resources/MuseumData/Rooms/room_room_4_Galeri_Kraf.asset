@@ -17,4 +17,5 @@ MonoBehaviour:
   roomSubtitle: Pameran Artifak Galeri Kraf
   artifacts:
   - {fileID: 11400000, guid: 3dc025d2230431249ab3960feb953438, type: 2}
+  - {fileID: 11400000, guid: d0b7226ceb304cf99fdc8ebc0bcb8021, type: 2}
   waypoints: []
