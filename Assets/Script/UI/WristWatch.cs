@@ -74,23 +74,19 @@ public class WristWatch : MonoBehaviour
     public static WristWatch Instance { get; private set; }
 
     private Vector3 galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
-    private Vector3 galeriKrafOffset = new Vector3(0f, 0.16f, 0.04f);
 
     private void Awake()
     {
         Instance = this;
 
-        // Ensure Options Panel sits at default height (Y = 0.20f)
+        // Ensure Options Panel sits low near wrist button (Y = 0.20f)
         panelOffset = new Vector3(0f, 0.20f, 0.02f);
 
-        // Ensure List Ruang (Room List) panel sits at default height (Y = 0.54f)
+        // Ensure List Ruang (Room List) panel sits a little bit higher (Y = 0.54f)
         roomListWristOffset = new Vector3(0f, 0.54f, 0.02f);
 
-        // Ensure standard Gallery Panels sit at default height (Y = 0.28f)
+        // Ensure Galery Panel (individual room view) sits lower (Y = 0.28f)
         galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
-
-        // Lower offset specifically for Galeri Kraf (1 artifact) (Y = 0.16f)
-        galeriKrafOffset = new Vector3(0f, 0.16f, 0.04f);
     }
 
     private bool hasAnchorPose;
@@ -186,6 +182,7 @@ public class WristWatch : MonoBehaviour
         {
             Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
             WireRow(t != null ? t.gameObject : null, OnClickArtefak);
+<<<<<<< HEAD
 
             SetupThemeButton();
         }
@@ -350,6 +347,11 @@ public class WristWatch : MonoBehaviour
         ThemeManager.OnThemeChanged -= UpdateThemeButtonVisual;
     }
 
+=======
+        }
+    }
+
+>>>>>>> parent of 30ee11b (Add ThemeManager and UI theme support)
     /// <summary>
     /// Wires every UI Button and XRButtonSelection under <paramref name="row"/> to invoke the
     /// given handler, so tapping the row or its expand icon runs the action. Handlers here are
@@ -363,11 +365,20 @@ public class WristWatch : MonoBehaviour
         {
             b.onClick.RemoveListener(handler);
             b.onClick.AddListener(handler);
+            if (b.targetGraphic != null) b.targetGraphic.raycastTarget = true;
+            if (b.GetComponent<UIButtonAudio>() == null)
+            {
+                b.gameObject.AddComponent<UIButtonAudio>();
+            }
         }
         foreach (XRButtonSelection xr in row.GetComponentsInChildren<XRButtonSelection>(true))
         {
             xr.onClick.RemoveListener(handler);
             xr.onClick.AddListener(handler);
+            if (xr.GetComponent<UIButtonAudio>() == null)
+            {
+                xr.gameObject.AddComponent<UIButtonAudio>();
+            }
         }
     }
 
@@ -687,7 +698,6 @@ public class WristWatch : MonoBehaviour
             // Do not follow hand if showing an Artifact Detail Panel - detail panels must stay fixed in world space!
             bool showingArtifactDetail = false;
             bool showingGalleryRoomPanel = false;
-            Room activeRoom = null;
 
             foreach (Transform child in roomHudCanvas.transform)
             {
@@ -697,11 +707,9 @@ public class WristWatch : MonoBehaviour
                     {
                         showingArtifactDetail = true;
                     }
-                    Room r = child.GetComponent<Room>();
-                    if (r != null || child.name == "RoomPanel")
+                    if (child.name == "RoomPanel" || child.GetComponent<Room>() != null)
                     {
                         showingGalleryRoomPanel = true;
-                        if (r != null) activeRoom = r;
                     }
                 }
             }
@@ -711,20 +719,9 @@ public class WristWatch : MonoBehaviour
                 GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
                 if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
 
-                bool isGaleriKraf = false;
-                if (activeRoom != null)
-                {
-                    string rName = (activeRoom.roomTitleText != null ? activeRoom.roomTitleText.text : "").ToLower();
-                    if (rName.Contains("kraf") || (activeRoom.artifactCountText != null && activeRoom.artifactCountText.text.Contains("1")))
-                    {
-                        isGaleriKraf = true;
-                    }
-                }
-
-                // Use lower galeriKrafOffset (0.16f) ONLY for Galeri Kraf (1 artifact),
-                // standard galleryPanelOffset (0.28f) for all other gallery rooms,
-                // and default roomListWristOffset (0.54f) for the Room List chooser.
-                Vector3 activeOffset = isGaleriKraf ? galeriKrafOffset : (showingGalleryRoomPanel ? galleryPanelOffset : roomListWristOffset);
+                // Use lower galleryPanelOffset (0.28f) when showing a specific gallery room view,
+                // and higher roomListWristOffset (0.54f) when showing the list room chooser panel.
+                Vector3 activeOffset = showingGalleryRoomPanel ? galleryPanelOffset : roomListWristOffset;
                 FollowHand(roomHudCanvas, playerCam, activeOffset);
 
                 foreach (Transform child in roomHudCanvas.transform)

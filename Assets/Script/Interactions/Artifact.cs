@@ -205,12 +205,6 @@ public class Artifact : MonoBehaviour
     private void OnEnable()
     {
         PositionInFrontOfUser();
-        EnsureThemeButton();
-        if (ThemeManager.Instance != null)
-        {
-            ThemeManager.Instance.ApplyToHierarchy(gameObject);
-        }
-        ThemeManager.OnThemeChanged += OnThemeChangedHandler;
     }
 
     public void PositionInFrontOfUser()
@@ -1179,8 +1173,6 @@ public class Artifact : MonoBehaviour
 
     private void OnDisable()
     {
-        ThemeManager.OnThemeChanged -= OnThemeChangedHandler;
-
         // Releasing the narrator slot when this panel is hidden/closed/destroyed keeps the
         // "only one at a time" tracker from pointing at a gone panel. (An inactive GameObject's
         // AudioSource stops on its own.)
@@ -1189,79 +1181,6 @@ public class Artifact : MonoBehaviour
         {
             wasNarrationPlaying = false;
             BGMManager.Instance?.SetDucked(false);
-        }
-    }
-
-    private void OnThemeChangedHandler(UIThemeMode mode)
-    {
-        if (ThemeManager.Instance != null)
-        {
-            ThemeManager.Instance.ApplyToHierarchy(gameObject, mode);
-        }
-        UpdateThemeButtonIcon(mode);
-    }
-
-    private Button themeQuickButton;
-    private XRButtonSelection themeQuickButtonXR;
-    private TMPro.TextMeshProUGUI themeQuickButtonIcon;
-
-    private void EnsureThemeButton()
-    {
-        if (themeQuickButton != null) return;
-        if (closeButton == null) return;
-        Transform parent = closeButton.transform.parent;
-        if (parent == null) return;
-
-        Transform existing = parent.Find("ThemeToggleButton");
-        if (existing != null)
-        {
-            themeQuickButton = existing.GetComponent<Button>();
-            themeQuickButtonXR = existing.GetComponent<XRButtonSelection>();
-            themeQuickButtonIcon = existing.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
-        }
-        else
-        {
-            GameObject tBtnObj = Instantiate(closeButton.gameObject, parent, false);
-            tBtnObj.name = "ThemeToggleButton";
-            themeQuickButton = tBtnObj.GetComponent<Button>();
-            themeQuickButtonXR = tBtnObj.GetComponent<XRButtonSelection>();
-
-            RectTransform cRt = closeButton.GetComponent<RectTransform>();
-            RectTransform tRt = tBtnObj.GetComponent<RectTransform>();
-            if (cRt != null && tRt != null)
-            {
-                tRt.anchoredPosition = cRt.anchoredPosition - new Vector2(38f, 0f);
-            }
-
-            themeQuickButtonIcon = tBtnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
-            if (themeQuickButtonIcon != null)
-            {
-                themeQuickButtonIcon.fontSize = 16;
-            }
-        }
-
-        if (themeQuickButton != null)
-        {
-            themeQuickButton.onClick.RemoveAllListeners();
-            themeQuickButton.onClick.AddListener(() => {
-                if (ThemeManager.Instance != null) ThemeManager.Instance.ToggleTheme();
-            });
-        }
-        if (themeQuickButtonXR != null)
-        {
-            themeQuickButtonXR.onClick.RemoveAllListeners();
-            themeQuickButtonXR.onClick.AddListener(() => {
-                if (ThemeManager.Instance != null) ThemeManager.Instance.ToggleTheme();
-            });
-        }
-        UpdateThemeButtonIcon(ThemeManager.Instance != null ? ThemeManager.Instance.currentTheme : UIThemeMode.Dark);
-    }
-
-    private void UpdateThemeButtonIcon(UIThemeMode mode)
-    {
-        if (themeQuickButtonIcon != null)
-        {
-            themeQuickButtonIcon.text = (mode == UIThemeMode.Light) ? "☀️" : "🌙";
         }
     }
 
