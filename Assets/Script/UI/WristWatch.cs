@@ -138,16 +138,10 @@ public class WristWatch : MonoBehaviour
             UnityEngine.UI.Image panelBg = optionsPanelObj.GetComponent<UnityEngine.UI.Image>();
             if (panelBg == null) panelBg = optionsPanelObj.transform.Find("Background")?.GetComponent<UnityEngine.UI.Image>();
             if (panelBg == null) panelBg = optionsPanelObj.GetComponentInChildren<UnityEngine.UI.Image>();
-            if (panelBg != null && (panelBg.material == null || panelBg.material.name == "Default UI"))
+            // Remove procedural material override so panel displays 2_light/2_dark frosted glass
+            if (panelBg != null && panelBg.material != null && (panelBg.material.name.Contains("OptionsCardBackground") || panelBg.material.name.Contains("RoomHUD")))
             {
-                foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
-                {
-                    if (m != null && (m.name == "Mat_OptionsCardBackground" || m.name == "Mat_RoomHUD"))
-                    {
-                        panelBg.material = m;
-                        break;
-                    }
-                }
+                panelBg.material = null;
             }
         }
 
@@ -171,6 +165,11 @@ public class WristWatch : MonoBehaviour
             if (t != null) roomListPanel = t.gameObject;
         }
 
+        if (gamesPanel == null)
+        {
+            gamesPanel = FindInactiveObject("MiniGamesCanvas") ?? FindInactiveObject("GameListPrefab");
+        }
+
         // Wire the option rows. The row and its "expand" ActionButton (Expand button.png) had no
         // onClick action in the scene, so hook them up here. We wire EVERY Button/XRButtonSelection
         // in each row's subtree so pressing the row OR its expand icon triggers the action.
@@ -188,117 +187,140 @@ public class WristWatch : MonoBehaviour
             Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
             WireRow(t != null ? t.gameObject : null, OnClickArtefak);
 
-            SetupThemeRow();
+            SetupThemeButton();
         }
     }
 
-    private GameObject themeRow;
-    private TMPro.TextMeshProUGUI themeRowLabel;
-    private TMPro.TextMeshProUGUI themeActionIcon;
+    private UnityEngine.UI.Button themeButton;
+    private XRButtonSelection themeButtonXR;
+    private TMPro.TextMeshProUGUI themeButtonIcon;
 
-    private void SetupThemeRow()
+    private void SetupThemeButton()
     {
         if (optionsPanelObj == null) return;
 
-        Transform existingThemeRow = FindDeepChild(optionsPanelObj.transform, "Row_Theme");
-        if (existingThemeRow != null)
+        // Clean up any old Row_Theme if it was created
+        Transform oldRowTheme = FindDeepChild(optionsPanelObj.transform, "Row_Theme");
+        if (oldRowTheme != null)
         {
-            themeRow = existingThemeRow.gameObject;
+            Destroy(oldRowTheme.gameObject);
+        }
+
+        // Restore original 2-row layout of Row_Explore and Row_Artefak
+        Transform exploreT = exploreRow != null ? exploreRow.transform : FindDeepChild(optionsPanelObj.transform, "Row_Explore");
+        if (exploreT != null)
+        {
+            RectTransform eRt = exploreT.GetComponent<RectTransform>();
+            eRt.anchorMin = new Vector2(0.06f, 0.44f);
+            eRt.anchorMax = new Vector2(0.94f, 0.72f);
+        }
+
+        Transform artefakT = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
+        if (artefakT != null)
+        {
+            RectTransform aRt = artefakT.GetComponent<RectTransform>();
+            aRt.anchorMin = new Vector2(0.06f, 0.10f);
+            aRt.anchorMax = new Vector2(0.94f, 0.38f);
+        }
+
+        // Restore Background size
+        Transform bgT = optionsPanelObj.transform.Find("Background") ?? FindDeepChild(optionsPanelObj.transform, "Background");
+        if (bgT != null)
+        {
+            RectTransform bgRt = bgT.GetComponent<RectTransform>();
+            if (bgRt != null)
+            {
+                bgRt.sizeDelta = new Vector2(158.7f, 103.83f);
+                bgRt.anchoredPosition = new Vector2(1.7f, 6.3042f);
+            }
+        }
+
+        // Restore Title TMP
+        Transform titleT = FindDeepChild(optionsPanelObj.transform, "Text (TMP)");
+        if (titleT != null)
+        {
+            RectTransform titleRt = titleT.GetComponent<RectTransform>();
+            titleRt.anchorMin = new Vector2(0.15f, 0.78f);
+            titleRt.anchorMax = new Vector2(0.85f, 0.95f);
+        }
+
+        // Find close button
+        Transform closeT = FindDeepChild(optionsPanelObj.transform, "CloseButton");
+        if (closeT == null) return;
+
+        // Restore close button anchors
+        RectTransform cRt = closeT.GetComponent<RectTransform>();
+        cRt.anchorMin = new Vector2(0.89f, 0.82f);
+        cRt.anchorMax = new Vector2(0.95f, 0.93f);
+        cRt.anchoredPosition = new Vector2(-2f, 8f);
+
+        // Find or create ThemeToggleButton to the left of CloseButton
+        Transform existingThemeBtn = optionsPanelObj.transform.Find("ThemeToggleButton") ?? FindDeepChild(optionsPanelObj.transform, "ThemeToggleButton");
+        GameObject themeBtnObj;
+        if (existingThemeBtn != null)
+        {
+            themeBtnObj = existingThemeBtn.gameObject;
         }
         else
         {
-            Transform templateRow = exploreRow != null ? exploreRow.transform 
-                                : FindDeepChild(optionsPanelObj.transform, "Row_Explore") 
-                               ?? FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
-            if (templateRow == null) return;
-
-            // Expand options panel background height slightly to comfortably fit 3 rows
-            Transform bgT = optionsPanelObj.transform.Find("Background") ?? FindDeepChild(optionsPanelObj.transform, "Background");
-            if (bgT != null)
-            {
-                RectTransform bgRt = bgT.GetComponent<RectTransform>();
-                if (bgRt != null)
-                {
-                    bgRt.sizeDelta = new Vector2(bgRt.sizeDelta.x, 142f);
-                    bgRt.anchoredPosition = new Vector2(bgRt.anchoredPosition.x, 20f);
-                }
-            }
-
-            // Adjust Title & Close button upwards
-            Transform titleT = FindDeepChild(optionsPanelObj.transform, "Text (TMP)");
-            if (titleT != null)
-            {
-                RectTransform tRt = titleT.GetComponent<RectTransform>();
-                tRt.anchorMin = new Vector2(0.12f, 0.84f);
-                tRt.anchorMax = new Vector2(0.85f, 0.97f);
-            }
-            Transform closeT = FindDeepChild(optionsPanelObj.transform, "CloseButton");
-            if (closeT != null)
-            {
-                RectTransform cRt = closeT.GetComponent<RectTransform>();
-                cRt.anchorMin = new Vector2(0.88f, 0.85f);
-                cRt.anchorMax = new Vector2(0.96f, 0.95f);
-            }
-
-            // Reposition Row_Explore and Row_Artefak
-            Transform exploreT = exploreRow != null ? exploreRow.transform : FindDeepChild(optionsPanelObj.transform, "Row_Explore");
-            if (exploreT != null)
-            {
-                RectTransform eRt = exploreT.GetComponent<RectTransform>();
-                eRt.anchorMin = new Vector2(0.06f, 0.58f);
-                eRt.anchorMax = new Vector2(0.94f, 0.82f);
-            }
-
-            Transform artefakT = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
-            if (artefakT != null)
-            {
-                RectTransform aRt = artefakT.GetComponent<RectTransform>();
-                aRt.anchorMin = new Vector2(0.06f, 0.32f);
-                aRt.anchorMax = new Vector2(0.94f, 0.56f);
-            }
-
-            // Clone to create Row_Theme
-            themeRow = Instantiate(templateRow.gameObject, optionsPanelObj.transform, false);
-            themeRow.name = "Row_Theme";
-            RectTransform themeRt = themeRow.GetComponent<RectTransform>();
-            themeRt.anchorMin = new Vector2(0.06f, 0.06f);
-            themeRt.anchorMax = new Vector2(0.94f, 0.30f);
-            themeRt.anchoredPosition = Vector2.zero;
+            themeBtnObj = Instantiate(closeT.gameObject, closeT.parent, false);
+            themeBtnObj.name = "ThemeToggleButton";
         }
 
-        // Configure Row_Theme text & icon
-        TMPro.TextMeshProUGUI[] tmps = themeRow.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true);
-        foreach (var t in tmps)
+        // Position it immediately to the left of the close button with matching scale and height
+        RectTransform btnRt = themeBtnObj.GetComponent<RectTransform>();
+        btnRt.anchorMin = new Vector2(cRt.anchorMin.x - 0.08f, cRt.anchorMin.y);
+        btnRt.anchorMax = new Vector2(cRt.anchorMax.x - 0.08f, cRt.anchorMax.y);
+        btnRt.anchoredPosition = cRt.anchoredPosition;
+        btnRt.sizeDelta = cRt.sizeDelta;
+        btnRt.localScale = cRt.localScale;
+
+        // Deactivate cloned close cross icon child image so it doesn't overlap theme icon
+        UnityEngine.UI.Image[] childImgs = themeBtnObj.GetComponentsInChildren<UnityEngine.UI.Image>(true);
+        foreach (var img in childImgs)
         {
-            if (t.transform.parent == themeRow.transform)
+            if (img.gameObject != themeBtnObj)
             {
-                themeRowLabel = t;
-                break;
+                img.gameObject.SetActive(false);
             }
         }
-        if (themeRowLabel == null && tmps.Length > 0) themeRowLabel = tmps[0];
 
-        Transform actionBtn = FindDeepChild(themeRow.transform, "ActionButton");
-        if (actionBtn != null)
+        // Create or get TextMeshProUGUI for theme icon
+        themeButtonIcon = themeBtnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+        if (themeButtonIcon == null)
         {
-            themeActionIcon = actionBtn.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
-            if (themeActionIcon == null)
-            {
-                GameObject iconObj = new GameObject("ThemeIconTMP");
-                iconObj.transform.SetParent(actionBtn, false);
-                RectTransform iRt = iconObj.AddComponent<RectTransform>();
-                iRt.anchorMin = Vector2.zero;
-                iRt.anchorMax = Vector2.one;
-                iRt.sizeDelta = Vector2.zero;
-                themeActionIcon = iconObj.AddComponent<TMPro.TextMeshProUGUI>();
-                themeActionIcon.alignment = TMPro.TextAlignmentOptions.Center;
-                themeActionIcon.fontSize = 18;
-            }
+            GameObject iconObj = new GameObject("IconText");
+            iconObj.transform.SetParent(themeBtnObj.transform, false);
+            RectTransform iRt = iconObj.AddComponent<RectTransform>();
+            iRt.anchorMin = Vector2.zero;
+            iRt.anchorMax = Vector2.one;
+            iRt.sizeDelta = Vector2.zero;
+            iRt.anchoredPosition = Vector2.zero;
+            iRt.localScale = Vector3.one;
+
+            themeButtonIcon = iconObj.AddComponent<TMPro.TextMeshProUGUI>();
+            themeButtonIcon.alignment = TMPro.TextAlignmentOptions.Center;
+            themeButtonIcon.fontSize = 15;
+            themeButtonIcon.raycastTarget = false;
         }
 
-        WireRow(themeRow, OnClickToggleTheme);
-        ThemeManager.OnThemeChanged += UpdateThemeRowVisual;
-        UpdateThemeRowVisual(ThemeManager.Instance != null ? ThemeManager.Instance.currentTheme : UIThemeMode.Dark);
+        themeButton = themeBtnObj.GetComponent<UnityEngine.UI.Button>();
+        themeButtonXR = themeBtnObj.GetComponent<XRButtonSelection>();
+
+        if (themeButton != null)
+        {
+            themeButton.onClick.RemoveAllListeners();
+            themeButton.onClick.AddListener(OnClickToggleTheme);
+        }
+        if (themeButtonXR != null)
+        {
+            themeButtonXR.onClick.RemoveAllListeners();
+            themeButtonXR.onClick.AddListener(OnClickToggleTheme);
+        }
+
+        ThemeManager.OnThemeChanged -= UpdateThemeButtonVisual;
+        ThemeManager.OnThemeChanged += UpdateThemeButtonVisual;
+        UpdateThemeButtonVisual(ThemeManager.Instance != null ? ThemeManager.Instance.currentTheme : UIThemeMode.Dark);
     }
 
     private void OnClickToggleTheme()
@@ -309,17 +331,13 @@ public class WristWatch : MonoBehaviour
         }
     }
 
-    private void UpdateThemeRowVisual(UIThemeMode mode)
+    private void UpdateThemeButtonVisual(UIThemeMode mode)
     {
         bool isLight = (mode == UIThemeMode.Light);
-        if (themeRowLabel != null)
+        if (themeButtonIcon != null)
         {
-            themeRowLabel.text = isLight ? "Tema: Terang" : "Tema: Gelap";
-        }
-        if (themeActionIcon != null)
-        {
-            themeActionIcon.text = isLight ? "☀️" : "🌙";
-            themeActionIcon.color = isLight ? new Color(0.95f, 0.65f, 0.1f, 1f) : new Color(0.7f, 0.85f, 1f, 1f);
+            themeButtonIcon.text = isLight ? "☀️" : "🌙";
+            themeButtonIcon.color = isLight ? new Color(0.95f, 0.65f, 0.1f, 1f) : new Color(0.7f, 0.85f, 1f, 1f);
         }
         if (optionsPanelObj != null && ThemeManager.Instance != null)
         {
@@ -329,7 +347,7 @@ public class WristWatch : MonoBehaviour
 
     private void OnDestroy()
     {
-        ThemeManager.OnThemeChanged -= UpdateThemeRowVisual;
+        ThemeManager.OnThemeChanged -= UpdateThemeButtonVisual;
     }
 
     /// <summary>
