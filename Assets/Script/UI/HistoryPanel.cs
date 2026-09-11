@@ -611,7 +611,15 @@ public class HistoryPanel : MonoBehaviour
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.sortingOrder = 0;
         }
+        if (canvas.worldCamera == null && Camera.main != null)
+        {
+            canvas.worldCamera = Camera.main;
+        }
         if (GetComponent<GraphicRaycaster>() == null)
+        {
+            gameObject.AddComponent<GraphicRaycaster>();
+        }
+        if (GetComponent<TrackedDeviceGraphicRaycaster>() == null)
         {
             gameObject.AddComponent<TrackedDeviceGraphicRaycaster>();
         }
@@ -2309,6 +2317,15 @@ public class HistoryPanel : MonoBehaviour
     // Audio Controls
     // ─────────────────────────────────────────────────────────────────────────
 
+    public void StopAudio()
+    {
+        if (audioSource != null && audioSource.isPlaying)
+        {
+            audioSource.Stop();
+            UpdatePlayPauseIcons();
+        }
+    }
+
     public void TogglePlayAudio()
     {
         if (audioSource == null || audioSource.clip == null) return;
@@ -2319,6 +2336,7 @@ public class HistoryPanel : MonoBehaviour
         }
         else
         {
+            HistoryManager.StopAllHistoryAudioExcept(this);
             audioSource.Play();
         }
 
@@ -2329,6 +2347,7 @@ public class HistoryPanel : MonoBehaviour
     {
         if (audioSource == null || audioSource.clip == null) return;
 
+        HistoryManager.StopAllHistoryAudioExcept(this);
         audioSource.Stop();
         audioSource.time = 0f;
         audioSource.Play();

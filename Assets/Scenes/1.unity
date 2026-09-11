@@ -6193,8 +6193,8 @@ MonoBehaviour:
   m_Transition: 2
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
-    m_HighlightedColor: {r: 0.9756165, g: 0.98490566, b: 0.48130295, a: 1}
-    m_PressedColor: {r: 0.79099524, g: 0.82641506, b: 0.24792443, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
     m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
     m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
     m_ColorMultiplier: 1
@@ -21898,6 +21898,7 @@ GameObject:
   - component: {fileID: 1779311623}
   - component: {fileID: 1779311622}
   - component: {fileID: 1779311621}
+  - component: {fileID: 1779311624}
   m_Layer: 0
   m_Name: MuseumManager
   m_TagString: Untagged
@@ -21923,6 +21924,21 @@ MonoBehaviour:
   artifactPanelPrefab: {fileID: 6529188949796289641, guid: 11cd1d5ac36309645b34fb7b19802332,
     type: 3}
   selectedArtifact: {fileID: 0}
+--- !u!114 &1779311624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779311620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32338e04627c8a946a0db8c5aedaac0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  historyDatabase: []
+  historyListPanel: {fileID: 655254543}
+  historyDetailPanel: {fileID: 1893831452}
 --- !u!114 &1779311622
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -26369,8 +26385,8 @@ MonoBehaviour:
   m_Transition: 2
   m_Colors:
     m_NormalColor: {r: 1, g: 1, b: 1, a: 1}
-    m_HighlightedColor: {r: 0.9756165, g: 0.98490566, b: 0.48130295, a: 1}
-    m_PressedColor: {r: 0.79099524, g: 0.82641506, b: 0.24792443, a: 1}
+    m_HighlightedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
+    m_PressedColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 1}
     m_SelectedColor: {r: 0.9607843, g: 0.9607843, b: 0.9607843, a: 1}
     m_DisabledColor: {r: 0.78431374, g: 0.78431374, b: 0.78431374, a: 0.5019608}
     m_ColorMultiplier: 1

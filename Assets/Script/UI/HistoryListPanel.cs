@@ -252,7 +252,7 @@ public class HistoryListPanel : MonoBehaviour
             numTmp.text = formattedNum;
             numTmp.fontSize = 13f;
             numTmp.fontStyle = FontStyles.Bold;
-            numTmp.color = new Color(0.95f, 0.82f, 0.42f, 1f);
+            numTmp.color = new Color(0.90f, 0.94f, 0.98f, 1f);
             numTmp.alignment = TextAlignmentOptions.MidlineLeft;
             if (defaultFont != null && numTmp.font == null) numTmp.font = defaultFont;
 
@@ -521,14 +521,11 @@ public class HistoryListPanel : MonoBehaviour
     {
         if (data == null) return;
 
+        // Open/spawn the history detail panel in world space
+        // Keep the list panel open so the user can easily select 2 or more history topics to place simultaneously
         if (HistoryManager.Instance != null)
         {
-            gameObject.SetActive(false);
             HistoryManager.Instance.ShowHistoryDetail(data);
-            if (WristWatch.Instance != null)
-            {
-                WristWatch.Instance.EnsureWatchButtonVisible();
-            }
         }
         else
         {
@@ -539,17 +536,14 @@ public class HistoryListPanel : MonoBehaviour
 
             if (historyDetailPanel != null)
             {
-                gameObject.SetActive(false);
-                historyDetailPanel.Setup(data, () =>
-                {
-                    gameObject.SetActive(true);
-                });
+                historyDetailPanel.Setup(data);
                 historyDetailPanel.OpenPanel();
-                if (WristWatch.Instance != null)
-                {
-                    WristWatch.Instance.EnsureWatchButtonVisible();
-                }
             }
+        }
+
+        if (WristWatch.Instance != null)
+        {
+            WristWatch.Instance.EnsureWatchButtonVisible();
         }
     }
 

@@ -8,7 +8,23 @@ using UnityEngine;
 /// </summary>
 public class HistoryManager : MonoBehaviour
 {
-    public static HistoryManager Instance { get; private set; }
+    private static HistoryManager instance;
+    public static HistoryManager Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = FindObjectOfType<HistoryManager>();
+                if (instance == null)
+                {
+                    GameObject go = new GameObject("HistoryManager");
+                    instance = go.AddComponent<HistoryManager>();
+                }
+            }
+            return instance;
+        }
+    }
 
     [Header("History Database (Auto-loaded from Resources if empty)")]
     [Tooltip("List of all HistoryData ScriptableObjects available in the game. Will auto-detect from Resources if left empty.")]
@@ -23,8 +39,8 @@ public class HistoryManager : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance == null) Instance = this;
-        else { Destroy(this); return; }
+        if (instance == null) instance = this;
+        else if (instance != this) { Destroy(gameObject); return; }
 
         AutoFindPanels();
         EnsureHistoryDatabase();
@@ -63,7 +79,24 @@ public class HistoryManager : MonoBehaviour
         }
     }
 
-    private readonly List<GameObject> activePanelInstances = new List<GameObject>();
+    public readonly List<GameObject> activePanelInstances = new List<GameObject>();
+
+    /// <summary>
+    /// Ensures only one history panel plays audio narration at a time to prevent overlapping audio.
+    /// </summary>
+    public static void StopAllHistoryAudioExcept(HistoryPanel current)
+    {
+        if (Instance == null || Instance.activePanelInstances == null) return;
+        foreach (var p in Instance.activePanelInstances)
+        {
+            if (p == null) continue;
+            var hp = p.GetComponentInChildren<HistoryPanel>(true);
+            if (hp != null && hp != current)
+            {
+                hp.StopAudio();
+            }
+        }
+    }
 
     /// <summary>
     /// Open the HistoryListPanel showing all entries in the history database.
@@ -129,17 +162,20 @@ public class HistoryManager : MonoBehaviour
 
         GameObject newPanelInstance = BuildWorldSpacePanel(historyDetailPanel.gameObject, spawnPos, spawnRot);
         newPanelInstance.name = $"HistoryDetailPanel_{data.name}";
-        newPanelInstance.SetActive(true);
 
         HistoryPanel newHp = newPanelInstance.GetComponentInChildren<HistoryPanel>(true);
         if (newHp != null)
         {
-            newHp.gameObject.SetActive(true);
             newHp.Setup(data, () => {
                 activePanelInstances.Remove(newPanelInstance);
-                Destroy(newPanelInstance);
+                if (newPanelInstance != null && (historyDetailPanel == null || newPanelInstance != historyDetailPanel.gameObject))
+                {
+                    Destroy(newPanelInstance);
+                }
             });
         }
+
+        newPanelInstance.SetActive(true);
 
         // Keep the scene template panel hidden so only the world space instance is displayed
         historyDetailPanel.gameObject.SetActive(false);
@@ -150,53 +186,40 @@ public class HistoryManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Wraps a clone of the HistoryPanel in its own world-space Canvas with graphic raycasters
-    /// and repositioning dragger so multiple panels can float and be interacted with side-by-side.
+    /// Clones the designed HistoryPanel directly into a standalone world-space Canvas
+    /// with graphic raycasters and an ArtifactPanelDragger so multiple panels can float,
+    /// be moved freely, and snap to walls side-by-side.
     /// </summary>
     private GameObject BuildWorldSpacePanel(GameObject source, Vector3 pos, Quaternion rot)
     {
-        RectTransform srcRT = source.GetComponent<RectTransform>();
-        Vector2 size = srcRT != null ? srcRT.sizeDelta : new Vector2(560f, 400f);
-        if (size.x < 100f || size.y < 100f) size = new Vector2(560f, 400f);
+        // Clone the source detail panel directly as an independent root world-space panel
+        GameObject clone = Instantiate(source);
+        clone.transform.SetParent(null, false);
+        clone.transform.position = pos;
+        clone.transform.rotation = rot;
+        clone.transform.localScale = Vector3.one * 0.0011f;
 
-        float worldScale = source.transform.lossyScale.x;
-        if (worldScale <= 0.00001f) worldScale = 0.001f;
-
-        GameObject wrapper = new GameObject("HistoryDetailPanelCanvas");
-        Canvas canvas = wrapper.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        canvas.worldCamera = Camera.main;
-        wrapper.AddComponent<UnityEngine.UI.CanvasScaler>();
-        wrapper.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-
-        // XR ray/poke UI raycaster so the panel's buttons are clickable with VR hands/controllers
-        if (wrapper.GetComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>() == null)
-            wrapper.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
-
-        // Pinch-and-hold dragger for repositioning panels freely in world space
-        if (wrapper.GetComponent<ArtifactPanelDragger>() == null)
-            wrapper.AddComponent<ArtifactPanelDragger>();
-
-        RectTransform wrt = wrapper.GetComponent<RectTransform>();
-        wrt.sizeDelta = size;
-        wrapper.transform.position = pos;
-        wrapper.transform.rotation = rot;
-        wrapper.transform.localScale = Vector3.one * worldScale;
-
-        // Clone the designed panel under the wrapper and stretch it to fill
-        GameObject panel = Instantiate(source, wrapper.transform);
-        panel.SetActive(true);
-        RectTransform prt = panel.GetComponent<RectTransform>();
-        if (prt != null)
+        // Ensure it has its own world-space Canvas
+        Canvas canvas = clone.GetComponent<Canvas>();
+        if (canvas == null)
         {
-            prt.localScale = Vector3.one;
-            prt.localRotation = Quaternion.identity;
-            prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0.5f, 0.5f);
-            prt.sizeDelta = size;
-            prt.anchoredPosition = Vector2.zero;
+            canvas = clone.AddComponent<Canvas>();
         }
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.sortingOrder = 0;
+        if (Camera.main != null) canvas.worldCamera = Camera.main;
 
-        return wrapper;
+        // Ensure UI and XR raycasters
+        if (clone.GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
+            clone.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        if (clone.GetComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>() == null)
+            clone.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
+
+        // Ensure pinch-and-hold dragger and wall-snapping
+        if (clone.GetComponent<ArtifactPanelDragger>() == null)
+            clone.AddComponent<ArtifactPanelDragger>();
+
+        return clone;
     }
 
     /// <summary>
@@ -228,7 +251,14 @@ public class HistoryManager : MonoBehaviour
         foreach (GameObject panel in activePanelInstances)
         {
             if (panel == null) continue;
-            Destroy(panel);
+            if (historyDetailPanel != null && panel == historyDetailPanel.gameObject)
+            {
+                panel.SetActive(false);
+            }
+            else
+            {
+                Destroy(panel);
+            }
         }
         activePanelInstances.Clear();
 

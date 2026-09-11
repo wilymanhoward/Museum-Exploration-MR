@@ -526,14 +526,14 @@ public class RoomManager : MonoBehaviour
         if (item == null || artifact == null) return;
 
         TMPro.TMP_FontAsset fontAsset = GetDefaultTMPFont();
-        Color paleYellow = new Color(0.90f, 0.93f, 0.63f, 1.0f); // #E5EE9C
+        Color primaryTextColor = new Color(0.92f, 0.95f, 0.98f, 1.0f); // Clean silver-white
         Color visitedGreen = new Color(0.55f, 0.89f, 0.63f, 1.0f); // #8BE4A0
         Color unvisitedGray = new Color(0.88f, 0.88f, 0.88f, 1.0f); // #E0E0E0
 
         // 1. Card Background Image
         UnityEngine.UI.Image bgImage = item.GetComponent<UnityEngine.UI.Image>();
         if (bgImage == null) bgImage = item.AddComponent<UnityEngine.UI.Image>();
-        bgImage.color = new Color(0.25f, 0.28f, 0.22f, 0.75f);
+        bgImage.color = new Color(0.16f, 0.18f, 0.22f, 0.75f);
 
         if (rowCardMaterial == null)
         {
@@ -662,7 +662,7 @@ public class RoomManager : MonoBehaviour
         numTextComp.text = (index >= 0 ? index + 1 : 1).ToString("00");
         numTextComp.fontSize = 18;
         numTextComp.fontStyle = FontStyles.Bold;
-        numTextComp.color = paleYellow;
+        numTextComp.color = primaryTextColor;
         numTextComp.alignment = TextAlignmentOptions.Left;
 
         // Build NameText if missing
@@ -683,7 +683,7 @@ public class RoomManager : MonoBehaviour
         nameTextComp.fontSizeMin = 10f;
         nameTextComp.fontSizeMax = 20f;
         nameTextComp.fontStyle = FontStyles.Bold;
-        nameTextComp.color = paleYellow;
+        nameTextComp.color = primaryTextColor;
         nameTextComp.alignment = TextAlignmentOptions.Left;
         nameTextComp.overflowMode = TextOverflowModes.Ellipsis;
 
@@ -1069,11 +1069,11 @@ public class RoomManager : MonoBehaviour
 
         if (isActiveRoom)
         {
-            bgImg.color = new Color(0.71f, 0.76f, 0.41f, 0.95f);
+            bgImg.color = new Color(0.38f, 0.45f, 0.56f, 0.95f);
         }
         else
         {
-            bgImg.color = new Color(0.35f, 0.38f, 0.33f, 0.85f);
+            bgImg.color = new Color(0.18f, 0.20f, 0.24f, 0.85f);
         }
 
         RectTransform rt = card.GetComponent<RectTransform>();
@@ -1116,7 +1116,7 @@ public class RoomManager : MonoBehaviour
         numText.text = index.ToString("D2");
         numText.fontSize = 16;
         numText.fontStyle = TMPro.FontStyles.Bold;
-        numText.color = isActiveRoom ? Color.white : new Color(0.85f, 0.89f, 0.58f);
+        numText.color = isActiveRoom ? Color.white : new Color(0.85f, 0.90f, 0.98f, 1f);
         numText.alignment = TMPro.TextAlignmentOptions.Center;
 
         GameObject nameObj = new GameObject("NameText");
