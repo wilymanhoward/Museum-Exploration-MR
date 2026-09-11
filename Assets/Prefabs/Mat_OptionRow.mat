@@ -34,5 +34,5 @@ Material:
     - _CornerRadius: 0.12
     m_Colors:
     - _BorderColor: {r: 0.48, g: 0.52, b: 0.43, a: 0.8}
-    - _Color: {r: 0.35, g: 0.38, b: 0.31, a: 0.88}
+    - _Color: {r: 0.15, g: 0.16, b: 0.18, a: 0.72}
   m_BuildTextureStacks: []

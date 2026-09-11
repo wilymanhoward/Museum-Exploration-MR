@@ -32,8 +32,8 @@ Material:
     - _Aspect: 1.33
     - _CornerRadius: 0.08
     - _DotGridSize: 14
-    - _DotRadius: 0.08
+    - _DotRadius: 0.05
     m_Colors:
-    - _Color: {r: 0.42999998, g: 0.45999992, b: 0.37999994, a: 0.94}
-    - _DotColor: {r: 0.27999997, g: 0.29999998, b: 0.24999997, a: 0.5}
+    - _Color: {r: 0.11, g: 0.12, b: 0.14, a: 0.72}
+    - _DotColor: {r: 0.28, g: 0.30, b: 0.25, a: 0.40}
   m_BuildTextureStacks: []
