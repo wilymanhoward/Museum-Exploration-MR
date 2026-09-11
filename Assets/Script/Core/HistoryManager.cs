@@ -177,6 +177,11 @@ public class HistoryManager : MonoBehaviour
 
         newPanelInstance.SetActive(true);
 
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(newPanelInstance);
+        }
+
         // Keep the scene template panel hidden so only the world space instance is displayed
         historyDetailPanel.gameObject.SetActive(false);
 

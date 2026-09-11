@@ -119,8 +119,13 @@ public class HistoryPanel : MonoBehaviour
     private readonly System.Collections.Generic.List<Image> photoDotImages = new System.Collections.Generic.List<Image>();
     private readonly System.Collections.Generic.List<RectTransform> photoDotRects = new System.Collections.Generic.List<RectTransform>();
 
-    private static readonly Color ActiveDotColor = new Color(1.0f, 0.84f, 0.20f, 1f); // Bright Gold accent (#FFD700)
-    private static readonly Color InactiveDotColor = new Color(1f, 1f, 1f, 0.70f);    // Crisp translucent white (70% alpha)
+    private static Color ActiveDotColor => (ThemeManager.Instance != null && ThemeManager.Instance.currentTheme == UIThemeMode.Light)
+        ? new Color(0.12f, 0.45f, 0.85f, 1f)
+        : new Color(1.0f, 0.84f, 0.20f, 1f); // Bright Gold accent (#FFD700)
+
+    private static Color InactiveDotColor => (ThemeManager.Instance != null && ThemeManager.Instance.currentTheme == UIThemeMode.Light)
+        ? new Color(0.25f, 0.30f, 0.40f, 0.45f)
+        : new Color(1f, 1f, 1f, 0.70f);    // Crisp translucent white (70% alpha)
 
     private struct RectTransformSnapshot
     {
@@ -1305,6 +1310,85 @@ public class HistoryPanel : MonoBehaviour
         AutoWireButtons();
         UpdatePlayPauseIcons();
         ResetMediaToImageState();
+
+        EnsureThemeButton();
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
+        ThemeManager.OnThemeChanged += OnThemeChangedHandler;
+    }
+
+    private void OnDisable()
+    {
+        ThemeManager.OnThemeChanged -= OnThemeChangedHandler;
+    }
+
+    private void OnThemeChangedHandler(UIThemeMode mode)
+    {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject, mode);
+        }
+        UpdateThemeButtonIcon(mode);
+        UpdatePaginationDots(currentImageIndex);
+    }
+
+    private Button themeQuickButton;
+    private XRButtonSelection themeQuickButtonXR;
+    private TMPro.TextMeshProUGUI themeQuickButtonIcon;
+
+    private void EnsureThemeButton()
+    {
+        if (themeQuickButton != null) return;
+        Transform ctrlButtons = transform.Find("ControlButtons");
+        if (ctrlButtons == null && closeButton != null) ctrlButtons = closeButton.transform.parent;
+        if (ctrlButtons != null)
+        {
+            Transform existing = ctrlButtons.Find("ThemeToggleButton");
+            if (existing != null)
+            {
+                themeQuickButton = existing.GetComponent<Button>();
+                themeQuickButtonXR = existing.GetComponent<XRButtonSelection>();
+                themeQuickButtonIcon = existing.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+            }
+            else if (closeButton != null)
+            {
+                GameObject tBtnObj = Instantiate(closeButton.gameObject, ctrlButtons, false);
+                tBtnObj.name = "ThemeToggleButton";
+                themeQuickButton = tBtnObj.GetComponent<Button>();
+                themeQuickButtonXR = tBtnObj.GetComponent<XRButtonSelection>();
+
+                RectTransform cRt = closeButton.GetComponent<RectTransform>();
+                RectTransform tRt = tBtnObj.GetComponent<RectTransform>();
+                if (cRt != null && tRt != null)
+                {
+                    tRt.anchoredPosition = cRt.anchoredPosition - new Vector2(38f, 0f);
+                }
+
+                themeQuickButtonIcon = tBtnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+                if (themeQuickButtonIcon != null)
+                {
+                    themeQuickButtonIcon.fontSize = 16;
+                }
+            }
+        }
+
+        if (themeQuickButton != null)
+        {
+            WireButton(themeQuickButton, themeQuickButtonXR, () => {
+                if (ThemeManager.Instance != null) ThemeManager.Instance.ToggleTheme();
+            });
+            UpdateThemeButtonIcon(ThemeManager.Instance != null ? ThemeManager.Instance.currentTheme : UIThemeMode.Dark);
+        }
+    }
+
+    private void UpdateThemeButtonIcon(UIThemeMode mode)
+    {
+        if (themeQuickButtonIcon != null)
+        {
+            themeQuickButtonIcon.text = (mode == UIThemeMode.Light) ? "☀️" : "🌙";
+        }
     }
 
     private void Update()

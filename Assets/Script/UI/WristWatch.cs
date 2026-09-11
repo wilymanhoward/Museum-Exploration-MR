@@ -74,19 +74,23 @@ public class WristWatch : MonoBehaviour
     public static WristWatch Instance { get; private set; }
 
     private Vector3 galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
+    private Vector3 galeriKrafOffset = new Vector3(0f, 0.16f, 0.04f);
 
     private void Awake()
     {
         Instance = this;
 
-        // Ensure Options Panel sits low near wrist button (Y = 0.20f)
+        // Ensure Options Panel sits at default height (Y = 0.20f)
         panelOffset = new Vector3(0f, 0.20f, 0.02f);
 
-        // Ensure List Ruang (Room List) panel sits a little bit higher (Y = 0.54f)
+        // Ensure List Ruang (Room List) panel sits at default height (Y = 0.54f)
         roomListWristOffset = new Vector3(0f, 0.54f, 0.02f);
 
-        // Ensure Galery Panel (individual room view) sits lower (Y = 0.28f)
+        // Ensure standard Gallery Panels sit at default height (Y = 0.28f)
         galleryPanelOffset = new Vector3(0f, 0.28f, 0.02f);
+
+        // Lower offset specifically for Galeri Kraf (1 artifact) (Y = 0.16f)
+        galeriKrafOffset = new Vector3(0f, 0.16f, 0.04f);
     }
 
     private bool hasAnchorPose;
@@ -183,7 +187,149 @@ public class WristWatch : MonoBehaviour
         {
             Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
             WireRow(t != null ? t.gameObject : null, OnClickArtefak);
+
+            SetupThemeRow();
         }
+    }
+
+    private GameObject themeRow;
+    private TMPro.TextMeshProUGUI themeRowLabel;
+    private TMPro.TextMeshProUGUI themeActionIcon;
+
+    private void SetupThemeRow()
+    {
+        if (optionsPanelObj == null) return;
+
+        Transform existingThemeRow = FindDeepChild(optionsPanelObj.transform, "Row_Theme");
+        if (existingThemeRow != null)
+        {
+            themeRow = existingThemeRow.gameObject;
+        }
+        else
+        {
+            Transform templateRow = exploreRow != null ? exploreRow.transform 
+                                : FindDeepChild(optionsPanelObj.transform, "Row_Explore") 
+                               ?? FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
+            if (templateRow == null) return;
+
+            // Expand options panel background height slightly to comfortably fit 3 rows
+            Transform bgT = optionsPanelObj.transform.Find("Background") ?? FindDeepChild(optionsPanelObj.transform, "Background");
+            if (bgT != null)
+            {
+                RectTransform bgRt = bgT.GetComponent<RectTransform>();
+                if (bgRt != null)
+                {
+                    bgRt.sizeDelta = new Vector2(bgRt.sizeDelta.x, 142f);
+                    bgRt.anchoredPosition = new Vector2(bgRt.anchoredPosition.x, 20f);
+                }
+            }
+
+            // Adjust Title & Close button upwards
+            Transform titleT = FindDeepChild(optionsPanelObj.transform, "Text (TMP)");
+            if (titleT != null)
+            {
+                RectTransform tRt = titleT.GetComponent<RectTransform>();
+                tRt.anchorMin = new Vector2(0.12f, 0.84f);
+                tRt.anchorMax = new Vector2(0.85f, 0.97f);
+            }
+            Transform closeT = FindDeepChild(optionsPanelObj.transform, "CloseButton");
+            if (closeT != null)
+            {
+                RectTransform cRt = closeT.GetComponent<RectTransform>();
+                cRt.anchorMin = new Vector2(0.88f, 0.85f);
+                cRt.anchorMax = new Vector2(0.96f, 0.95f);
+            }
+
+            // Reposition Row_Explore and Row_Artefak
+            Transform exploreT = exploreRow != null ? exploreRow.transform : FindDeepChild(optionsPanelObj.transform, "Row_Explore");
+            if (exploreT != null)
+            {
+                RectTransform eRt = exploreT.GetComponent<RectTransform>();
+                eRt.anchorMin = new Vector2(0.06f, 0.58f);
+                eRt.anchorMax = new Vector2(0.94f, 0.82f);
+            }
+
+            Transform artefakT = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
+            if (artefakT != null)
+            {
+                RectTransform aRt = artefakT.GetComponent<RectTransform>();
+                aRt.anchorMin = new Vector2(0.06f, 0.32f);
+                aRt.anchorMax = new Vector2(0.94f, 0.56f);
+            }
+
+            // Clone to create Row_Theme
+            themeRow = Instantiate(templateRow.gameObject, optionsPanelObj.transform, false);
+            themeRow.name = "Row_Theme";
+            RectTransform themeRt = themeRow.GetComponent<RectTransform>();
+            themeRt.anchorMin = new Vector2(0.06f, 0.06f);
+            themeRt.anchorMax = new Vector2(0.94f, 0.30f);
+            themeRt.anchoredPosition = Vector2.zero;
+        }
+
+        // Configure Row_Theme text & icon
+        TMPro.TextMeshProUGUI[] tmps = themeRow.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true);
+        foreach (var t in tmps)
+        {
+            if (t.transform.parent == themeRow.transform)
+            {
+                themeRowLabel = t;
+                break;
+            }
+        }
+        if (themeRowLabel == null && tmps.Length > 0) themeRowLabel = tmps[0];
+
+        Transform actionBtn = FindDeepChild(themeRow.transform, "ActionButton");
+        if (actionBtn != null)
+        {
+            themeActionIcon = actionBtn.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+            if (themeActionIcon == null)
+            {
+                GameObject iconObj = new GameObject("ThemeIconTMP");
+                iconObj.transform.SetParent(actionBtn, false);
+                RectTransform iRt = iconObj.AddComponent<RectTransform>();
+                iRt.anchorMin = Vector2.zero;
+                iRt.anchorMax = Vector2.one;
+                iRt.sizeDelta = Vector2.zero;
+                themeActionIcon = iconObj.AddComponent<TMPro.TextMeshProUGUI>();
+                themeActionIcon.alignment = TMPro.TextAlignmentOptions.Center;
+                themeActionIcon.fontSize = 18;
+            }
+        }
+
+        WireRow(themeRow, OnClickToggleTheme);
+        ThemeManager.OnThemeChanged += UpdateThemeRowVisual;
+        UpdateThemeRowVisual(ThemeManager.Instance != null ? ThemeManager.Instance.currentTheme : UIThemeMode.Dark);
+    }
+
+    private void OnClickToggleTheme()
+    {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ToggleTheme();
+        }
+    }
+
+    private void UpdateThemeRowVisual(UIThemeMode mode)
+    {
+        bool isLight = (mode == UIThemeMode.Light);
+        if (themeRowLabel != null)
+        {
+            themeRowLabel.text = isLight ? "Tema: Terang" : "Tema: Gelap";
+        }
+        if (themeActionIcon != null)
+        {
+            themeActionIcon.text = isLight ? "☀️" : "🌙";
+            themeActionIcon.color = isLight ? new Color(0.95f, 0.65f, 0.1f, 1f) : new Color(0.7f, 0.85f, 1f, 1f);
+        }
+        if (optionsPanelObj != null && ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(optionsPanelObj, mode);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        ThemeManager.OnThemeChanged -= UpdateThemeRowVisual;
     }
 
     /// <summary>
@@ -199,20 +345,11 @@ public class WristWatch : MonoBehaviour
         {
             b.onClick.RemoveListener(handler);
             b.onClick.AddListener(handler);
-            if (b.targetGraphic != null) b.targetGraphic.raycastTarget = true;
-            if (b.GetComponent<UIButtonAudio>() == null)
-            {
-                b.gameObject.AddComponent<UIButtonAudio>();
-            }
         }
         foreach (XRButtonSelection xr in row.GetComponentsInChildren<XRButtonSelection>(true))
         {
             xr.onClick.RemoveListener(handler);
             xr.onClick.AddListener(handler);
-            if (xr.GetComponent<UIButtonAudio>() == null)
-            {
-                xr.gameObject.AddComponent<UIButtonAudio>();
-            }
         }
     }
 
@@ -532,6 +669,7 @@ public class WristWatch : MonoBehaviour
             // Do not follow hand if showing an Artifact Detail Panel - detail panels must stay fixed in world space!
             bool showingArtifactDetail = false;
             bool showingGalleryRoomPanel = false;
+            Room activeRoom = null;
 
             foreach (Transform child in roomHudCanvas.transform)
             {
@@ -541,9 +679,11 @@ public class WristWatch : MonoBehaviour
                     {
                         showingArtifactDetail = true;
                     }
-                    if (child.name == "RoomPanel" || child.GetComponent<Room>() != null)
+                    Room r = child.GetComponent<Room>();
+                    if (r != null || child.name == "RoomPanel")
                     {
                         showingGalleryRoomPanel = true;
+                        if (r != null) activeRoom = r;
                     }
                 }
             }
@@ -553,9 +693,20 @@ public class WristWatch : MonoBehaviour
                 GlanceableHUD gHUD = roomHudCanvas.GetComponent<GlanceableHUD>();
                 if (gHUD != null && gHUD.enabled) gHUD.enabled = false;
 
-                // Use lower galleryPanelOffset (0.28f) when showing a specific gallery room view,
-                // and higher roomListWristOffset (0.54f) when showing the list room chooser panel.
-                Vector3 activeOffset = showingGalleryRoomPanel ? galleryPanelOffset : roomListWristOffset;
+                bool isGaleriKraf = false;
+                if (activeRoom != null)
+                {
+                    string rName = (activeRoom.roomTitleText != null ? activeRoom.roomTitleText.text : "").ToLower();
+                    if (rName.Contains("kraf") || (activeRoom.artifactCountText != null && activeRoom.artifactCountText.text.Contains("1")))
+                    {
+                        isGaleriKraf = true;
+                    }
+                }
+
+                // Use lower galeriKrafOffset (0.16f) ONLY for Galeri Kraf (1 artifact),
+                // standard galleryPanelOffset (0.28f) for all other gallery rooms,
+                // and default roomListWristOffset (0.54f) for the Room List chooser.
+                Vector3 activeOffset = isGaleriKraf ? galeriKrafOffset : (showingGalleryRoomPanel ? galleryPanelOffset : roomListWristOffset);
                 FollowHand(roomHudCanvas, playerCam, activeOffset);
 
                 foreach (Transform child in roomHudCanvas.transform)

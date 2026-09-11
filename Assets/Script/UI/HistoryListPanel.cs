@@ -69,6 +69,25 @@ public class HistoryListPanel : MonoBehaviour
         WireControlButtons();
         SetupTwoColumnLayout();
         PopulateHistoryList();
+
+        ThemeManager.OnThemeChanged += OnThemeChangedHandler;
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
+    }
+
+    private void OnDisable()
+    {
+        ThemeManager.OnThemeChanged -= OnThemeChangedHandler;
+    }
+
+    private void OnThemeChangedHandler(UIThemeMode mode)
+    {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject, mode);
+        }
     }
 
     /// <summary>
