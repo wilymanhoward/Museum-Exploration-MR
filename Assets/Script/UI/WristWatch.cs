@@ -183,6 +183,7 @@ public class WristWatch : MonoBehaviour
             Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
             WireRow(t != null ? t.gameObject : null, OnClickArtefak);
 <<<<<<< HEAD
+<<<<<<< HEAD
 
             SetupThemeButton();
         }
@@ -347,6 +348,11 @@ public class WristWatch : MonoBehaviour
         ThemeManager.OnThemeChanged -= UpdateThemeButtonVisual;
     }
 
+=======
+        }
+    }
+
+>>>>>>> parent of 30ee11b (Add ThemeManager and UI theme support)
 =======
         }
     }
