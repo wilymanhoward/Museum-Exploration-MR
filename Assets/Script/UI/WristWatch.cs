@@ -134,16 +134,10 @@ public class WristWatch : MonoBehaviour
             UnityEngine.UI.Image panelBg = optionsPanelObj.GetComponent<UnityEngine.UI.Image>();
             if (panelBg == null) panelBg = optionsPanelObj.transform.Find("Background")?.GetComponent<UnityEngine.UI.Image>();
             if (panelBg == null) panelBg = optionsPanelObj.GetComponentInChildren<UnityEngine.UI.Image>();
-            if (panelBg != null && (panelBg.material == null || panelBg.material.name == "Default UI"))
+            // Remove procedural material override so panel displays 2_light/2_dark frosted glass
+            if (panelBg != null && panelBg.material != null && (panelBg.material.name.Contains("OptionsCardBackground") || panelBg.material.name.Contains("RoomHUD")))
             {
-                foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
-                {
-                    if (m != null && (m.name == "Mat_OptionsCardBackground" || m.name == "Mat_RoomHUD"))
-                    {
-                        panelBg.material = m;
-                        break;
-                    }
-                }
+                panelBg.material = null;
             }
         }
 
@@ -167,6 +161,11 @@ public class WristWatch : MonoBehaviour
             if (t != null) roomListPanel = t.gameObject;
         }
 
+        if (gamesPanel == null)
+        {
+            gamesPanel = FindInactiveObject("MiniGamesCanvas") ?? FindInactiveObject("GameListPrefab");
+        }
+
         // Wire the option rows. The row and its "expand" ActionButton (Expand button.png) had no
         // onClick action in the scene, so hook them up here. We wire EVERY Button/XRButtonSelection
         // in each row's subtree so pressing the row OR its expand icon triggers the action.
@@ -183,9 +182,182 @@ public class WristWatch : MonoBehaviour
         {
             Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
             WireRow(t != null ? t.gameObject : null, OnClickArtefak);
+<<<<<<< HEAD
+<<<<<<< HEAD
+
+            SetupThemeButton();
         }
     }
 
+    private UnityEngine.UI.Button themeButton;
+    private XRButtonSelection themeButtonXR;
+    private TMPro.TextMeshProUGUI themeButtonIcon;
+
+    private void SetupThemeButton()
+    {
+        if (optionsPanelObj == null) return;
+
+        // Clean up any old Row_Theme if it was created
+        Transform oldRowTheme = FindDeepChild(optionsPanelObj.transform, "Row_Theme");
+        if (oldRowTheme != null)
+        {
+            Destroy(oldRowTheme.gameObject);
+        }
+
+        // Restore original 2-row layout of Row_Explore and Row_Artefak
+        Transform exploreT = exploreRow != null ? exploreRow.transform : FindDeepChild(optionsPanelObj.transform, "Row_Explore");
+        if (exploreT != null)
+        {
+            RectTransform eRt = exploreT.GetComponent<RectTransform>();
+            eRt.anchorMin = new Vector2(0.06f, 0.44f);
+            eRt.anchorMax = new Vector2(0.94f, 0.72f);
+        }
+
+        Transform artefakT = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
+        if (artefakT != null)
+        {
+            RectTransform aRt = artefakT.GetComponent<RectTransform>();
+            aRt.anchorMin = new Vector2(0.06f, 0.10f);
+            aRt.anchorMax = new Vector2(0.94f, 0.38f);
+        }
+
+        // Restore Background size
+        Transform bgT = optionsPanelObj.transform.Find("Background") ?? FindDeepChild(optionsPanelObj.transform, "Background");
+        if (bgT != null)
+        {
+            RectTransform bgRt = bgT.GetComponent<RectTransform>();
+            if (bgRt != null)
+            {
+                bgRt.sizeDelta = new Vector2(158.7f, 103.83f);
+                bgRt.anchoredPosition = new Vector2(1.7f, 6.3042f);
+            }
+        }
+
+        // Restore Title TMP
+        Transform titleT = FindDeepChild(optionsPanelObj.transform, "Text (TMP)");
+        if (titleT != null)
+        {
+            RectTransform titleRt = titleT.GetComponent<RectTransform>();
+            titleRt.anchorMin = new Vector2(0.15f, 0.78f);
+            titleRt.anchorMax = new Vector2(0.85f, 0.95f);
+        }
+
+        // Find close button
+        Transform closeT = FindDeepChild(optionsPanelObj.transform, "CloseButton");
+        if (closeT == null) return;
+
+        // Restore close button anchors
+        RectTransform cRt = closeT.GetComponent<RectTransform>();
+        cRt.anchorMin = new Vector2(0.89f, 0.82f);
+        cRt.anchorMax = new Vector2(0.95f, 0.93f);
+        cRt.anchoredPosition = new Vector2(-2f, 8f);
+
+        // Find or create ThemeToggleButton to the left of CloseButton
+        Transform existingThemeBtn = optionsPanelObj.transform.Find("ThemeToggleButton") ?? FindDeepChild(optionsPanelObj.transform, "ThemeToggleButton");
+        GameObject themeBtnObj;
+        if (existingThemeBtn != null)
+        {
+            themeBtnObj = existingThemeBtn.gameObject;
+        }
+        else
+        {
+            themeBtnObj = Instantiate(closeT.gameObject, closeT.parent, false);
+            themeBtnObj.name = "ThemeToggleButton";
+        }
+
+        // Position it immediately to the left of the close button with matching scale and height
+        RectTransform btnRt = themeBtnObj.GetComponent<RectTransform>();
+        btnRt.anchorMin = new Vector2(cRt.anchorMin.x - 0.08f, cRt.anchorMin.y);
+        btnRt.anchorMax = new Vector2(cRt.anchorMax.x - 0.08f, cRt.anchorMax.y);
+        btnRt.anchoredPosition = cRt.anchoredPosition;
+        btnRt.sizeDelta = cRt.sizeDelta;
+        btnRt.localScale = cRt.localScale;
+
+        // Deactivate cloned close cross icon child image so it doesn't overlap theme icon
+        UnityEngine.UI.Image[] childImgs = themeBtnObj.GetComponentsInChildren<UnityEngine.UI.Image>(true);
+        foreach (var img in childImgs)
+        {
+            if (img.gameObject != themeBtnObj)
+            {
+                img.gameObject.SetActive(false);
+            }
+        }
+
+        // Create or get TextMeshProUGUI for theme icon
+        themeButtonIcon = themeBtnObj.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+        if (themeButtonIcon == null)
+        {
+            GameObject iconObj = new GameObject("IconText");
+            iconObj.transform.SetParent(themeBtnObj.transform, false);
+            RectTransform iRt = iconObj.AddComponent<RectTransform>();
+            iRt.anchorMin = Vector2.zero;
+            iRt.anchorMax = Vector2.one;
+            iRt.sizeDelta = Vector2.zero;
+            iRt.anchoredPosition = Vector2.zero;
+            iRt.localScale = Vector3.one;
+
+            themeButtonIcon = iconObj.AddComponent<TMPro.TextMeshProUGUI>();
+            themeButtonIcon.alignment = TMPro.TextAlignmentOptions.Center;
+            themeButtonIcon.fontSize = 15;
+            themeButtonIcon.raycastTarget = false;
+        }
+
+        themeButton = themeBtnObj.GetComponent<UnityEngine.UI.Button>();
+        themeButtonXR = themeBtnObj.GetComponent<XRButtonSelection>();
+
+        if (themeButton != null)
+        {
+            themeButton.onClick.RemoveAllListeners();
+            themeButton.onClick.AddListener(OnClickToggleTheme);
+        }
+        if (themeButtonXR != null)
+        {
+            themeButtonXR.onClick.RemoveAllListeners();
+            themeButtonXR.onClick.AddListener(OnClickToggleTheme);
+        }
+
+        ThemeManager.OnThemeChanged -= UpdateThemeButtonVisual;
+        ThemeManager.OnThemeChanged += UpdateThemeButtonVisual;
+        UpdateThemeButtonVisual(ThemeManager.Instance != null ? ThemeManager.Instance.currentTheme : UIThemeMode.Dark);
+    }
+
+    private void OnClickToggleTheme()
+    {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ToggleTheme();
+        }
+    }
+
+    private void UpdateThemeButtonVisual(UIThemeMode mode)
+    {
+        bool isLight = (mode == UIThemeMode.Light);
+        if (themeButtonIcon != null)
+        {
+            themeButtonIcon.text = isLight ? "☀️" : "🌙";
+            themeButtonIcon.color = isLight ? new Color(0.95f, 0.65f, 0.1f, 1f) : new Color(0.7f, 0.85f, 1f, 1f);
+        }
+        if (optionsPanelObj != null && ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(optionsPanelObj, mode);
+        }
+    }
+
+    private void OnDestroy()
+    {
+        ThemeManager.OnThemeChanged -= UpdateThemeButtonVisual;
+    }
+
+=======
+        }
+    }
+
+>>>>>>> parent of 30ee11b (Add ThemeManager and UI theme support)
+=======
+        }
+    }
+
+>>>>>>> parent of 30ee11b (Add ThemeManager and UI theme support)
     /// <summary>
     /// Wires every UI Button and XRButtonSelection under <paramref name="row"/> to invoke the
     /// given handler, so tapping the row or its expand icon runs the action. Handlers here are
