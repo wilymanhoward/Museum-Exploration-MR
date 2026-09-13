@@ -29,10 +29,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _Aspect: 7.5789475
-    - _BorderWidth: 0.015
-    - _CornerRadius: 0.18
+    - _Aspect: 7.2
+    - _BorderWidth: 0.012
+    - _CornerRadius: 0.25
     m_Colors:
-    - _BorderColor: {r: 0.78, g: 0.8, b: 0.75, a: 0.95}
-    - _Color: {r: 0.88, g: 0.89, b: 0.86, a: 0.88}
+    - _BorderColor: {r: 0.24, g: 0.28, b: 0.34, a: 0.7}
+    - _Color: {r: 0.09, g: 0.1, b: 0.13, a: 0.85}
   m_BuildTextureStacks: []

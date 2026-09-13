@@ -125,6 +125,7 @@ public class ThemeManager : MonoBehaviour
     private Material matMainMenu;
     private Material matOptionsRowCard;
     private Material matMulaiButton;
+    private Material matInputBox;
 
     private void Awake()
     {
@@ -164,6 +165,19 @@ public class ThemeManager : MonoBehaviour
             else if (n == "Mat_MainMenu") matMainMenu = m;
             else if (n == "Mat_OptionsRowCard") matOptionsRowCard = m;
             else if (n == "Mat_MulaiButton") matMulaiButton = m;
+            else if (n == "Mat_InputBox") matInputBox = m;
+        }
+
+        if (matInputBox == null)
+        {
+            foreach (Image img in Resources.FindObjectsOfTypeAll<Image>())
+            {
+                if (img != null && img.material != null && img.material.name.Contains("InputBox"))
+                {
+                    matInputBox = img.material;
+                    break;
+                }
+            }
         }
     }
 
@@ -736,6 +750,16 @@ public class ThemeManager : MonoBehaviour
                 if (matOptionsRowCard.HasProperty("_Color")) matOptionsRowCard.SetColor("_Color", new Color(0.15f, 0.16f, 0.18f, 0.72f));
                 if (matOptionsRowCard.HasProperty("_BorderColor")) matOptionsRowCard.SetColor("_BorderColor", new Color(0.48f, 0.52f, 0.43f, 0.80f));
             }
+
+            if (matInputBox != null)
+            {
+                if (matInputBox.HasProperty("_Color")) matInputBox.SetColor("_Color", new Color(0.09f, 0.10f, 0.13f, 0.85f));
+                if (matInputBox.HasProperty("_BorderColor")) matInputBox.SetColor("_BorderColor", new Color(0.24f, 0.28f, 0.34f, 0.70f));
+                if (matInputBox.HasProperty("_BorderWidth")) matInputBox.SetFloat("_BorderWidth", 0.012f);
+                if (matInputBox.HasProperty("_CornerRadius")) matInputBox.SetFloat("_CornerRadius", 0.25f);
+                if (matInputBox.HasProperty("_SheenIntensity")) matInputBox.SetFloat("_SheenIntensity", 0.0f);
+                if (matInputBox.HasProperty("_SheenColor")) matInputBox.SetColor("_SheenColor", Color.clear);
+            }
         }
         else
         {
@@ -792,6 +816,16 @@ public class ThemeManager : MonoBehaviour
             {
                 if (matOptionsRowCard.HasProperty("_Color")) matOptionsRowCard.SetColor("_Color", lightCardBg);
                 if (matOptionsRowCard.HasProperty("_BorderColor")) matOptionsRowCard.SetColor("_BorderColor", lightCardBorder);
+            }
+
+            if (matInputBox != null)
+            {
+                if (matInputBox.HasProperty("_Color")) matInputBox.SetColor("_Color", new Color(0.86f, 0.89f, 0.82f, 0.85f));
+                if (matInputBox.HasProperty("_BorderColor")) matInputBox.SetColor("_BorderColor", new Color(0.58f, 0.66f, 0.50f, 0.75f));
+                if (matInputBox.HasProperty("_BorderWidth")) matInputBox.SetFloat("_BorderWidth", 0.012f);
+                if (matInputBox.HasProperty("_CornerRadius")) matInputBox.SetFloat("_CornerRadius", 0.25f);
+                if (matInputBox.HasProperty("_SheenIntensity")) matInputBox.SetFloat("_SheenIntensity", 0.0f);
+                if (matInputBox.HasProperty("_SheenColor")) matInputBox.SetColor("_SheenColor", Color.clear);
             }
         }
     }
@@ -991,6 +1025,16 @@ public class ThemeManager : MonoBehaviour
                     g.material = orig.material;
                 }
 
+                // Preserve Mat_InputBox on input fields
+                Image inputImg = g as Image;
+                if (inputImg != null && (inputImg.gameObject.name.ToLower().Contains("inputfield") || (inputImg.material != null && inputImg.material.name.Contains("InputBox"))))
+                {
+                    if (matInputBox == null) CacheMaterials();
+                    if (matInputBox != null) inputImg.material = matInputBox;
+                    inputImg.color = Color.white;
+                    continue;
+                }
+
                 // Ensure progress bars in Dark Mode always have high contrast
                 string gn = g.gameObject.name.ToLower();
                 if (gn.Contains("fill") || (gn.Contains("progress") && gn.Contains("bar") && gn.Contains("fill")))
@@ -1010,6 +1054,21 @@ public class ThemeManager : MonoBehaviour
                 {
                     tmp.color = origText.color;
                 }
+
+                // Input field text in Dark Mode: crisp white text, luminous muted slate placeholder
+                if (tmp.GetComponentInParent<TMP_InputField>() != null || tmp.GetComponentInParent<InputField>() != null)
+                {
+                    if (tmp.gameObject.name.ToLower().Contains("placeholder"))
+                    {
+                        tmp.color = new Color(0.50f, 0.54f, 0.60f, 0.75f);
+                    }
+                    else
+                    {
+                        tmp.color = new Color(0.96f, 0.98f, 1.0f, 1f);
+                    }
+                    continue;
+                }
+
                 string tn = tmp.gameObject.name.ToLower();
                 if (tn.Contains("progress"))
                 {
@@ -1036,6 +1095,14 @@ public class ThemeManager : MonoBehaviour
                     xr.hoverColor = origXR.hoverColor;
                 }
             }
+
+            foreach (TMP_InputField input in root.GetComponentsInChildren<TMP_InputField>(true))
+            {
+                if (input == null || IsInsideThemeSelection(input.transform)) continue;
+                input.customCaretColor = true;
+                input.caretColor = new Color(0.85f, 0.88f, 0.95f, 1f);
+                input.selectionColor = new Color(0.30f, 0.45f, 0.65f, 0.50f);
+            }
             return;
         }
 
@@ -1051,6 +1118,15 @@ public class ThemeManager : MonoBehaviour
         {
             if (img == null || IsInsideThemeSelection(img.transform) || IsIntroVideoPanel(img.transform)) continue;
             string n = img.gameObject.name.ToLower();
+
+            // Input field background: retain Mat_InputBox with Light Mode palette
+            if (n.Contains("inputfield") || (img.material != null && img.material.name.Contains("InputBox")))
+            {
+                if (matInputBox == null) CacheMaterials();
+                if (matInputBox != null) img.material = matInputBox;
+                img.color = Color.white;
+                continue;
+            }
 
             // Skip photos, artworks, raw textures, QR textures, and ThemeIcon
             if (n.Contains("photo") || n.Contains("thumb") || n.Contains("displayimage") ||
@@ -1205,7 +1281,14 @@ public class ThemeManager : MonoBehaviour
             // Input field text: ensure dark readable text on light input background
             if (tmp.GetComponentInParent<TMP_InputField>() != null || tmp.GetComponentInParent<InputField>() != null)
             {
-                tmp.color = new Color(0.12f, 0.14f, 0.12f, 1f);
+                if (tmp.gameObject.name.ToLower().Contains("placeholder"))
+                {
+                    tmp.color = new Color(0.36f, 0.40f, 0.32f, 0.70f);
+                }
+                else
+                {
+                    tmp.color = new Color(0.10f, 0.12f, 0.08f, 1f);
+                }
                 continue;
             }
 
@@ -1286,6 +1369,15 @@ public class ThemeManager : MonoBehaviour
 
             xr.normalColor = Color.white;
             xr.hoverColor = new Color(1.04f, 1.08f, 0.96f, 1f);
+        }
+
+        // 5. Process TMP_InputField Caret & Selection Colors
+        foreach (TMP_InputField input in root.GetComponentsInChildren<TMP_InputField>(true))
+        {
+            if (input == null || IsInsideThemeSelection(input.transform) || IsIntroVideoPanel(input.transform)) continue;
+            input.customCaretColor = true;
+            input.caretColor = new Color(0.12f, 0.15f, 0.10f, 1f);
+            input.selectionColor = new Color(0.60f, 0.75f, 0.50f, 0.50f);
         }
     }
 }

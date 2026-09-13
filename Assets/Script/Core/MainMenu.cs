@@ -621,12 +621,12 @@ public class MainMenu : MonoBehaviour
         panelRect.anchoredPosition = Vector2.zero;
         panelRect.localScale = Vector3.one;
 
-        // Two horizontal 3:1 glass pill buttons side-by-side
+        // Two horizontal 3:1 minimalist pill buttons side-by-side
         // Aspect ratio 3:1 (138x46), spaced apart with a 32px gap
         Vector2 buttonSize = new Vector2(138f, 46f);
         float xOffset = 85f; // -85 for Left (Dark), +85 for Right (Light), 32px gap between them
 
-        // 2. Dark Mode Floating Glass Button (Translucent Slate glass with Moon icon)
+        // 2. Dark Mode Floating Button (Normal dark grey with transparency, no glass effect)
         CreateMinimalThemeButton(
             panelObj.transform,
             "Button_DarkMode",
@@ -635,13 +635,13 @@ public class MainMenu : MonoBehaviour
             ThemeManager.Instance.GetOrCreateMoonIconSprite(),
             new Color(0.92f, 0.95f, 1.0f, 1.0f), // Soft luminous silver-white
             "Mode Gelap",
-            new Color(0.10f, 0.13f, 0.18f, 0.65f), // Deep frosted slate glass
-            new Color(0.48f, 0.65f, 0.95f, 0.92f), // Luminous ice-blue glass rim glow
+            new Color(0.18f, 0.19f, 0.22f, 0.80f), // Normal dark grey with subtle transparency
+            new Color(0.35f, 0.38f, 0.42f, 0.75f), // Minimal matching edge definition
             font,
             () => OnThemeSelected(UIThemeMode.Dark)
         );
 
-        // 3. Light Mode Floating Glass Button (Translucent Olive-Sage glass with Sun icon)
+        // 3. Light Mode Floating Button (Light olive with transparency, no glass effect)
         CreateMinimalThemeButton(
             panelObj.transform,
             "Button_LightMode",
@@ -650,8 +650,8 @@ public class MainMenu : MonoBehaviour
             ThemeManager.Instance.GetOrCreateSunIconSprite(),
             new Color(1.0f, 0.88f, 0.38f, 1.0f), // Warm golden radiant sun
             "Mode Terang",
-            new Color(0.32f, 0.38f, 0.28f, 0.65f), // Frosted olive-sage museum glass
-            new Color(0.82f, 0.88f, 0.65f, 0.92f), // Luminous sage-gold glass rim glow
+            new Color(0.55f, 0.59f, 0.48f, 0.82f), // Authentic light olive with subtle transparency
+            new Color(0.70f, 0.74f, 0.62f, 0.75f), // Minimal matching edge definition
             font,
             () => OnThemeSelected(UIThemeMode.Light)
         );
@@ -685,29 +685,29 @@ public class MainMenu : MonoBehaviour
 
         Image img = buttonObj.AddComponent<Image>();
 
-        // Dedicated Glass Shader for mathematical vector smoothness & physical glass sheen
-        Shader glassShader = Shader.Find("UI/GlassButton");
-        if (glassShader == null && ThemeManager.Instance != null)
+        // Clean anti-aliased rounded capsule shader with NO glass sheen/glare
+        Shader roundShader = ThemeManager.Instance != null ? ThemeManager.Instance.GetRoundedUIShader() : Shader.Find("UI/RoundedCorners");
+        if (roundShader == null)
         {
-            glassShader = ThemeManager.Instance.GetGlassButtonShader();
+            roundShader = Shader.Find("UI/RoundedCorners");
         }
-        if (glassShader == null)
+        if (roundShader == null && ThemeManager.Instance != null)
         {
-            glassShader = Shader.Find("UI/RoundedCorners");
+            roundShader = ThemeManager.Instance.GetGlassButtonShader();
         }
 
-        if (glassShader != null)
+        if (roundShader != null)
         {
-            Material glassMat = new Material(glassShader);
-            glassMat.name = $"Mat_{name}";
-            glassMat.SetFloat("_Aspect", sizeDelta.x / sizeDelta.y); // 3.0
-            glassMat.SetFloat("_CornerRadius", 0.45f); // Smooth pill capsule
-            glassMat.SetFloat("_BorderWidth", 0.024f); // Crisp luminous rim
-            glassMat.SetFloat("_SheenIntensity", 0.40f); // Curved glass reflection
-            glassMat.SetColor("_Color", cardBgColor);
-            glassMat.SetColor("_BorderColor", cardBorderColor);
-            glassMat.SetColor("_SheenColor", new Color(1f, 1f, 1f, 0.35f));
-            img.material = glassMat;
+            Material roundMat = new Material(roundShader);
+            roundMat.name = $"Mat_{name}";
+            roundMat.SetFloat("_Aspect", sizeDelta.x / sizeDelta.y); // 3.0
+            roundMat.SetFloat("_CornerRadius", 0.45f); // Smooth pill capsule
+            roundMat.SetFloat("_BorderWidth", 0.015f); // Subtle minimal rim
+            roundMat.SetColor("_Color", cardBgColor);
+            roundMat.SetColor("_BorderColor", cardBorderColor);
+            if (roundMat.HasProperty("_SheenIntensity")) roundMat.SetFloat("_SheenIntensity", 0.0f); // Explicitly zero out glass sheen
+            if (roundMat.HasProperty("_SheenColor")) roundMat.SetColor("_SheenColor", Color.clear);
+            img.material = roundMat;
             img.type = Image.Type.Simple;
         }
         else
@@ -715,7 +715,7 @@ public class MainMenu : MonoBehaviour
             // High-resolution fallback sprite
             img.sprite = ThemeManager.CreateRoundedBoxSprite(
                 512, 170,
-                80f, 6f,
+                80f, 4f,
                 cardBgColor,
                 cardBorderColor,
                 new Vector4(85, 80, 85, 80)
