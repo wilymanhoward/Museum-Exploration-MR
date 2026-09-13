@@ -82,9 +82,9 @@ public class TutorialManager : MonoBehaviour
     private bool hasStarted = false;
 
     // Runtime-built UI
-    private GameObject panelRoot;
+    public GameObject panelRoot { get; private set; }
     private bool panelIsSceneAuthored;
-    private GameObject skipNarrationButtonRoot;
+    public GameObject skipNarrationButtonRoot { get; private set; }
     private bool skipNarrationRequested;
     private TextMeshProUGUI titleLabel;
     private TextMeshProUGUI bodyLabel;
@@ -122,9 +122,10 @@ public class TutorialManager : MonoBehaviour
 
     private void HandleThemeChanged(UIThemeMode mode)
     {
-        if (ThemeManager.Instance != null && panelRoot != null)
+        if (ThemeManager.Instance != null)
         {
-            ThemeManager.Instance.ApplyToHierarchy(panelRoot, mode);
+            if (panelRoot != null) ThemeManager.Instance.ApplyToHierarchy(panelRoot, mode);
+            if (skipNarrationButtonRoot != null) ThemeManager.Instance.ApplyToHierarchy(skipNarrationButtonRoot, mode);
         }
     }
 
@@ -204,6 +205,10 @@ public class TutorialManager : MonoBehaviour
         if (skipNarrationButtonRoot.activeSelf != shouldShow)
         {
             skipNarrationButtonRoot.SetActive(shouldShow);
+            if (shouldShow && ThemeManager.Instance != null)
+            {
+                ThemeManager.Instance.ApplyToHierarchy(skipNarrationButtonRoot);
+            }
         }
     }
 
@@ -229,13 +234,13 @@ public class TutorialManager : MonoBehaviour
         }
 
         BuildPanel();
+        EnsureSkipNarrationButton();
         if (ThemeManager.Instance != null && panelRoot != null)
         {
             ThemeManager.Instance.ApplyToHierarchy(panelRoot);
         }
         PositionPanelInFrontOfPlayer();
         EnsureGizmo();
-        EnsureSkipNarrationButton();
         ConfigureHandRayVisuals(); // again here: hand rigs can activate after Awake
         HideWristWatch();
 
@@ -658,6 +663,11 @@ public class TutorialManager : MonoBehaviour
 
         btn.SetActive(false); // UpdateSkipNarrationButtonVisibility shows it only while narrating
         skipNarrationButtonRoot = btn;
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(btn);
+        }
     }
 
     /// <summary>
@@ -865,11 +875,11 @@ public class TutorialManager : MonoBehaviour
         Place(barRect, new Vector2(marginL, 0.075f), new Vector2(marginR, 0.115f));
 
         progressBarBg = progressBarRoot.AddComponent<Image>();
-        progressBarBg.color = new Color(1f, 1f, 1f, 0.12f);
+        progressBarBg.color = new Color(0.06f, 0.08f, 0.12f, 0.85f);
         progressBarBg.raycastTarget = false;
 
         progressFill = CreateChildImage(progressBarRoot.transform, "Fill",
-            new Color(0.35f, 0.85f, 0.55f, 1f));
+            new Color(0.00f, 0.83f, 1.00f, 1f));
         progressFill.rectTransform.anchorMin = Vector2.zero;
         progressFill.rectTransform.anchorMax = new Vector2(0f, 1f);
         progressFill.rectTransform.pivot = new Vector2(0f, 0.5f);

@@ -90,10 +90,10 @@ public static class TutorialPanelBuilder
         RectTransform barRect = barGo.AddComponent<RectTransform>();
         Place(barRect, new Vector2(marginL, 0.075f), new Vector2(marginR, 0.115f));
         Image barBg = barGo.AddComponent<Image>();
-        barBg.color = new Color(1f, 1f, 1f, 0.12f);
+        barBg.color = new Color(0.06f, 0.08f, 0.12f, 0.85f);
         barBg.raycastTarget = false;
 
-        Image fill = CreateImage(barGo.transform, "Fill", new Color(0.35f, 0.85f, 0.55f, 1f));
+        Image fill = CreateImage(barGo.transform, "Fill", new Color(0.00f, 0.83f, 1.00f, 1f));
         fill.rectTransform.anchorMin = Vector2.zero;
         fill.rectTransform.anchorMax = new Vector2(0.5f, 1f); // runtime drives the X; 0.5 previews a half-full bar
         fill.rectTransform.pivot = new Vector2(0f, 0.5f);

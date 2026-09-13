@@ -109,7 +109,7 @@ public class Room : MonoBehaviour
     public void ShowRoom(RoomData roomData)
     {
         currentRoomData = roomData;
-        gameObject.SetActive(true);
+        UIAnimationHelper.FadeIn(gameObject, 0.20f, true);
 
         if (roomListPanel != null)
         {

@@ -66,6 +66,11 @@ public class ThemeManager : MonoBehaviour
     [System.NonSerialized] public Color lightAccentTextColor = new Color(0.850f, 0.890f, 0.620f, 1.0f); // #D8E29D Soft Lime
     [System.NonSerialized] public Color lightBodyTextColor = new Color(0.910f, 0.930f, 0.880f, 0.95f);   // #E8EAE0 Cream / Off-White
     [System.NonSerialized] public Color lightSeparatorColor = new Color(0.540f, 0.560f, 0.490f, 0.35f);  // Soft olive line
+    // Tutorial & Rotation Progress Bar Colors
+    [System.NonSerialized] public Color lightProgressTrackColor = new Color(0.18f, 0.22f, 0.16f, 0.50f); // Recessed dark charcoal-sage slot
+    [System.NonSerialized] public Color lightProgressFillColor = new Color(0.01f, 0.52f, 0.78f, 1.0f);   // Vivid Azure (#0284C7) high-contrast fill
+    [System.NonSerialized] public Color darkProgressTrackColor = new Color(0.06f, 0.08f, 0.12f, 0.85f);  // Deep slate recessed slot
+    [System.NonSerialized] public Color darkProgressFillColor = new Color(0.00f, 0.83f, 1.00f, 1.0f);    // Electric Cyan (#00D4FF) glowing fill
 
     // Original State Tracking (Ensures 100% faithful restoration of Dark Mode)
     private class OriginalGraphicState
@@ -106,6 +111,7 @@ public class ThemeManager : MonoBehaviour
     private Sprite lightControlBtnSprite;
     private Sprite lightActiveBtnSprite;
     private Sprite lightInactiveBtnSprite;
+    private Sprite lightActionCircleBtnSprite;
     private Sprite sunIconSprite;
     private Sprite moonIconSprite;
 
@@ -307,6 +313,19 @@ public class ThemeManager : MonoBehaviour
         return lightInactiveBtnSprite;
     }
 
+    /// <summary>
+    /// Procedural circular active button sprite for action/next control buttons (e.g. SkipNarrationButton).
+    /// </summary>
+    public Sprite GetOrCreateLightActionCircleBtnSprite()
+    {
+        if (lightActionCircleBtnSprite == null)
+        {
+            lightActionCircleBtnSprite = CreateRoundedBoxSprite(128, 128, 62f, 5f, lightActiveBtnBg, lightActiveBtnBorder, Vector4.zero, 100f);
+            lightActionCircleBtnSprite.name = "LightActionCircleBtn_Procedural";
+        }
+        return lightActionCircleBtnSprite;
+    }
+
     public void InvalidateSpriteCache()
     {
         lightPanelSprite = null;
@@ -314,6 +333,7 @@ public class ThemeManager : MonoBehaviour
         lightControlBtnSprite = null;
         lightActiveBtnSprite = null;
         lightInactiveBtnSprite = null;
+        lightActionCircleBtnSprite = null;
         sunIconSprite = null;
         moonIconSprite = null;
     }
@@ -569,7 +589,7 @@ public class ThemeManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Sets a specific theme mode, persists preference, and applies visual styling.
+    /// Sets a specific theme mode, persists preference, and applies visual styling with a smooth crossfade.
     /// </summary>
     public void SetTheme(UIThemeMode mode)
     {
@@ -578,9 +598,64 @@ public class ThemeManager : MonoBehaviour
         PlayerPrefs.Save();
 
         Debug.Log($"[ThemeManager] Theme mode switched to: {currentTheme}");
-        ApplyTheme(currentTheme);
 
-        OnThemeChanged?.Invoke(currentTheme);
+        List<GameObject> activePanels = GetActivePanelsForTransition();
+        if (activePanels.Count > 0)
+        {
+            UIAnimationHelper.CrossfadeTheme(activePanels, () =>
+            {
+                ApplyTheme(currentTheme);
+                OnThemeChanged?.Invoke(currentTheme);
+            }, 0.12f);
+        }
+        else
+        {
+            ApplyTheme(currentTheme);
+            OnThemeChanged?.Invoke(currentTheme);
+        }
+    }
+
+    private List<GameObject> GetActivePanelsForTransition()
+    {
+        List<GameObject> list = new List<GameObject>();
+
+        if (WristWatch.Instance != null)
+        {
+            if (WristWatch.Instance.optionsPanelObj != null && WristWatch.Instance.optionsPanelObj.activeInHierarchy)
+                list.Add(WristWatch.Instance.optionsPanelObj);
+            if (WristWatch.Instance.roomListPanel != null && WristWatch.Instance.roomListPanel.activeInHierarchy)
+                list.Add(WristWatch.Instance.roomListPanel);
+            if (WristWatch.Instance.roomHudCanvas != null && WristWatch.Instance.roomHudCanvas.activeInHierarchy)
+                list.Add(WristWatch.Instance.roomHudCanvas);
+            if (WristWatch.Instance.gamesPanel != null && WristWatch.Instance.gamesPanel.activeInHierarchy)
+                list.Add(WristWatch.Instance.gamesPanel);
+        }
+
+        if (TutorialManager.Instance != null)
+        {
+            if (TutorialManager.Instance.panelRoot != null && TutorialManager.Instance.panelRoot.activeInHierarchy)
+                list.Add(TutorialManager.Instance.panelRoot);
+            if (TutorialManager.Instance.skipNarrationButtonRoot != null && TutorialManager.Instance.skipNarrationButtonRoot.activeInHierarchy)
+                list.Add(TutorialManager.Instance.skipNarrationButtonRoot);
+        }
+
+        if (MainMenu.Instance != null && MainMenu.Instance.mainMenuCanvas != null && MainMenu.Instance.mainMenuCanvas.activeInHierarchy)
+        {
+            list.Add(MainMenu.Instance.mainMenuCanvas);
+        }
+
+        foreach (Canvas c in Resources.FindObjectsOfTypeAll<Canvas>())
+        {
+            if (c != null && c.gameObject.activeInHierarchy && c.gameObject.scene.IsValid() && c.gameObject.scene.isLoaded)
+            {
+                if (!list.Contains(c.gameObject))
+                {
+                    list.Add(c.gameObject);
+                }
+            }
+        }
+
+        return list;
     }
 
     /// <summary>
@@ -845,10 +920,21 @@ public class ThemeManager : MonoBehaviour
             ApplyToHierarchy(MainMenu.Instance.mainMenuCanvas, mode);
         }
 
-        // 5. Apply to Tutorial panel
-        if (TutorialManager.Instance != null && TutorialManager.Instance.sceneAuthoredPanel != null)
+        // 5. Apply to Tutorial panel & Skip/Next button
+        if (TutorialManager.Instance != null)
         {
-            ApplyToHierarchy(TutorialManager.Instance.sceneAuthoredPanel, mode);
+            if (TutorialManager.Instance.panelRoot != null)
+            {
+                ApplyToHierarchy(TutorialManager.Instance.panelRoot, mode);
+            }
+            if (TutorialManager.Instance.skipNarrationButtonRoot != null)
+            {
+                ApplyToHierarchy(TutorialManager.Instance.skipNarrationButtonRoot, mode);
+            }
+            if (TutorialManager.Instance.sceneAuthoredPanel != null)
+            {
+                ApplyToHierarchy(TutorialManager.Instance.sceneAuthoredPanel, mode);
+            }
         }
     }
 
@@ -904,6 +990,17 @@ public class ThemeManager : MonoBehaviour
                     g.color = orig.color;
                     g.material = orig.material;
                 }
+
+                // Ensure progress bars in Dark Mode always have high contrast
+                string gn = g.gameObject.name.ToLower();
+                if (gn.Contains("fill") || (gn.Contains("progress") && gn.Contains("bar") && gn.Contains("fill")))
+                {
+                    g.color = darkProgressFillColor;
+                }
+                else if (gn.Contains("progressbar") || gn.Contains("progresstrack"))
+                {
+                    g.color = darkProgressTrackColor;
+                }
             }
 
             foreach (TextMeshProUGUI tmp in root.GetComponentsInChildren<TextMeshProUGUI>(true))
@@ -912,6 +1009,11 @@ public class ThemeManager : MonoBehaviour
                 if (originalTextStates.TryGetValue(tmp, out var origText))
                 {
                     tmp.color = origText.color;
+                }
+                string tn = tmp.gameObject.name.ToLower();
+                if (tn.Contains("progress"))
+                {
+                    tmp.color = new Color(0.55f, 0.90f, 1.00f, 1f); // Electric Cyan
                 }
             }
 
@@ -972,17 +1074,27 @@ public class ThemeManager : MonoBehaviour
 
             string sprName = img.sprite != null ? img.sprite.name : "";
 
-            // If this is a child icon/image inside a control button, keep icon and ensure white contrast
-            if (img.transform.parent != null &&
-                (img.transform.parent.name.ToLower().Contains("close") ||
-                 img.transform.parent.name.ToLower().Contains("back") ||
-                 img.transform.parent.name.ToLower().Contains("themetoggle")))
+            // If this is a child icon/image inside a control button or next/skip button
+            if (img.transform.parent != null)
             {
-                if (n == "image" || n.Contains("icon") || n.Contains("symbol"))
+                string parentName = img.transform.parent.name.ToLower();
+                if (parentName.Contains("skipnarration") || parentName.Contains("next") || parentName.Contains("lanjut"))
                 {
-                    CacheOriginalGraphic(img);
-                    img.color = lightControlBtnIcon;
-                    continue;
+                    if (n == "image" || n.Contains("icon") || n.Contains("symbol") || sprName == "15" || sprName == "32")
+                    {
+                        CacheOriginalGraphic(img);
+                        img.color = new Color(0.12f, 0.14f, 0.10f, 1f); // Dark contrast icon on light button
+                        continue;
+                    }
+                }
+                else if (parentName.Contains("close") || parentName.Contains("back") || parentName.Contains("themetoggle"))
+                {
+                    if (n == "image" || n.Contains("icon") || n.Contains("symbol"))
+                    {
+                        CacheOriginalGraphic(img);
+                        img.color = lightControlBtnIcon;
+                        continue;
+                    }
                 }
             }
 
@@ -1009,6 +1121,14 @@ public class ThemeManager : MonoBehaviour
             {
                 img.sprite = activeBtnSprite;
                 img.type = Image.Type.Sliced;
+                img.color = Color.white;
+                img.material = null;
+            }
+            // Next / Skip Narration Action Button (e.g. SkipNarrationButton, NextButton)
+            else if (n.Contains("skipnarration") || n.Contains("nextbutton") || n.Contains("lanjut"))
+            {
+                img.sprite = GetOrCreateLightActionCircleBtnSprite();
+                img.type = Image.Type.Simple;
                 img.color = Color.white;
                 img.material = null;
             }
@@ -1056,14 +1176,20 @@ public class ThemeManager : MonoBehaviour
                     }
                 }
             }
-            // Separator lines & progress bars
+            // Separator lines
             else if (sprName == "16" || n.Contains("separator") || n.Contains("line") || n.Contains("decline"))
             {
                 img.color = lightSeparatorColor;
             }
-            else if (n.Contains("fill") || n.Contains("progress"))
+            // Progress Bar Fill (Vivid Azure high contrast against sage background)
+            else if (n.Contains("fill") || (n.Contains("progress") && n.Contains("bar") && n.Contains("fill")))
             {
-                img.color = lightActiveBtnBg;
+                img.color = lightProgressFillColor;
+            }
+            // Progress Bar Track / Slot (recessed dark groove)
+            else if (n.Contains("progressbar") || n.Contains("progresstrack") || n.Contains("progress"))
+            {
+                img.color = lightProgressTrackColor;
             }
         }
 
@@ -1096,10 +1222,25 @@ public class ThemeManager : MonoBehaviour
             {
                 tmp.color = lightHeaderTextColor;
             }
-            // Button symbols / Icons (e.g. '✕', '◀', '▶', '↺')
-            else if (n.Contains("icon") || n.Contains("symbol") || n.Contains("close") || n.Contains("back"))
+            // Progress Label (matches progress fill color for visual clarity)
+            if (n.Contains("progress"))
             {
-                tmp.color = lightControlBtnIcon;
+                tmp.color = lightProgressFillColor;
+            }
+            // Button symbols / Icons (e.g. '✕', '◀', '▶', '↺')
+            else if (n.Contains("icon") || n.Contains("symbol") || n.Contains("close") || n.Contains("back") || tmp.text == "▶" || tmp.text == "✕")
+            {
+                if (tmp.transform.parent != null &&
+                    (tmp.transform.parent.name.ToLower().Contains("skipnarration") ||
+                     tmp.transform.parent.name.ToLower().Contains("next") ||
+                     tmp.transform.parent.name.ToLower().Contains("lanjut")))
+                {
+                    tmp.color = new Color(0.12f, 0.14f, 0.10f, 1f); // Dark contrast icon on light button
+                }
+                else
+                {
+                    tmp.color = lightControlBtnIcon;
+                }
             }
             // Field values & body descriptions
             else

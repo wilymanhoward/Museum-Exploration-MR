@@ -419,11 +419,16 @@ public class WristWatch : MonoBehaviour
             ThemeManager.Instance.ToggleTheme();
         }
 
+        if (themeIconImg != null)
+        {
+            UIAnimationHelper.AnimateThemeIcon(themeIconImg.transform, 0.28f);
+        }
+
         // Guarantee options panel remains open so user sees new theme instantly
         optionsPanelActive = true;
         if (optionsPanelObj != null && !optionsPanelObj.activeSelf)
         {
-            optionsPanelObj.SetActive(true);
+            UIAnimationHelper.FadeIn(optionsPanelObj, 0.20f, true);
         }
     }
 
@@ -1080,12 +1085,11 @@ public class WristWatch : MonoBehaviour
         optionsPanelActive = !optionsPanelActive;
         if (optionsPanelObj != null)
         {
-            optionsPanelObj.SetActive(optionsPanelActive);
             if (optionsPanelActive)
             {
                 // Ensure other wrist list panels are hidden so they don't overlap on the wrist
-                if (roomListPanel != null) roomListPanel.SetActive(false);
-                if (gamesPanel != null) gamesPanel.SetActive(false);
+                if (roomListPanel != null) UIAnimationHelper.FadeOut(roomListPanel, 0.12f);
+                if (gamesPanel != null) UIAnimationHelper.FadeOut(gamesPanel, 0.12f);
                 if (HistoryListPanel.Instance != null) HistoryListPanel.Instance.gameObject.SetActive(false);
 
                 GameObject roomPanelObj = GameObject.Find("RoomPanel");
@@ -1095,12 +1099,18 @@ public class WristWatch : MonoBehaviour
                 {
                     optionsPanelObj.transform.position = AnchorTransformPoint(panelOffset);
                 }
+
+                UIAnimationHelper.FadeIn(optionsPanelObj, 0.20f, true);
+            }
+            else
+            {
+                UIAnimationHelper.FadeOut(optionsPanelObj, 0.15f);
             }
         }
         else if (!optionsPanelActive)
         {
-            if (roomListPanel != null) roomListPanel.SetActive(false);
-            if (gamesPanel != null) gamesPanel.SetActive(false);
+            if (roomListPanel != null) UIAnimationHelper.FadeOut(roomListPanel, 0.12f);
+            if (gamesPanel != null) UIAnimationHelper.FadeOut(gamesPanel, 0.12f);
         }
         Debug.Log($"WristWatch: Options Panel Toggled -> {optionsPanelActive}");
     }
@@ -1113,7 +1123,7 @@ public class WristWatch : MonoBehaviour
         optionsPanelActive = false;
         if (optionsPanelObj != null)
         {
-            optionsPanelObj.SetActive(false);
+            UIAnimationHelper.FadeOut(optionsPanelObj, 0.15f);
         }
         if (wristWatchButtonObj != null)
         {
@@ -1364,11 +1374,20 @@ public class WristWatch : MonoBehaviour
         if (parent != null)
         {
             foreach (Transform sibling in parent)
-                sibling.gameObject.SetActive(sibling.gameObject == roomListPanel);
+            {
+                if (sibling.gameObject == roomListPanel)
+                {
+                    UIAnimationHelper.FadeIn(sibling.gameObject, 0.22f, true);
+                }
+                else
+                {
+                    sibling.gameObject.SetActive(false);
+                }
+            }
         }
         else
         {
-            roomListPanel.SetActive(true);
+            UIAnimationHelper.FadeIn(roomListPanel, 0.22f, true);
         }
 
         RoomList rList = roomListPanel.GetComponent<RoomList>();
@@ -1388,7 +1407,7 @@ public class WristWatch : MonoBehaviour
     {
         if (roomHudCanvas != null)
         {
-            roomHudCanvas.SetActive(false);
+            UIAnimationHelper.FadeOut(roomHudCanvas, 0.15f);
         }
         Debug.Log("WristWatch: Room Panel Closed.");
     }
@@ -1432,6 +1451,8 @@ public class WristWatch : MonoBehaviour
 
         if (targetPanel != null)
         {
+            UIAnimationHelper.FadeIn(targetPanel, 0.22f, true);
+
             if (ThemeManager.Instance != null)
             {
                 ThemeManager.Instance.ApplyToHierarchy(targetPanel);
@@ -1471,7 +1492,7 @@ public class WristWatch : MonoBehaviour
     {
         if (gamesPanel != null)
         {
-            gamesPanel.SetActive(false);
+            UIAnimationHelper.FadeOut(gamesPanel, 0.15f);
         }
         Debug.Log("WristWatch: Games Panel Closed.");
     }
