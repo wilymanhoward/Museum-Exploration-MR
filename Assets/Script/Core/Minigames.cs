@@ -36,6 +36,10 @@ public class MiniGames : MonoBehaviour
         PositionInFrontOfUser();
         ShowMenuPanel();
         HideWristWatch();
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     private void OnDisable()
@@ -65,6 +69,10 @@ public class MiniGames : MonoBehaviour
         if (gameListPanel != null) gameListPanel.SetActive(false);
         if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
         HideAllGamePanels();
+        if (ThemeManager.Instance != null && minigameMenuPanel != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(minigameMenuPanel);
+        }
     }
 
     /// <summary>Show GameListPanel; hide MiniGameMenuPanel, LeaderboardPanel, and all game panels.</summary>
@@ -75,6 +83,10 @@ public class MiniGames : MonoBehaviour
         if (gameListPanel != null) gameListPanel.SetActive(true);
         if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
         HideAllGamePanels();
+        if (ThemeManager.Instance != null && gameListPanel != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameListPanel);
+        }
     }
 
     /// <summary>Show LeaderboardPanel for selected game; hide MiniGameMenuPanel, GameListPanel, and all game panels.</summary>
@@ -94,6 +106,10 @@ public class MiniGames : MonoBehaviour
             LeaderboardPanel lbScript = leaderboardPanel.GetComponent<LeaderboardPanel>();
             if (lbScript == null) lbScript = leaderboardPanel.AddComponent<LeaderboardPanel>();
             lbScript.LoadLeaderboard(gameId, gameName);
+            if (ThemeManager.Instance != null)
+            {
+                ThemeManager.Instance.ApplyToHierarchy(leaderboardPanel);
+            }
         }
         else
         {
@@ -116,6 +132,10 @@ public class MiniGames : MonoBehaviour
         if (leaderboardPanel != null) leaderboardPanel.SetActive(false);
         HideAllGamePanels();
         gamePanel.SetActive(true);
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gamePanel);
+        }
     }
 
     /// <summary>

@@ -99,6 +99,10 @@ public class MiniGameMenuPanel : MonoBehaviour
         }
         RefreshTitle();
         EnsureLeaderboardButtonVisible();
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     private void EnsureLeaderboardButtonVisible()

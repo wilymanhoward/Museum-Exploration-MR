@@ -38,6 +38,10 @@ public class MiniGameListPanel : MonoBehaviour
     private void OnEnable()
     {
         PopulateList();
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -103,6 +107,11 @@ public class MiniGameListPanel : MonoBehaviour
             });
 
             spawnedRows.Add(row);
+        }
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
         }
     }
 

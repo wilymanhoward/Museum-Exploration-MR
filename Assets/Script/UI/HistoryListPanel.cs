@@ -69,6 +69,10 @@ public class HistoryListPanel : MonoBehaviour
         WireControlButtons();
         SetupTwoColumnLayout();
         PopulateHistoryList();
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     /// <summary>
@@ -201,6 +205,11 @@ public class HistoryListPanel : MonoBehaviour
                 cardObj = CreateProceduralCard(displayText, formattedNum, thumbSprite, data, defaultFont, posX, posY);
                 cardObj.transform.SetParent(artifactListContainer, false);
             }
+        }
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
         }
     }
 

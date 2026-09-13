@@ -91,6 +91,10 @@ public class LeaderboardPanel : MonoBehaviour
     private void OnEnable()
     {
         AutoWireUI();
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     private static string pendingGameId = null;
@@ -106,6 +110,11 @@ public class LeaderboardPanel : MonoBehaviour
         currentGameName = gameTitleName;
 
         AutoWireUI();
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
 
         // 1. Update Subtitle
         if (subtitleText != null)

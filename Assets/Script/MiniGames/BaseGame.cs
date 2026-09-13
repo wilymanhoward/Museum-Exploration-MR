@@ -31,6 +31,10 @@ public class BaseGame : MonoBehaviour
 
     protected virtual void OnEnable()
     {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
         OnGameStart();
     }
 

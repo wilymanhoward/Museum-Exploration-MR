@@ -57,6 +57,10 @@ public class RoomList : MonoBehaviour
     {
         WireSejarahButton();
         PopulateRoomsList();
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     private void WireSejarahButton()
@@ -206,6 +210,11 @@ public class RoomList : MonoBehaviour
                 WireSejarahButton();
             }
 
+            if (ThemeManager.Instance != null)
+            {
+                ThemeManager.Instance.ApplyToHierarchy(gameObject);
+            }
+
             // The instantiate loop above already wired every new button. The fallback pass
             // below must NOT also run: the old children destroyed above still exist until
             // end of frame, so the new buttons would sit at child indices beyond roomsList
@@ -217,6 +226,11 @@ public class RoomList : MonoBehaviour
         // Scene-authored buttons only (no prefab): wire whatever is in the hierarchy.
         WireExistingChildButtons();
         WireSejarahButton();
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     private void WireExistingChildButtons()

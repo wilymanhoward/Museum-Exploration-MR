@@ -16,6 +16,9 @@ public class MainMenu : MonoBehaviour
     public XRButtonSelection skipButtonXR;
     public Button skipButton;
 
+    [Header("Theme Selection References")]
+    public GameObject themeSelectionPanel;
+
     [Header("Background Fade Settings")]
     [Tooltip("Duration in seconds to smoothly transition background between Black and Passthrough (Transparent).")]
     public float fadeDuration = 0.8f;
@@ -61,6 +64,15 @@ public class MainMenu : MonoBehaviour
         {
             Transform t = mainMenuCanvas.transform.Find("EnterNamePanel");
             if (t != null) enterNamePanel = t.gameObject;
+        }
+        if (themeSelectionPanel == null && mainMenuCanvas != null)
+        {
+            Transform t = mainMenuCanvas.transform.Find("ThemeSelectionPanel");
+            if (t != null) themeSelectionPanel = t.gameObject;
+        }
+        if (themeSelectionPanel != null)
+        {
+            themeSelectionPanel.SetActive(false);
         }
 
         if (nameErrorLabel == null && mainMenuCanvas != null)
@@ -452,6 +464,11 @@ public class MainMenu : MonoBehaviour
         {
             RoomManager.Instance.StartExploration();
         }
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyTheme(ThemeManager.Instance.currentTheme);
+        }
     }
 
     private void OnVideoFinished(VideoPlayer source)
@@ -501,13 +518,290 @@ public class MainMenu : MonoBehaviour
             introVideoPanel.SetActive(false);
         }
 
+        // Smoothly transition background back to transparent (passthrough turned on)
+        FadeBackground(0f, fadeDuration);
+
+        // Prompt player to choose between Light Mode and Dark Mode directly after video
+        ShowThemeSelectionPrompt();
+    }
+
+    /// <summary>
+    /// Displays the theme selection screen where the user can pick Light Mode (olive-sage) or Dark Mode (slate).
+    /// </summary>
+    public void ShowThemeSelectionPrompt()
+    {
+        EnsureThemeSelectionPanel();
+
+        if (enterNamePanel != null)
+        {
+            enterNamePanel.SetActive(false);
+        }
+
+        if (themeSelectionPanel != null)
+        {
+            themeSelectionPanel.SetActive(true);
+            ThemeManager.Instance.ApplyToHierarchy(mainMenuCanvas);
+        }
+        else
+        {
+            if (enterNamePanel != null) enterNamePanel.SetActive(true);
+        }
+    }
+
+    private void OnThemeSelected(UIThemeMode chosenMode)
+    {
+        Debug.Log($"[MainMenu] User selected theme: {chosenMode}");
+        ThemeManager.Instance.SetTheme(chosenMode);
+
+        if (themeSelectionPanel != null)
+        {
+            themeSelectionPanel.SetActive(false);
+        }
+
         if (enterNamePanel != null)
         {
             enterNamePanel.SetActive(true);
+            ThemeManager.Instance.ApplyToHierarchy(mainMenuCanvas);
+        }
+    }
+
+    private void EnsureThemeSelectionPanel()
+    {
+        if (mainMenuCanvas == null) return;
+
+        // Clean up any stale or partial panel instance
+        if (themeSelectionPanel != null)
+        {
+            Destroy(themeSelectionPanel);
+            themeSelectionPanel = null;
         }
 
-        // Smoothly transition background back to transparent (passthrough turned on)
-        FadeBackground(0f, fadeDuration);
+        Transform existing = mainMenuCanvas.transform.Find("ThemeSelectionPanel");
+        if (existing != null)
+        {
+            Destroy(existing.gameObject);
+        }
+
+        // Cache existing TMP font asset
+        TMP_FontAsset font = null;
+        TextMeshProUGUI existingTmp = mainMenuCanvas.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (existingTmp != null) font = existingTmp.font;
+
+        // 1. Root Panel with frosted dark glass backing for high contrast in MR pass-through
+        GameObject panelObj = new GameObject("ThemeSelectionPanel");
+        panelObj.transform.SetParent(mainMenuCanvas.transform, false);
+        RectTransform panelRect = panelObj.AddComponent<RectTransform>();
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.sizeDelta = Vector2.zero;
+        panelRect.anchoredPosition = Vector2.zero;
+        panelRect.localScale = Vector3.one;
+
+        Image panelBg = panelObj.AddComponent<Image>();
+        panelBg.sprite = ThemeManager.CreateRoundedBoxSprite(
+            256, 256,
+            16f, 2f,
+            new Color(0.06f, 0.08f, 0.10f, 0.88f), // Frosted dark obsidian
+            new Color(0.35f, 0.42f, 0.52f, 0.40f), // Soft luminous rim
+            new Vector4(20, 20, 20, 20)
+        );
+        panelBg.type = Image.Type.Sliced;
+        panelBg.color = Color.white;
+
+        // 2. Title Text
+        GameObject titleObj = new GameObject("TitleText");
+        titleObj.transform.SetParent(panelObj.transform, false);
+        RectTransform titleRect = titleObj.AddComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.05f, 0.77f);
+        titleRect.anchorMax = new Vector2(0.95f, 0.94f);
+        titleRect.sizeDelta = Vector2.zero;
+        titleRect.anchoredPosition = Vector2.zero;
+        TextMeshProUGUI titleTmp = titleObj.AddComponent<TextMeshProUGUI>();
+        if (font != null) titleTmp.font = font;
+        titleTmp.text = "PILIH TEMA TAMPILAN";
+        titleTmp.fontSize = 15f;
+        titleTmp.fontStyle = FontStyles.Bold;
+        titleTmp.alignment = TextAlignmentOptions.Center;
+        titleTmp.color = Color.white;
+
+        // 3. Subtitle Text
+        GameObject subObj = new GameObject("SubtitleText");
+        subObj.transform.SetParent(panelObj.transform, false);
+        RectTransform subRect = subObj.AddComponent<RectTransform>();
+        subRect.anchorMin = new Vector2(0.05f, 0.66f);
+        subRect.anchorMax = new Vector2(0.95f, 0.77f);
+        subRect.sizeDelta = Vector2.zero;
+        subRect.anchoredPosition = Vector2.zero;
+        TextMeshProUGUI subTmp = subObj.AddComponent<TextMeshProUGUI>();
+        if (font != null) subTmp.font = font;
+        subTmp.text = "Pilih gaya visual untuk eksplorasi muzium anda";
+        subTmp.fontSize = 8.5f;
+        subTmp.alignment = TextAlignmentOptions.Center;
+        subTmp.color = new Color(0.86f, 0.90f, 0.78f, 0.98f); // Soft warm sage
+
+        // 4. Dark Mode Card (Slate aesthetic)
+        CreateThemeCard(
+            panelObj.transform,
+            "Card_DarkMode",
+            new Vector2(0.07f, 0.08f),
+            new Vector2(0.47f, 0.64f),
+            ThemeManager.Instance.GetOrCreateMoonIconSprite(),
+            new Color(0.85f, 0.92f, 1.0f, 1.0f),
+            "Mode Gelap",
+            "Kontras Elegan\nNyaman di Mata",
+            "PILIH GELAP",
+            new Color(0.11f, 0.13f, 0.17f, 0.95f), // Dark Slate
+            new Color(0.32f, 0.42f, 0.58f, 0.85f), // Slate Border
+            new Color(0.24f, 0.35f, 0.52f, 0.98f), // Pill Button Bg
+            new Color(0.45f, 0.58f, 0.80f, 0.90f), // Pill Button Border
+            font,
+            () => OnThemeSelected(UIThemeMode.Dark)
+        );
+
+        // 5. Light Mode Card (Olive-Sage museum aesthetic)
+        CreateThemeCard(
+            panelObj.transform,
+            "Card_LightMode",
+            new Vector2(0.53f, 0.08f),
+            new Vector2(0.93f, 0.64f),
+            ThemeManager.Instance.GetOrCreateSunIconSprite(),
+            new Color(1.0f, 0.88f, 0.42f, 1.0f),
+            "Mode Terang",
+            "Olive-Sage Muzium\nCerah & Alami",
+            "PILIH TERANG",
+            new Color(0.42f, 0.46f, 0.37f, 0.95f), // Olive-Sage
+            new Color(0.72f, 0.78f, 0.56f, 0.85f), // Sage Border
+            new Color(0.55f, 0.63f, 0.32f, 0.98f), // Pill Button Bg
+            new Color(0.78f, 0.86f, 0.52f, 0.95f), // Pill Button Border
+            font,
+            () => OnThemeSelected(UIThemeMode.Light)
+        );
+
+        themeSelectionPanel = panelObj;
+    }
+
+    private GameObject CreateThemeCard(
+        Transform parent,
+        string name,
+        Vector2 anchorMin,
+        Vector2 anchorMax,
+        Sprite iconSprite,
+        Color iconColor,
+        string titleStr,
+        string descStr,
+        string btnStr,
+        Color cardBgColor,
+        Color cardBorderColor,
+        Color pillBgColor,
+        Color pillBorderColor,
+        TMP_FontAsset font,
+        UnityEngine.Events.UnityAction onClickAction)
+    {
+        GameObject card = new GameObject(name);
+        card.transform.SetParent(parent, false);
+
+        RectTransform cardRect = card.AddComponent<RectTransform>();
+        cardRect.anchorMin = anchorMin;
+        cardRect.anchorMax = anchorMax;
+        cardRect.sizeDelta = Vector2.zero;
+        cardRect.anchoredPosition = Vector2.zero;
+        cardRect.localScale = Vector3.one;
+
+        Image cardImg = card.AddComponent<Image>();
+        cardImg.sprite = ThemeManager.CreateRoundedBoxSprite(128, 128, 14f, 2f, cardBgColor, cardBorderColor, new Vector4(16, 16, 16, 16));
+        cardImg.type = Image.Type.Sliced;
+        cardImg.color = Color.white;
+        cardImg.material = null;
+        cardImg.raycastTarget = true;
+
+        Button btn = card.AddComponent<Button>();
+        btn.targetGraphic = cardImg;
+        btn.onClick.AddListener(onClickAction);
+
+        XRButtonSelection xrBtn = card.AddComponent<XRButtonSelection>();
+        xrBtn.onClick.AddListener(onClickAction);
+        xrBtn.hoverScaleMultiplier = 1.04f;
+
+        card.AddComponent<UIButtonAudio>();
+
+        // Procedural Vector Icon (No missing glyph square boxes)
+        GameObject iconObj = new GameObject("ThemeIcon");
+        iconObj.transform.SetParent(card.transform, false);
+        RectTransform iconRect = iconObj.AddComponent<RectTransform>();
+        iconRect.anchorMin = new Vector2(0.5f, 0.78f);
+        iconRect.anchorMax = new Vector2(0.5f, 0.78f);
+        iconRect.sizeDelta = new Vector2(28f, 28f);
+        iconRect.anchoredPosition = Vector2.zero;
+        Image iconImg = iconObj.AddComponent<Image>();
+        iconImg.sprite = iconSprite;
+        iconImg.color = iconColor;
+        iconImg.preserveAspect = true;
+        iconImg.raycastTarget = false;
+
+        // Title
+        GameObject titleObj = new GameObject("Title");
+        titleObj.transform.SetParent(card.transform, false);
+        RectTransform titleRect = titleObj.AddComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0.05f, 0.49f);
+        titleRect.anchorMax = new Vector2(0.95f, 0.65f);
+        titleRect.sizeDelta = Vector2.zero;
+        titleRect.anchoredPosition = Vector2.zero;
+        TextMeshProUGUI titleTmp = titleObj.AddComponent<TextMeshProUGUI>();
+        if (font != null) titleTmp.font = font;
+        titleTmp.text = titleStr;
+        titleTmp.fontSize = 11.5f;
+        titleTmp.fontStyle = FontStyles.Bold;
+        titleTmp.alignment = TextAlignmentOptions.Center;
+        titleTmp.color = Color.white;
+        titleTmp.raycastTarget = false;
+
+        // Subtext / Desc
+        GameObject descObj = new GameObject("Desc");
+        descObj.transform.SetParent(card.transform, false);
+        RectTransform descRect = descObj.AddComponent<RectTransform>();
+        descRect.anchorMin = new Vector2(0.05f, 0.28f);
+        descRect.anchorMax = new Vector2(0.95f, 0.48f);
+        descRect.sizeDelta = Vector2.zero;
+        descRect.anchoredPosition = Vector2.zero;
+        TextMeshProUGUI descTmp = descObj.AddComponent<TextMeshProUGUI>();
+        if (font != null) descTmp.font = font;
+        descTmp.text = descStr;
+        descTmp.fontSize = 6.5f;
+        descTmp.alignment = TextAlignmentOptions.Center;
+        descTmp.color = new Color(0.90f, 0.92f, 0.88f, 0.90f);
+        descTmp.raycastTarget = false;
+
+        // Pill Button
+        GameObject pillObj = new GameObject("Pill");
+        pillObj.transform.SetParent(card.transform, false);
+        RectTransform pillRect = pillObj.AddComponent<RectTransform>();
+        pillRect.anchorMin = new Vector2(0.16f, 0.07f);
+        pillRect.anchorMax = new Vector2(0.84f, 0.24f);
+        pillRect.sizeDelta = Vector2.zero;
+        pillRect.anchoredPosition = Vector2.zero;
+        Image pillImg = pillObj.AddComponent<Image>();
+        pillImg.sprite = ThemeManager.CreateRoundedBoxSprite(128, 64, 26f, 2f, pillBgColor, pillBorderColor, new Vector4(28, 26, 28, 26));
+        pillImg.type = Image.Type.Sliced;
+        pillImg.color = Color.white;
+        pillImg.raycastTarget = false;
+
+        GameObject pillTextObj = new GameObject("PillText");
+        pillTextObj.transform.SetParent(pillObj.transform, false);
+        RectTransform pillTextRect = pillTextObj.AddComponent<RectTransform>();
+        pillTextRect.anchorMin = Vector2.zero;
+        pillTextRect.anchorMax = Vector2.one;
+        pillTextRect.sizeDelta = Vector2.zero;
+        pillTextRect.anchoredPosition = Vector2.zero;
+        TextMeshProUGUI pillTmp = pillTextObj.AddComponent<TextMeshProUGUI>();
+        if (font != null) pillTmp.font = font;
+        pillTmp.text = btnStr;
+        pillTmp.fontSize = 7f;
+        pillTmp.fontStyle = FontStyles.Bold;
+        pillTmp.alignment = TextAlignmentOptions.Center;
+        pillTmp.color = Color.white;
+        pillTmp.raycastTarget = false;
+
+        return card;
     }
 
     /// <summary>

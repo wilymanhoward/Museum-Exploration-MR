@@ -95,6 +95,14 @@ public class Room : MonoBehaviour
         roomTitleText.overflowMode = TextOverflowModes.Overflow;
     }
 
+    private void OnEnable()
+    {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
+    }
+
     /// <summary>
     /// Call this from RoomList to show the room details.
     /// </summary>
@@ -109,6 +117,11 @@ public class Room : MonoBehaviour
         }
 
         UpdateRoomDetails();
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
     }
 
     private void UpdateRoomDetails()
@@ -253,8 +266,18 @@ public class Room : MonoBehaviour
                     itemObj.AddComponent<UIButtonAudio>();
                 }
 
+                if (ThemeManager.Instance != null && itemObj != null)
+                {
+                    ThemeManager.Instance.ApplyToHierarchy(itemObj);
+                }
+
                 index++;
             }
+        }
+
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
         }
     }
 

@@ -1,0 +1,970 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
+
+public enum UIThemeMode
+{
+    Dark = 0,
+    Light = 1
+}
+
+/// <summary>
+/// Centralized Theme Manager for the Museum Mixed Reality project.
+/// - In Dark Mode: Exactly preserves and restores 100% of the original authored visuals from before-light-mode;)
+///   with zero unwanted overrides.
+/// - In Light Mode: Displays the authentic museum Olive-Sage (#90937E) panel aesthetic with the exact same
+///   rounded edge radius (225px 9-slice) and slight glass transparency (A=180, ~70% opacity) as Dark Mode.
+/// </summary>
+public class ThemeManager : MonoBehaviour
+{
+    private static ThemeManager instance;
+    public static ThemeManager Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = FindObjectOfType<ThemeManager>();
+                if (instance == null)
+                {
+                    GameObject go = new GameObject("ThemeManager");
+                    instance = go.AddComponent<ThemeManager>();
+                    DontDestroyOnLoad(go);
+                }
+            }
+            return instance;
+        }
+    }
+
+    private const string PrefsKey = "Museum_UI_ThemeMode";
+
+    [Header("Current Theme State")]
+    public UIThemeMode currentTheme = UIThemeMode.Dark;
+    public static event Action<UIThemeMode> OnThemeChanged;
+
+    [Header("Light Mode Palette (Olive-Sage Glass Aesthetic)")]
+    // Main panel background (#90937E with high glass transparency: A = 115 / 255 = ~0.451)
+    [System.NonSerialized] public Color lightPanelBg = new Color(0.565f, 0.576f, 0.494f, 115f / 255f);
+    [System.NonSerialized] public Color lightPanelBorder = new Color(0.772f, 0.816f, 0.694f, 150f / 255f); // #C5D0B2 soft luminous rim
+    // Sub-cards (Detail Artefak, Tentang Artefak, rows #747968 with A = 125 / 255 = ~0.490)
+    [System.NonSerialized] public Color lightCardBg = new Color(0.455f, 0.475f, 0.408f, 125f / 255f);
+    [System.NonSerialized] public Color lightCardBorder = new Color(0.698f, 0.737f, 0.620f, 155f / 255f); // #B2BC9E
+    // Active View Button (Gambar #A6B668 with slight transparency)
+    [System.NonSerialized] public Color lightActiveBtnBg = new Color(0.651f, 0.714f, 0.408f, 200f / 255f);
+    [System.NonSerialized] public Color lightActiveBtnBorder = new Color(0.816f, 0.871f, 0.596f, 220f / 255f);
+    // Inactive View Button (3D View #8F9588 with A = 120 / 255 = ~0.470)
+    [System.NonSerialized] public Color lightInactiveBtnBg = new Color(0.561f, 0.584f, 0.533f, 120f / 255f);
+    [System.NonSerialized] public Color lightInactiveBtnBorder = new Color(0.722f, 0.761f, 0.690f, 155f / 255f);
+    // Control / Circle buttons (close, back, play, restart #2E332A with A = 150 / 255 = ~0.588)
+    [System.NonSerialized] public Color lightControlBtnBg = new Color(0.180f, 0.200f, 0.165f, 150f / 255f);
+    [System.NonSerialized] public Color lightControlBtnBorder = new Color(0.392f, 0.431f, 0.373f, 175f / 255f);
+    [System.NonSerialized] public Color lightControlBtnIcon = Color.white;
+    // Typography
+    [System.NonSerialized] public Color lightHeaderTextColor = Color.white;
+    [System.NonSerialized] public Color lightAccentTextColor = new Color(0.850f, 0.890f, 0.620f, 1.0f); // #D8E29D Soft Lime
+    [System.NonSerialized] public Color lightBodyTextColor = new Color(0.910f, 0.930f, 0.880f, 0.95f);   // #E8EAE0 Cream / Off-White
+    [System.NonSerialized] public Color lightSeparatorColor = new Color(0.540f, 0.560f, 0.490f, 0.35f);  // Soft olive line
+
+    // Original State Tracking (Ensures 100% faithful restoration of Dark Mode)
+    private class OriginalGraphicState
+    {
+        public Sprite sprite;
+        public Color color;
+        public Material material;
+        public Image.Type type;
+    }
+
+    private class OriginalTextState
+    {
+        public Color color;
+    }
+
+    private readonly Dictionary<Graphic, OriginalGraphicState> originalGraphicStates = new Dictionary<Graphic, OriginalGraphicState>();
+    private readonly Dictionary<TextMeshProUGUI, OriginalTextState> originalTextStates = new Dictionary<TextMeshProUGUI, OriginalTextState>();
+
+    // Cached Procedural 9-Sliced Sprites matching 2.png / 8.png geometry & transparency
+    private Sprite lightPanelSprite;
+    private Sprite lightCardSprite;
+    private Sprite lightControlBtnSprite;
+    private Sprite lightActiveBtnSprite;
+    private Sprite lightInactiveBtnSprite;
+    private Sprite sunIconSprite;
+    private Sprite moonIconSprite;
+
+    // Shared Materials Cache
+    private Material matArtifactDetailPanel;
+    private Material matOptionsCardBg;
+    private Material matDetailSubCard;
+    private Material matImagesBtn;
+    private Material mat3DViewBtn;
+    private Material matRoomHUD;
+    private Material matMainMenu;
+    private Material matOptionsRowCard;
+    private Material matMulaiButton;
+
+    private void Awake()
+    {
+        if (instance == null)
+        {
+            instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+        else if (instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        int saved = PlayerPrefs.GetInt(PrefsKey, (int)UIThemeMode.Dark);
+        currentTheme = (UIThemeMode)saved;
+        CacheMaterials();
+    }
+
+    private void Start()
+    {
+        ApplyTheme(currentTheme);
+    }
+
+    private void CacheMaterials()
+    {
+        foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+        {
+            if (m == null) continue;
+            string n = m.name;
+            if (n == "Mat_ArtifactDetailPanel") matArtifactDetailPanel = m;
+            else if (n == "Mat_OptionsCardBackground") matOptionsCardBg = m;
+            else if (n == "Mat_DetailSubCard") matDetailSubCard = m;
+            else if (n == "Mat_ImagesBtn") matImagesBtn = m;
+            else if (n == "Mat_3DViewBtn") mat3DViewBtn = m;
+            else if (n == "Mat_RoomHUD") matRoomHUD = m;
+            else if (n == "Mat_MainMenu") matMainMenu = m;
+            else if (n == "Mat_OptionsRowCard") matOptionsRowCard = m;
+            else if (n == "Mat_MulaiButton") matMulaiButton = m;
+        }
+    }
+
+    /// <summary>
+    /// Generates an anti-aliased 9-sliced rounded box sprite with smooth curvature and soft border glow.
+    /// </summary>
+    public static Sprite CreateRoundedBoxSprite(int width, int height, float radius, float borderWidth, Color fillColor, Color borderColor, Vector4 borderInset, float pixelsPerUnit = 100f)
+    {
+        Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color32[] pixels = new Color32[width * height];
+        float halfW = width * 0.5f;
+        float halfH = height * 0.5f;
+        float bX = halfW - radius;
+        float bY = halfH - radius;
+
+        byte fillR = (byte)Mathf.RoundToInt(fillColor.r * 255f);
+        byte fillG = (byte)Mathf.RoundToInt(fillColor.g * 255f);
+        byte fillB = (byte)Mathf.RoundToInt(fillColor.b * 255f);
+        byte fillA = (byte)Mathf.RoundToInt(fillColor.a * 255f);
+
+        byte borderR = (byte)Mathf.RoundToInt(borderColor.r * 255f);
+        byte borderG = (byte)Mathf.RoundToInt(borderColor.g * 255f);
+        byte borderB = (byte)Mathf.RoundToInt(borderColor.b * 255f);
+        byte borderA = (byte)Mathf.RoundToInt(borderColor.a * 255f);
+
+        for (int y = 0; y < height; y++)
+        {
+            float py = (y + 0.5f) - halfH;
+            for (int x = 0; x < width; x++)
+            {
+                float px = (x + 0.5f) - halfW;
+
+                float qx = Mathf.Abs(px) - bX;
+                float qy = Mathf.Abs(py) - bY;
+                float d = Mathf.Min(Mathf.Max(qx, qy), 0f) + new Vector2(Mathf.Max(qx, 0f), Mathf.Max(qy, 0f)).magnitude - radius;
+
+                if (d > 0.5f)
+                {
+                    pixels[y * width + x] = new Color32(0, 0, 0, 0);
+                }
+                else
+                {
+                    float outerAlpha = Mathf.Clamp01(0.5f - d);
+
+                    if (d >= -borderWidth)
+                    {
+                        float t = Mathf.Clamp01((-d) / Mathf.Max(borderWidth, 0.001f));
+                        byte r = (byte)Mathf.RoundToInt(Mathf.Lerp(borderR, fillR, t * 0.4f));
+                        byte g = (byte)Mathf.RoundToInt(Mathf.Lerp(borderG, fillG, t * 0.4f));
+                        byte b = (byte)Mathf.RoundToInt(Mathf.Lerp(borderB, fillB, t * 0.4f));
+                        byte a = (byte)Mathf.RoundToInt(Mathf.Lerp(borderA, fillA, t) * outerAlpha);
+                        pixels[y * width + x] = new Color32(r, g, b, a);
+                    }
+                    else
+                    {
+                        byte a = (byte)Mathf.RoundToInt(fillA * outerAlpha);
+                        pixels[y * width + x] = new Color32(fillR, fillG, fillB, a);
+                    }
+                }
+            }
+        }
+
+        tex.SetPixels32(pixels);
+        tex.Apply(false, true);
+
+        return Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), pixelsPerUnit, 0, SpriteMeshType.FullRect, borderInset);
+    }
+
+    /// <summary>
+    /// Procedural 9-slice sprite for Main Panel Background.
+    /// Exactly matches 2.png: 225px corner radius, 225px 9-slice border inset, and A=180 glass transparency.
+    /// </summary>
+    public Sprite GetOrCreateLightPanelSprite()
+    {
+        if (lightPanelSprite == null)
+        {
+            // 512x512 with 225px radius, 14px border glow, and 225px 9-slice inset at 100 PPU
+            lightPanelSprite = CreateRoundedBoxSprite(512, 512, 225f, 14f, lightPanelBg, lightPanelBorder, new Vector4(225, 225, 225, 225), 100f);
+            lightPanelSprite.name = "LightPanel_225_Procedural";
+        }
+        return lightPanelSprite;
+    }
+
+    /// <summary>
+    /// Procedural 9-slice sprite for Sub-Cards (DetailArtefakCard, TentangArtefakCard, list rows).
+    /// Exactly matches 8.png: 225px corner radius, 225px 9-slice border inset, and A=185 glass transparency.
+    /// </summary>
+    public Sprite GetOrCreateLightCardSprite()
+    {
+        if (lightCardSprite == null)
+        {
+            lightCardSprite = CreateRoundedBoxSprite(512, 512, 225f, 14f, lightCardBg, lightCardBorder, new Vector4(225, 225, 225, 225), 100f);
+            lightCardSprite.name = "LightCard_225_Procedural";
+        }
+        return lightCardSprite;
+    }
+
+    /// <summary>
+    /// Procedural circular button sprite matching 7.png.
+    /// </summary>
+    public Sprite GetOrCreateLightControlBtnSprite()
+    {
+        if (lightControlBtnSprite == null)
+        {
+            lightControlBtnSprite = CreateRoundedBoxSprite(128, 128, 62f, 5f, lightControlBtnBg, lightControlBtnBorder, Vector4.zero, 100f);
+            lightControlBtnSprite.name = "LightControlBtn_Procedural";
+        }
+        return lightControlBtnSprite;
+    }
+
+    public Sprite GetOrCreateLightActiveBtnSprite()
+    {
+        if (lightActiveBtnSprite == null)
+        {
+            lightActiveBtnSprite = CreateRoundedBoxSprite(512, 256, 120f, 12f, lightActiveBtnBg, lightActiveBtnBorder, new Vector4(120, 120, 120, 120), 100f);
+            lightActiveBtnSprite.name = "LightActiveBtn_Procedural";
+        }
+        return lightActiveBtnSprite;
+    }
+
+    public Sprite GetOrCreateLightInactiveBtnSprite()
+    {
+        if (lightInactiveBtnSprite == null)
+        {
+            lightInactiveBtnSprite = CreateRoundedBoxSprite(512, 256, 120f, 12f, lightInactiveBtnBg, lightInactiveBtnBorder, new Vector4(120, 120, 120, 120), 100f);
+            lightInactiveBtnSprite.name = "LightInactiveBtn_Procedural";
+        }
+        return lightInactiveBtnSprite;
+    }
+
+    public void InvalidateSpriteCache()
+    {
+        lightPanelSprite = null;
+        lightCardSprite = null;
+        lightControlBtnSprite = null;
+        lightActiveBtnSprite = null;
+        lightInactiveBtnSprite = null;
+        sunIconSprite = null;
+        moonIconSprite = null;
+    }
+
+    public Sprite GetOrCreateSunIconSprite()
+    {
+        if (sunIconSprite == null)
+        {
+            sunIconSprite = CreateSunSprite(64, Color.white);
+            sunIconSprite.name = "SunIcon_Procedural";
+        }
+        return sunIconSprite;
+    }
+
+    public Sprite GetOrCreateMoonIconSprite()
+    {
+        if (moonIconSprite == null)
+        {
+            moonIconSprite = CreateMoonSprite(64, Color.white);
+            moonIconSprite.name = "MoonIcon_Procedural";
+        }
+        return moonIconSprite;
+    }
+
+    private Sprite CreateSunSprite(int size, Color color)
+    {
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        tex.wrapMode = TextureWrapMode.Clamp;
+        Color32[] pixels = new Color32[size * size];
+
+        float cx = size / 2.0f;
+        float cy = size / 2.0f;
+        float diskR = 11.0f;
+        float rayInner = 16.0f;
+        float rayOuter = 25.0f;
+        float rayThickness = 1.8f;
+
+        byte cr = (byte)Mathf.RoundToInt(color.r * 255f);
+        byte cg = (byte)Mathf.RoundToInt(color.g * 255f);
+        byte cb = (byte)Mathf.RoundToInt(color.b * 255f);
+        byte ca = (byte)Mathf.RoundToInt(color.a * 255f);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x + 0.5f - cx;
+                float dy = y + 0.5f - cy;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                float diskD = dist - diskR;
+                float diskAlpha = Mathf.Clamp01(0.5f - diskD);
+
+                float rayAlpha = 0.0f;
+                if (dist >= rayInner - 1.0f && dist <= rayOuter + 1.0f)
+                {
+                    float angle = Mathf.Atan2(dy, dx);
+                    float step = Mathf.PI / 4.0f;
+                    float nearest = Mathf.Round(angle / step) * step;
+                    float diff = Mathf.Abs(angle - nearest);
+                    while (diff > Mathf.PI) diff = Mathf.Abs(diff - 2.0f * Mathf.PI);
+                    float perp = dist * Mathf.Sin(diff);
+                    float rFade = Mathf.Clamp01(Mathf.Min(dist - rayInner + 0.5f, rayOuter - dist + 0.5f));
+                    float tFade = Mathf.Clamp01(0.5f - (perp - rayThickness));
+                    rayAlpha = rFade * tFade;
+                }
+
+                float finalAlpha = Mathf.Max(diskAlpha, rayAlpha);
+                if (finalAlpha > 0.01f)
+                {
+                    pixels[y * size + x] = new Color32(cr, cg, cb, (byte)Mathf.RoundToInt(ca * finalAlpha));
+                }
+                else
+                {
+                    pixels[y * size + x] = new Color32(0, 0, 0, 0);
+                }
+            }
+        }
+
+        tex.SetPixels32(pixels);
+        tex.Apply(false, true);
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    private Sprite CreateMoonSprite(int size, Color color)
+    {
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        tex.wrapMode = TextureWrapMode.Clamp;
+        Color32[] pixels = new Color32[size * size];
+
+        float cx = size / 2.0f;
+        float cy = size / 2.0f;
+        float oCx = cx - 2.0f;
+        float oCy = cy;
+        float oR = 16.0f;
+        float cCx = cx + 6.0f;
+        float cCy = cy - 4.0f;
+        float cR = 14.5f;
+
+        byte cr = (byte)Mathf.RoundToInt(color.r * 255f);
+        byte cg = (byte)Mathf.RoundToInt(color.g * 255f);
+        byte cb = (byte)Mathf.RoundToInt(color.b * 255f);
+        byte ca = (byte)Mathf.RoundToInt(color.a * 255f);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dx1 = x + 0.5f - oCx;
+                float dy1 = y + 0.5f - oCy;
+                float dist1 = Mathf.Sqrt(dx1 * dx1 + dy1 * dy1);
+                float a1 = Mathf.Clamp01(0.5f - (dist1 - oR));
+
+                float dx2 = x + 0.5f - cCx;
+                float dy2 = y + 0.5f - cCy;
+                float dist2 = Mathf.Sqrt(dx2 * dx2 + dy2 * dy2);
+                float a2 = Mathf.Clamp01((dist2 - cR) + 0.5f);
+
+                float finalAlpha = a1 * a2;
+                if (finalAlpha > 0.01f)
+                {
+                    pixels[y * size + x] = new Color32(cr, cg, cb, (byte)Mathf.RoundToInt(ca * finalAlpha));
+                }
+                else
+                {
+                    pixels[y * size + x] = new Color32(0, 0, 0, 0);
+                }
+            }
+        }
+
+        tex.SetPixels32(pixels);
+        tex.Apply(false, true);
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+    }
+
+    private void CacheOriginalGraphic(Graphic g)
+    {
+        if (g == null || originalGraphicStates.ContainsKey(g)) return;
+
+        Image img = g as Image;
+        originalGraphicStates[g] = new OriginalGraphicState
+        {
+            sprite = img != null ? img.sprite : null,
+            color = g.color,
+            material = g.material,
+            type = img != null ? img.type : Image.Type.Simple
+        };
+    }
+
+    private void CacheOriginalText(TextMeshProUGUI tmp)
+    {
+        if (tmp == null || originalTextStates.ContainsKey(tmp)) return;
+
+        originalTextStates[tmp] = new OriginalTextState
+        {
+            color = tmp.color
+        };
+    }
+
+    /// <summary>
+    /// Restores all modified graphics and text components back to their exact original authored states.
+    /// </summary>
+    private void RestoreOriginals()
+    {
+        foreach (var kvp in originalGraphicStates)
+        {
+            if (kvp.Key != null)
+            {
+                Image img = kvp.Key as Image;
+                if (img != null)
+                {
+                    img.sprite = kvp.Value.sprite;
+                    img.type = kvp.Value.type;
+                }
+                kvp.Key.color = kvp.Value.color;
+                kvp.Key.material = kvp.Value.material;
+            }
+        }
+
+        foreach (var kvp in originalTextStates)
+        {
+            if (kvp.Key != null)
+            {
+                kvp.Key.color = kvp.Value.color;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Toggles between Dark Mode and Light Mode.
+    /// </summary>
+    public void ToggleTheme()
+    {
+        UIThemeMode next = (currentTheme == UIThemeMode.Dark) ? UIThemeMode.Light : UIThemeMode.Dark;
+        SetTheme(next);
+    }
+
+    /// <summary>
+    /// Sets a specific theme mode, persists preference, and applies visual styling.
+    /// </summary>
+    public void SetTheme(UIThemeMode mode)
+    {
+        currentTheme = mode;
+        PlayerPrefs.SetInt(PrefsKey, (int)currentTheme);
+        PlayerPrefs.Save();
+
+        Debug.Log($"[ThemeManager] Theme mode switched to: {currentTheme}");
+        ApplyTheme(currentTheme);
+
+        OnThemeChanged?.Invoke(currentTheme);
+    }
+
+    /// <summary>
+    /// Applies theme colors to all cached material instances and all known active/inactive UI hierarchies.
+    /// </summary>
+    public void ApplyTheme(UIThemeMode mode)
+    {
+        ApplyToMaterials(mode);
+
+        if (mode == UIThemeMode.Dark)
+        {
+            // Restore all modified elements back to their exact original Dark Mode authored states
+            RestoreOriginals();
+        }
+        else
+        {
+            ApplyToSceneUI(mode);
+        }
+    }
+
+    private void ApplyToMaterials(UIThemeMode mode)
+    {
+        if (matArtifactDetailPanel == null) CacheMaterials();
+
+        if (mode == UIThemeMode.Dark)
+        {
+            // Restore shared materials to their EXACT original values from commit 5bce72a (before-light-mode;))
+            if (matArtifactDetailPanel != null)
+            {
+                if (matArtifactDetailPanel.HasProperty("_Color")) matArtifactDetailPanel.SetColor("_Color", new Color(1f, 1f, 1f, 1f));
+                if (matArtifactDetailPanel.HasProperty("_BorderColor")) matArtifactDetailPanel.SetColor("_BorderColor", new Color(0.92f, 0.95f, 1.0f, 0.85f));
+            }
+
+            if (matOptionsCardBg != null)
+            {
+                if (matOptionsCardBg.HasProperty("_Color")) matOptionsCardBg.SetColor("_Color", new Color(0.11f, 0.12f, 0.14f, 0.72f));
+                if (matOptionsCardBg.HasProperty("_DotColor")) matOptionsCardBg.SetColor("_DotColor", new Color(0.28f, 0.30f, 0.25f, 0.40f));
+            }
+
+            if (matDetailSubCard != null)
+            {
+                if (matDetailSubCard.HasProperty("_Color")) matDetailSubCard.SetColor("_Color", new Color(0.18f, 0.20f, 0.23f, 0.75f));
+                if (matDetailSubCard.HasProperty("_BorderColor")) matDetailSubCard.SetColor("_BorderColor", new Color(0.66f, 0.70f, 0.60f, 0.95f));
+            }
+
+            if (matImagesBtn != null)
+            {
+                if (matImagesBtn.HasProperty("_Color")) matImagesBtn.SetColor("_Color", new Color(0.38f, 0.44f, 0.54f, 0.95f));
+                if (matImagesBtn.HasProperty("_BorderColor")) matImagesBtn.SetColor("_BorderColor", new Color(0.65f, 0.75f, 0.88f, 0.98f));
+            }
+
+            if (mat3DViewBtn != null)
+            {
+                if (mat3DViewBtn.HasProperty("_Color")) mat3DViewBtn.SetColor("_Color", new Color(0.35f, 0.38f, 0.31f, 0.90f));
+                if (mat3DViewBtn.HasProperty("_BorderColor")) mat3DViewBtn.SetColor("_BorderColor", new Color(0.48f, 0.52f, 0.43f, 0.90f));
+            }
+
+            if (matMainMenu != null)
+            {
+                if (matMainMenu.HasProperty("_Color")) matMainMenu.SetColor("_Color", new Color(0.96f, 0.96f, 0.98f, 0.96f));
+                if (matMainMenu.HasProperty("_BorderColor")) matMainMenu.SetColor("_BorderColor", new Color(0.82f, 0.82f, 0.86f, 0.85f));
+            }
+
+            if (matMulaiButton != null)
+            {
+                if (matMulaiButton.HasProperty("_Color")) matMulaiButton.SetColor("_Color", new Color(0.32f, 0.42f, 0.58f, 0.95f));
+                if (matMulaiButton.HasProperty("_BorderColor")) matMulaiButton.SetColor("_BorderColor", new Color(0.55f, 0.68f, 0.88f, 0.98f));
+            }
+
+            if (matRoomHUD != null)
+            {
+                if (matRoomHUD.HasProperty("_Color")) matRoomHUD.SetColor("_Color", new Color(1f, 1f, 1f, 1f));
+                if (matRoomHUD.HasProperty("_BorderColor")) matRoomHUD.SetColor("_BorderColor", new Color(0.92f, 0.95f, 1.0f, 0.85f));
+            }
+
+            if (matOptionsRowCard != null)
+            {
+                if (matOptionsRowCard.HasProperty("_Color")) matOptionsRowCard.SetColor("_Color", new Color(0.15f, 0.16f, 0.18f, 0.72f));
+                if (matOptionsRowCard.HasProperty("_BorderColor")) matOptionsRowCard.SetColor("_BorderColor", new Color(0.48f, 0.52f, 0.43f, 0.80f));
+            }
+        }
+        else
+        {
+            // Light Mode: Apply olive-sage palette to materials with transparency
+            if (matArtifactDetailPanel != null)
+            {
+                if (matArtifactDetailPanel.HasProperty("_Color")) matArtifactDetailPanel.SetColor("_Color", lightPanelBg);
+                if (matArtifactDetailPanel.HasProperty("_BorderColor")) matArtifactDetailPanel.SetColor("_BorderColor", lightPanelBorder);
+            }
+
+            if (matOptionsCardBg != null)
+            {
+                if (matOptionsCardBg.HasProperty("_Color")) matOptionsCardBg.SetColor("_Color", lightPanelBg);
+                if (matOptionsCardBg.HasProperty("_DotColor")) matOptionsCardBg.SetColor("_DotColor", new Color(0.65f, 0.68f, 0.58f, 0.35f));
+            }
+
+            if (matDetailSubCard != null)
+            {
+                if (matDetailSubCard.HasProperty("_Color")) matDetailSubCard.SetColor("_Color", lightCardBg);
+                if (matDetailSubCard.HasProperty("_BorderColor")) matDetailSubCard.SetColor("_BorderColor", lightCardBorder);
+            }
+
+            if (matImagesBtn != null)
+            {
+                if (matImagesBtn.HasProperty("_Color")) matImagesBtn.SetColor("_Color", lightActiveBtnBg);
+                if (matImagesBtn.HasProperty("_BorderColor")) matImagesBtn.SetColor("_BorderColor", lightActiveBtnBorder);
+            }
+
+            if (mat3DViewBtn != null)
+            {
+                if (mat3DViewBtn.HasProperty("_Color")) mat3DViewBtn.SetColor("_Color", lightInactiveBtnBg);
+                if (mat3DViewBtn.HasProperty("_BorderColor")) mat3DViewBtn.SetColor("_BorderColor", lightInactiveBtnBorder);
+            }
+
+            if (matMainMenu != null)
+            {
+                if (matMainMenu.HasProperty("_Color")) matMainMenu.SetColor("_Color", lightPanelBg);
+                if (matMainMenu.HasProperty("_BorderColor")) matMainMenu.SetColor("_BorderColor", lightPanelBorder);
+            }
+
+            if (matMulaiButton != null)
+            {
+                if (matMulaiButton.HasProperty("_Color")) matMulaiButton.SetColor("_Color", lightActiveBtnBg);
+                if (matMulaiButton.HasProperty("_BorderColor")) matMulaiButton.SetColor("_BorderColor", lightActiveBtnBorder);
+            }
+
+            if (matRoomHUD != null)
+            {
+                if (matRoomHUD.HasProperty("_Color")) matRoomHUD.SetColor("_Color", lightPanelBg);
+                if (matRoomHUD.HasProperty("_BorderColor")) matRoomHUD.SetColor("_BorderColor", lightPanelBorder);
+            }
+
+            if (matOptionsRowCard != null)
+            {
+                if (matOptionsRowCard.HasProperty("_Color")) matOptionsRowCard.SetColor("_Color", lightCardBg);
+                if (matOptionsRowCard.HasProperty("_BorderColor")) matOptionsRowCard.SetColor("_BorderColor", lightCardBorder);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Updates the visual appearance of the ImagesButton and 3DViewButton.
+    /// In Dark Mode: Exactly preserves original authored appearance.
+    /// In Light Mode: Sets active to #A6B668 and inactive to #8F9588.
+    /// </summary>
+    public void UpdateArtifactViewButtons(Image imagesBtnImg, Image threeDBtnImg, bool show2D)
+    {
+        if (currentTheme == UIThemeMode.Dark)
+        {
+            // In Dark Mode, restore original buttons without alteration
+            if (imagesBtnImg != null && originalGraphicStates.TryGetValue(imagesBtnImg, out var orig2D))
+            {
+                imagesBtnImg.sprite = orig2D.sprite;
+                imagesBtnImg.type = orig2D.type;
+                imagesBtnImg.color = orig2D.color;
+                imagesBtnImg.material = orig2D.material;
+            }
+            if (threeDBtnImg != null && originalGraphicStates.TryGetValue(threeDBtnImg, out var orig3D))
+            {
+                threeDBtnImg.sprite = orig3D.sprite;
+                threeDBtnImg.type = orig3D.type;
+                threeDBtnImg.color = orig3D.color;
+                threeDBtnImg.material = orig3D.material;
+            }
+            return;
+        }
+
+        // Light Mode styling
+        if (imagesBtnImg != null)
+        {
+            CacheOriginalGraphic(imagesBtnImg);
+            imagesBtnImg.sprite = show2D ? GetOrCreateLightActiveBtnSprite() : GetOrCreateLightInactiveBtnSprite();
+            imagesBtnImg.type = Image.Type.Sliced;
+            imagesBtnImg.color = Color.white;
+            imagesBtnImg.material = null;
+        }
+
+        if (threeDBtnImg != null)
+        {
+            CacheOriginalGraphic(threeDBtnImg);
+            threeDBtnImg.sprite = show2D ? GetOrCreateLightInactiveBtnSprite() : GetOrCreateLightActiveBtnSprite();
+            threeDBtnImg.type = Image.Type.Sliced;
+            threeDBtnImg.color = Color.white;
+            threeDBtnImg.material = null;
+        }
+    }
+
+    private void ApplyToSceneUI(UIThemeMode mode)
+    {
+        // 1. Scan and apply to all loaded scene Canvases (including inactive)
+        foreach (Canvas canvas in Resources.FindObjectsOfTypeAll<Canvas>())
+        {
+            if (canvas == null) continue;
+            // Make sure it belongs to a valid loaded scene (exclude project assets / prefabs)
+            if (!canvas.gameObject.scene.IsValid() || !canvas.gameObject.scene.isLoaded) continue;
+            ApplyToHierarchy(canvas.gameObject, mode);
+        }
+
+        // 2. Explicitly query all panel and game scripts across the scene (including inactive)
+        foreach (Artifact art in Resources.FindObjectsOfTypeAll<Artifact>())
+        {
+            if (art != null && art.gameObject.scene.isLoaded) ApplyToHierarchy(art.gameObject, mode);
+        }
+
+        foreach (HistoryPanel hp in Resources.FindObjectsOfTypeAll<HistoryPanel>())
+        {
+            if (hp != null && hp.gameObject.scene.isLoaded) ApplyToHierarchy(hp.gameObject, mode);
+        }
+
+        foreach (HistoryListPanel hlp in Resources.FindObjectsOfTypeAll<HistoryListPanel>())
+        {
+            if (hlp != null && hlp.gameObject.scene.isLoaded) ApplyToHierarchy(hlp.gameObject, mode);
+        }
+
+        foreach (Room r in Resources.FindObjectsOfTypeAll<Room>())
+        {
+            if (r != null && r.gameObject.scene.isLoaded) ApplyToHierarchy(r.gameObject, mode);
+        }
+
+        foreach (RoomList rl in Resources.FindObjectsOfTypeAll<RoomList>())
+        {
+            if (rl != null && rl.gameObject.scene.isLoaded) ApplyToHierarchy(rl.gameObject, mode);
+        }
+
+        foreach (MiniGames mg in Resources.FindObjectsOfTypeAll<MiniGames>())
+        {
+            if (mg != null && mg.gameObject.scene.isLoaded) ApplyToHierarchy(mg.gameObject, mode);
+        }
+
+        foreach (BaseGame bg in Resources.FindObjectsOfTypeAll<BaseGame>())
+        {
+            if (bg != null && bg.gameObject.scene.isLoaded) ApplyToHierarchy(bg.gameObject, mode);
+        }
+
+        foreach (MiniGameMenuPanel mp in Resources.FindObjectsOfTypeAll<MiniGameMenuPanel>())
+        {
+            if (mp != null && mp.gameObject.scene.isLoaded) ApplyToHierarchy(mp.gameObject, mode);
+        }
+
+        foreach (MiniGameListPanel lp in Resources.FindObjectsOfTypeAll<MiniGameListPanel>())
+        {
+            if (lp != null && lp.gameObject.scene.isLoaded) ApplyToHierarchy(lp.gameObject, mode);
+        }
+
+        foreach (LeaderboardPanel lb in Resources.FindObjectsOfTypeAll<LeaderboardPanel>())
+        {
+            if (lb != null && lb.gameObject.scene.isLoaded) ApplyToHierarchy(lb.gameObject, mode);
+        }
+
+        // 3. Apply to WristWatch options and targets
+        if (WristWatch.Instance != null)
+        {
+            if (WristWatch.Instance.optionsPanelObj != null) ApplyToHierarchy(WristWatch.Instance.optionsPanelObj, mode);
+            if (WristWatch.Instance.roomListPanel != null) ApplyToHierarchy(WristWatch.Instance.roomListPanel, mode);
+            if (WristWatch.Instance.roomHudCanvas != null) ApplyToHierarchy(WristWatch.Instance.roomHudCanvas, mode);
+            if (WristWatch.Instance.gamesPanel != null) ApplyToHierarchy(WristWatch.Instance.gamesPanel, mode);
+        }
+
+        // 4. Apply to MainMenu
+        if (MainMenu.Instance != null && MainMenu.Instance.mainMenuCanvas != null)
+        {
+            ApplyToHierarchy(MainMenu.Instance.mainMenuCanvas, mode);
+        }
+
+        // 5. Apply to Tutorial panel
+        if (TutorialManager.Instance != null && TutorialManager.Instance.sceneAuthoredPanel != null)
+        {
+            ApplyToHierarchy(TutorialManager.Instance.sceneAuthoredPanel, mode);
+        }
+    }
+
+    /// <summary>
+    /// Themes all Image and TextMeshProUGUI components within a given UI hierarchy.
+    /// </summary>
+    private static bool IsInsideThemeSelection(Transform t)
+    {
+        while (t != null)
+        {
+            if (t.name == "ThemeSelectionPanel") return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Traverses the given root GameObject hierarchy and applies theme styling.
+    /// In Dark Mode: Restores original cached sprites, colors, and materials.
+    /// In Light Mode: Applies museum olive-sage background, cards, control buttons, and dark contrast typography.
+    /// Preserves user photos, artwork thumbnails, and video textures.
+    /// </summary>
+    public void ApplyToHierarchy(GameObject root, UIThemeMode? overrideMode = null)
+    {
+        if (root == null) return;
+        UIThemeMode mode = overrideMode ?? currentTheme;
+
+        if (mode == UIThemeMode.Dark)
+        {
+            // Dark Mode: only restore previously cached elements to their exact original states
+            foreach (Graphic g in root.GetComponentsInChildren<Graphic>(true))
+            {
+                if (g == null || IsInsideThemeSelection(g.transform)) continue;
+                if (originalGraphicStates.TryGetValue(g, out var orig))
+                {
+                    Image img = g as Image;
+                    if (img != null)
+                    {
+                        img.sprite = orig.sprite;
+                        img.type = orig.type;
+                    }
+                    g.color = orig.color;
+                    g.material = orig.material;
+                }
+            }
+
+            foreach (TextMeshProUGUI tmp in root.GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                if (tmp == null || IsInsideThemeSelection(tmp.transform)) continue;
+                if (originalTextStates.TryGetValue(tmp, out var origText))
+                {
+                    tmp.color = origText.color;
+                }
+            }
+            return;
+        }
+
+        // --- Light Mode Application ---
+        Sprite panelSprite = GetOrCreateLightPanelSprite();
+        Sprite cardSprite = GetOrCreateLightCardSprite();
+        Sprite controlBtnSprite = GetOrCreateLightControlBtnSprite();
+        Sprite activeBtnSprite = GetOrCreateLightActiveBtnSprite();
+
+        // 1. Process Images
+        Image[] images = root.GetComponentsInChildren<Image>(true);
+        foreach (Image img in images)
+        {
+            if (img == null || IsInsideThemeSelection(img.transform)) continue;
+            string n = img.gameObject.name.ToLower();
+
+            // Skip photos, artworks, raw textures, QR textures, and ThemeIcon
+            if (n.Contains("photo") || n.Contains("thumb") || n.Contains("displayimage") ||
+                n.Contains("artifactimage") || n.Contains("qr") || n.Contains("video") ||
+                n.Contains("themeicon") || (img.transform.parent != null && img.transform.parent.name == "ThemeToggleButton"))
+            {
+                continue;
+            }
+
+            // Skip gameplay status icons (trophy, correct checkmark, wrong X)
+            if (n.Contains("trophy") || n.Contains("correct") || n.Contains("incorrect"))
+            {
+                continue;
+            }
+
+            // Skip game 2 process illustration cards (Process1 .. Process5)
+            if (n.StartsWith("process") && !n.Contains("layout") && !n.Contains("panel"))
+            {
+                continue;
+            }
+
+            string sprName = img.sprite != null ? img.sprite.name : "";
+
+            // If this is a child icon/image inside a control button, keep icon and ensure white contrast
+            if (img.transform.parent != null &&
+                (img.transform.parent.name.ToLower().Contains("close") ||
+                 img.transform.parent.name.ToLower().Contains("back") ||
+                 img.transform.parent.name.ToLower().Contains("themetoggle")))
+            {
+                if (n == "image" || n.Contains("icon") || n.Contains("symbol"))
+                {
+                    CacheOriginalGraphic(img);
+                    img.color = lightControlBtnIcon;
+                    continue;
+                }
+            }
+
+            // Skip transparent raycast blocker panels
+            if (img.color.a < 0.05f && sprName != "2" && n != "background")
+            {
+                continue;
+            }
+
+            CacheOriginalGraphic(img);
+
+            // Root panel background (e.g. 2.png or Background GameObject)
+            if (sprName == "2" || n == "background" || n.Contains("panelbg") || n.Contains("windowbg"))
+            {
+                img.sprite = panelSprite;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+                img.material = null;
+            }
+            // Action buttons (e.g. 10.png, 23.png, CheckButton, StartButton, ContinueButton, ReturnToMenuButton)
+            else if (sprName == "10" || sprName == "23" || n.Contains("checkbutton") || n.Contains("startbutton") ||
+                     n.Contains("continuebutton") || n.Contains("returntomenu") || n.Contains("mulaibutton") ||
+                     n.Contains("previousbutton") || n.Contains("nextbutton"))
+            {
+                img.sprite = activeBtnSprite;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+                img.material = null;
+            }
+            // Circular control buttons (e.g. 7.png or Play, Replay, Close, Back, ThemeToggle, List buttons)
+            else if (sprName == "7" || n.Contains("close") || n.Contains("back") || n.Contains("play") ||
+                     n.Contains("replay") || n.Contains("restart") || n.Contains("circle") || n.Contains("themetoggle") ||
+                     n.Contains("listbutton"))
+            {
+                img.sprite = controlBtnSprite;
+                img.type = Image.Type.Simple;
+                img.color = Color.white;
+                img.material = null;
+            }
+            // Sub-cards and slots (e.g. 8.png, 11.png, TentangArtefakCard, DetailArtefakCard, list rows, slots, ranks)
+            else if (sprName == "8" || sprName == "11" || n.Contains("card") || n.Contains("frame") ||
+                     n.Contains("item") || n.Contains("slot") || n.Contains("rank") || n.Contains("row"))
+            {
+                if (!n.Contains("imagesbutton") && !n.Contains("3dviewbutton"))
+                {
+                    img.sprite = cardSprite;
+                    img.type = Image.Type.Sliced;
+                    img.color = Color.white;
+                    img.material = null;
+                }
+            }
+            // Separator lines & progress bars
+            else if (sprName == "16" || n.Contains("separator") || n.Contains("line") || n.Contains("decline"))
+            {
+                img.color = lightSeparatorColor;
+            }
+            else if (n.Contains("fill") || n.Contains("progress"))
+            {
+                img.color = lightActiveBtnBg;
+            }
+        }
+
+        // 2. Process TextMeshProUGUI Typography
+        TextMeshProUGUI[] texts = root.GetComponentsInChildren<TextMeshProUGUI>(true);
+        foreach (TextMeshProUGUI tmp in texts)
+        {
+            if (tmp == null || IsInsideThemeSelection(tmp.transform)) continue;
+            string n = tmp.gameObject.name.ToLower();
+
+            CacheOriginalText(tmp);
+
+            // Input field text: ensure dark readable text on light input background
+            if (tmp.GetComponentInParent<TMP_InputField>() != null || tmp.GetComponentInParent<InputField>() != null)
+            {
+                tmp.color = new Color(0.12f, 0.14f, 0.12f, 1f);
+                continue;
+            }
+
+            // Subtitle & Accent: artifact name under Artefak, bottom title, bulb/info icons, step counter
+            if (n.Contains("bottomtitle") || n.Contains("subtitle") || n.Contains("accent") ||
+                n.Contains("gamelan") || n.Contains("step") || n.Contains("counter") ||
+                tmp.text.StartsWith("“") || tmp.text.StartsWith("\""))
+            {
+                tmp.color = lightAccentTextColor;
+            }
+            // Titles & Main Headers
+            else if (n.Contains("title") || n.Contains("header") || tmp.fontSize >= 20f)
+            {
+                tmp.color = lightHeaderTextColor;
+            }
+            // Button symbols / Icons (e.g. '✕', '◀', '▶', '↺')
+            else if (n.Contains("icon") || n.Contains("symbol") || n.Contains("close") || n.Contains("back"))
+            {
+                tmp.color = lightControlBtnIcon;
+            }
+            // Field values & body descriptions
+            else
+            {
+                tmp.color = lightBodyTextColor;
+            }
+        }
+    }
+}

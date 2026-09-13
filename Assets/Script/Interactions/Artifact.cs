@@ -78,6 +78,7 @@ public class Artifact : MonoBehaviour
     private static Artifact s_activeNarration;
     private ScrollRect descriptionScrollRect;
     private static Sprite cachedRoundedRectSprite;
+    private bool currentViewIs2D = true;
 
     private void Awake()
     {
@@ -205,6 +206,12 @@ public class Artifact : MonoBehaviour
     private void OnEnable()
     {
         PositionInFrontOfUser();
+        ThemeManager.OnThemeChanged += HandleThemeChanged;
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject);
+        }
+        UpdateViewButtonVisuals();
     }
 
     public void PositionInFrontOfUser()
@@ -237,6 +244,8 @@ public class Artifact : MonoBehaviour
             }
         }
     }
+
+
 
 
 
@@ -969,6 +978,28 @@ public class Artifact : MonoBehaviour
             if (displayImage != null) displayImage.gameObject.SetActive(false);
             if (noImagesText != null) noImagesText.gameObject.SetActive(false);
         }
+
+        currentViewIs2D = show2D;
+        UpdateViewButtonVisuals();
+    }
+
+    private void HandleThemeChanged(UIThemeMode mode)
+    {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(gameObject, mode);
+        }
+        UpdateViewButtonVisuals();
+    }
+
+    private void UpdateViewButtonVisuals()
+    {
+        if (ThemeManager.Instance != null)
+        {
+            UnityEngine.UI.Image img2D = imagesButton != null ? imagesButton.GetComponent<UnityEngine.UI.Image>() : null;
+            UnityEngine.UI.Image img3D = threeDViewButton != null ? threeDViewButton.GetComponent<UnityEngine.UI.Image>() : null;
+            ThemeManager.Instance.UpdateArtifactViewButtons(img2D, img3D, currentViewIs2D);
+        }
     }
 
     private void OnBackPressed()
@@ -1173,6 +1204,8 @@ public class Artifact : MonoBehaviour
 
     private void OnDisable()
     {
+        ThemeManager.OnThemeChanged -= HandleThemeChanged;
+
         // Releasing the narrator slot when this panel is hidden/closed/destroyed keeps the
         // "only one at a time" tracker from pointing at a gone panel. (An inactive GameObject's
         // AudioSource stops on its own.)

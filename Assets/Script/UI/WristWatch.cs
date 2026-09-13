@@ -23,6 +23,13 @@ public class WristWatch : MonoBehaviour
     [Tooltip("The RoomListPanel (List Ruang - the 5-gallery chooser) shown when Explore is pressed. Auto-found under roomHudCanvas if empty.")]
     public GameObject roomListPanel;
 
+    [Header("Theme Toggle")]
+    [Tooltip("Small rounded button beside close button in Options panel to toggle theme.")]
+    [System.NonSerialized] public GameObject themeToggleBtn;
+    [System.NonSerialized] private UnityEngine.UI.Image themeIconImg;
+    public GameObject themeRow;
+    private TMPro.TextMeshProUGUI themeLabelText;
+
     [Tooltip("Pin the room list rigidly to the left wrist (moves AND rotates with the wrist, does not billboard to the head). Turn off to keep it a free-floating world canvas.")]
     public bool attachRoomListToWrist = true;
     [Tooltip("Position of the room list relative to the wrist, expressed in the wrist's local space (so it stays put as the wrist rotates). Tune to place it above/in front of the wrist.")]
@@ -183,6 +190,221 @@ public class WristWatch : MonoBehaviour
         {
             Transform t = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
             WireRow(t != null ? t.gameObject : null, OnClickArtefak);
+        }
+
+        SetupThemeButton();
+        ThemeManager.OnThemeChanged += OnThemeChanged;
+    }
+
+    private void OnDestroy()
+    {
+        ThemeManager.OnThemeChanged -= OnThemeChanged;
+    }
+
+    private void SetupThemeButton()
+    {
+        if (optionsPanelObj == null) return;
+
+        // 1. Restore original anchors of Row_Explore and Row_Artefak
+        Transform artefakRow = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
+        if (exploreRow != null)
+        {
+            RectTransform rtExplore = exploreRow.GetComponent<RectTransform>();
+            if (rtExplore != null)
+            {
+                rtExplore.anchorMin = new Vector2(0.06f, 0.44f);
+                rtExplore.anchorMax = new Vector2(0.94f, 0.72f);
+            }
+        }
+        if (artefakRow != null)
+        {
+            RectTransform rtArtefak = artefakRow.GetComponent<RectTransform>();
+            if (rtArtefak != null)
+            {
+                rtArtefak.anchorMin = new Vector2(0.06f, 0.10f);
+                rtArtefak.anchorMax = new Vector2(0.94f, 0.38f);
+            }
+        }
+
+        // 2. Remove legacy Row_Theme if present
+        Transform oldRowTheme = FindDeepChild(optionsPanelObj.transform, "Row_Theme");
+        if (oldRowTheme != null)
+        {
+            Destroy(oldRowTheme.gameObject);
+        }
+
+        // 3. Locate CloseButton in options panel
+        Transform closeBtnT = optionsPanelObj.transform.Find("CloseButton");
+        if (closeBtnT == null) closeBtnT = FindDeepChild(optionsPanelObj.transform, "CloseButton");
+
+        // 4. Adjust TitleText width so it doesn't collide with the toggle button
+        Transform titleT = optionsPanelObj.transform.Find("TitleText");
+        if (titleT == null) titleT = FindDeepChild(optionsPanelObj.transform, "TitleText");
+        if (titleT != null && closeBtnT != null)
+        {
+            RectTransform rtTitle = titleT.GetComponent<RectTransform>();
+            RectTransform rtClose = closeBtnT.GetComponent<RectTransform>();
+            if (rtTitle != null && rtClose != null)
+            {
+                float anchorW = rtClose.anchorMax.x - rtClose.anchorMin.x;
+                float gap = 0.02f;
+                float themeLeft = rtClose.anchorMin.x - gap - anchorW;
+                rtTitle.anchorMax = new Vector2(Mathf.Min(rtTitle.anchorMax.x, themeLeft - 0.02f), rtTitle.anchorMax.y);
+            }
+        }
+
+        if (themeToggleBtn == null)
+        {
+            Transform existing = optionsPanelObj.transform.Find("ThemeToggleButton");
+            if (existing == null) existing = FindDeepChild(optionsPanelObj.transform, "ThemeToggleButton");
+            if (existing != null) themeToggleBtn = existing.gameObject;
+        }
+
+        if (themeToggleBtn == null && closeBtnT != null)
+        {
+            // Clone CloseButton to inherit identical circular background and collider
+            themeToggleBtn = Instantiate(closeBtnT.gameObject, optionsPanelObj.transform);
+            themeToggleBtn.name = "ThemeToggleButton";
+        }
+
+        if (themeToggleBtn != null && closeBtnT != null)
+        {
+            RectTransform rtClose = closeBtnT.GetComponent<RectTransform>();
+            RectTransform rtTheme = themeToggleBtn.GetComponent<RectTransform>();
+            if (rtClose != null && rtTheme != null)
+            {
+                // Align pivot, scale, rotation, and size delta with CloseButton
+                rtTheme.pivot = rtClose.pivot;
+                rtTheme.sizeDelta = rtClose.sizeDelta;
+                rtTheme.localScale = rtClose.localScale;
+                rtTheme.localEulerAngles = rtClose.localEulerAngles;
+
+                float width = rtClose.anchorMax.x - rtClose.anchorMin.x;
+                float gap = 0.02f;
+
+                // Match vertical row anchors and position EXACTLY with CloseButton
+                rtTheme.anchorMin = new Vector2(rtClose.anchorMin.x - gap - width, rtClose.anchorMin.y);
+                rtTheme.anchorMax = new Vector2(rtClose.anchorMin.x - gap, rtClose.anchorMax.y);
+                rtTheme.anchoredPosition = new Vector2(rtClose.anchoredPosition.x, rtClose.anchoredPosition.y);
+            }
+        }
+
+        if (themeToggleBtn != null)
+        {
+            // 1. Completely eliminate any cloned "X" text or other non-icon children
+            for (int i = themeToggleBtn.transform.childCount - 1; i >= 0; i--)
+            {
+                Transform child = themeToggleBtn.transform.GetChild(i);
+                if (child.name != "ThemeIcon")
+                {
+                    child.gameObject.SetActive(false);
+                    DestroyImmediate(child.gameObject);
+                }
+            }
+            foreach (TMPro.TMP_Text t in themeToggleBtn.GetComponentsInChildren<TMPro.TMP_Text>(true))
+            {
+                t.text = "";
+                t.gameObject.SetActive(false);
+                DestroyImmediate(t.gameObject);
+            }
+            foreach (UnityEngine.UI.Text t in themeToggleBtn.GetComponentsInChildren<UnityEngine.UI.Text>(true))
+            {
+                t.text = "";
+                t.gameObject.SetActive(false);
+                DestroyImmediate(t.gameObject);
+            }
+
+            // 2. Remove old XRButtonSelection / Button which cloned CloseOptionsPanel persistent calls from CloseButton
+            foreach (XRButtonSelection oldXr in themeToggleBtn.GetComponents<XRButtonSelection>())
+            {
+                DestroyImmediate(oldXr);
+            }
+            foreach (UnityEngine.UI.Button oldBtn in themeToggleBtn.GetComponents<UnityEngine.UI.Button>())
+            {
+                DestroyImmediate(oldBtn);
+            }
+
+            // 3. Add fresh XRButtonSelection for MR/VR interactions (free of any CloseOptionsPanel call)
+            XRButtonSelection newXr = themeToggleBtn.AddComponent<XRButtonSelection>();
+            newXr.buttonImage = themeToggleBtn.GetComponent<UnityEngine.UI.Image>();
+            newXr.scaleTarget = themeToggleBtn.transform;
+            newXr.normalColor = new Color(0.9f, 0.9f, 0.93f, 0.8f);
+            newXr.hoverColor = new Color(0.8f, 0.85f, 0.96f, 0.95f);
+            newXr.hoverScaleMultiplier = 1.1f;
+            newXr.transitionSpeed = 8f;
+            newXr.onClick.AddListener(OnClickThemeToggle);
+
+            // 4. Add fresh UGUI Button for standard clicks
+            UnityEngine.UI.Button newBtn = themeToggleBtn.AddComponent<UnityEngine.UI.Button>();
+            newBtn.onClick.AddListener(OnClickThemeToggle);
+
+            // 5. Setup ThemeIcon
+            Transform iconT = themeToggleBtn.transform.Find("ThemeIcon");
+            if (iconT == null)
+            {
+                GameObject iconObj = new GameObject("ThemeIcon");
+                iconObj.transform.SetParent(themeToggleBtn.transform, false);
+                RectTransform iconRt = iconObj.AddComponent<RectTransform>();
+                iconRt.anchorMin = new Vector2(0.20f, 0.20f);
+                iconRt.anchorMax = new Vector2(0.80f, 0.80f);
+                iconRt.sizeDelta = Vector2.zero;
+                iconRt.anchoredPosition = Vector2.zero;
+                themeIconImg = iconObj.AddComponent<UnityEngine.UI.Image>();
+                themeIconImg.raycastTarget = false;
+                themeIconImg.preserveAspect = true;
+            }
+            else
+            {
+                themeIconImg = iconT.GetComponent<UnityEngine.UI.Image>();
+                if (themeIconImg == null) themeIconImg = iconT.gameObject.AddComponent<UnityEngine.UI.Image>();
+                themeIconImg.raycastTarget = false;
+                themeIconImg.preserveAspect = true;
+            }
+
+            UpdateThemeButtonVisuals(ThemeManager.Instance != null ? ThemeManager.Instance.currentTheme : UIThemeMode.Dark);
+        }
+    }
+
+    private void OnClickThemeToggle()
+    {
+        if (ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ToggleTheme();
+        }
+
+        // Guarantee options panel remains open so user sees new theme instantly
+        optionsPanelActive = true;
+        if (optionsPanelObj != null && !optionsPanelObj.activeSelf)
+        {
+            optionsPanelObj.SetActive(true);
+        }
+    }
+
+    private void OnThemeChanged(UIThemeMode newTheme)
+    {
+        UpdateThemeButtonVisuals(newTheme);
+        if (optionsPanelObj != null && ThemeManager.Instance != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(optionsPanelObj, newTheme);
+        }
+    }
+
+    private void UpdateThemeButtonVisuals(UIThemeMode theme)
+    {
+        if (themeIconImg != null && ThemeManager.Instance != null)
+        {
+            if (theme == UIThemeMode.Light)
+            {
+                // In Light Mode, show crescent Moon icon (click to switch to Dark Mode)
+                themeIconImg.sprite = ThemeManager.Instance.GetOrCreateMoonIconSprite();
+                themeIconImg.color = new Color(0.95f, 0.95f, 0.95f, 1.0f);
+            }
+            else
+            {
+                // In Dark Mode, show radiant Sun icon (click to switch to Light Mode)
+                themeIconImg.sprite = ThemeManager.Instance.GetOrCreateSunIconSprite();
+                themeIconImg.color = new Color(1.0f, 0.92f, 0.55f, 1.0f); // Warm sunbeam gold
+            }
         }
     }
 
@@ -1049,6 +1271,11 @@ public class WristWatch : MonoBehaviour
 
             roomHudCanvas.SetActive(true);
 
+            if (ThemeManager.Instance != null)
+            {
+                ThemeManager.Instance.ApplyToHierarchy(roomHudCanvas);
+            }
+
             ShowRoomListPanel();
 
             if (RoomManager.Instance != null)
@@ -1158,6 +1385,11 @@ public class WristWatch : MonoBehaviour
 
         if (targetPanel != null)
         {
+            if (ThemeManager.Instance != null)
+            {
+                ThemeManager.Instance.ApplyToHierarchy(targetPanel);
+            }
+
             if (MiniGames.Instance != null)
             {
                 MiniGames.Instance.PositionInFrontOfUser();

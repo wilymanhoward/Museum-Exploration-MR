@@ -110,6 +110,24 @@ public class TutorialManager : MonoBehaviour
         ConfigureHandRayVisuals();
     }
 
+    private void OnEnable()
+    {
+        ThemeManager.OnThemeChanged += HandleThemeChanged;
+    }
+
+    private void OnDisable()
+    {
+        ThemeManager.OnThemeChanged -= HandleThemeChanged;
+    }
+
+    private void HandleThemeChanged(UIThemeMode mode)
+    {
+        if (ThemeManager.Instance != null && panelRoot != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(panelRoot, mode);
+        }
+    }
+
     /// <summary>
     /// Visible length of the hand-ray line, in meters (~5 inches). This clamps ONLY the
     /// rendered line: XRI computes the render points after hit processing, so the raycast,
@@ -211,6 +229,10 @@ public class TutorialManager : MonoBehaviour
         }
 
         BuildPanel();
+        if (ThemeManager.Instance != null && panelRoot != null)
+        {
+            ThemeManager.Instance.ApplyToHierarchy(panelRoot);
+        }
         PositionPanelInFrontOfPlayer();
         EnsureGizmo();
         EnsureSkipNarrationButton();
