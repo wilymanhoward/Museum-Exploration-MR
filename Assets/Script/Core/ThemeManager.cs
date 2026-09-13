@@ -84,9 +84,25 @@ public class ThemeManager : MonoBehaviour
     private readonly Dictionary<Graphic, OriginalGraphicState> originalGraphicStates = new Dictionary<Graphic, OriginalGraphicState>();
     private readonly Dictionary<TextMeshProUGUI, OriginalTextState> originalTextStates = new Dictionary<TextMeshProUGUI, OriginalTextState>();
 
+    private class OriginalButtonState
+    {
+        public SpriteState spriteState;
+        public ColorBlock colors;
+    }
+
+    private class OriginalXRButtonState
+    {
+        public Color normalColor;
+        public Color hoverColor;
+    }
+
+    private readonly Dictionary<Button, OriginalButtonState> originalButtonStates = new Dictionary<Button, OriginalButtonState>();
+    private readonly Dictionary<XRButtonSelection, OriginalXRButtonState> originalXRButtonStates = new Dictionary<XRButtonSelection, OriginalXRButtonState>();
+
     // Cached Procedural 9-Sliced Sprites matching 2.png / 8.png geometry & transparency
     private Sprite lightPanelSprite;
     private Sprite lightCardSprite;
+    private Sprite lightCardHoverSprite;
     private Sprite lightControlBtnSprite;
     private Sprite lightActiveBtnSprite;
     private Sprite lightInactiveBtnSprite;
@@ -243,6 +259,22 @@ public class ThemeManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Procedural 9-slice sprite for Sub-Cards when highlighted/hovered in Light Mode.
+    /// Replaces dark 9.png with a radiant, luminous olive-sage highlight glow.
+    /// </summary>
+    public Sprite GetOrCreateLightCardHoverSprite()
+    {
+        if (lightCardHoverSprite == null)
+        {
+            Color hoverBg = new Color(0.520f, 0.550f, 0.460f, 175f / 255f);
+            Color hoverBorder = new Color(0.860f, 0.910f, 0.740f, 235f / 255f); // #DBE8BD soft radiant rim
+            lightCardHoverSprite = CreateRoundedBoxSprite(512, 512, 225f, 16f, hoverBg, hoverBorder, new Vector4(225, 225, 225, 225), 100f);
+            lightCardHoverSprite.name = "LightCardHover_225_Procedural";
+        }
+        return lightCardHoverSprite;
+    }
+
+    /// <summary>
     /// Procedural circular button sprite matching 7.png.
     /// </summary>
     public Sprite GetOrCreateLightControlBtnSprite()
@@ -286,11 +318,26 @@ public class ThemeManager : MonoBehaviour
         moonIconSprite = null;
     }
 
+    public Shader GetGlassButtonShader()
+    {
+        Shader s = Shader.Find("UI/GlassButton");
+        if (s == null) s = GetRoundedUIShader();
+        return s;
+    }
+
+    public Shader GetRoundedUIShader()
+    {
+        Shader s = Shader.Find("UI/RoundedCorners");
+        if (s == null && matMulaiButton != null) s = matMulaiButton.shader;
+        if (s == null && matMainMenu != null) s = matMainMenu.shader;
+        return s;
+    }
+
     public Sprite GetOrCreateSunIconSprite()
     {
         if (sunIconSprite == null)
         {
-            sunIconSprite = CreateSunSprite(64, Color.white);
+            sunIconSprite = CreateSunSprite(256, Color.white);
             sunIconSprite.name = "SunIcon_Procedural";
         }
         return sunIconSprite;
@@ -300,7 +347,7 @@ public class ThemeManager : MonoBehaviour
     {
         if (moonIconSprite == null)
         {
-            moonIconSprite = CreateMoonSprite(64, Color.white);
+            moonIconSprite = CreateMoonSprite(256, Color.white);
             moonIconSprite.name = "MoonIcon_Procedural";
         }
         return moonIconSprite;
@@ -308,17 +355,18 @@ public class ThemeManager : MonoBehaviour
 
     private Sprite CreateSunSprite(int size, Color color)
     {
-        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Bilinear;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, true);
+        tex.filterMode = FilterMode.Trilinear;
         tex.wrapMode = TextureWrapMode.Clamp;
+        tex.anisoLevel = 4;
         Color32[] pixels = new Color32[size * size];
 
-        float cx = size / 2.0f;
-        float cy = size / 2.0f;
-        float diskR = 11.0f;
-        float rayInner = 16.0f;
-        float rayOuter = 25.0f;
-        float rayThickness = 1.8f;
+        float cx = size * 0.5f;
+        float cy = size * 0.5f;
+        float diskR = size * 0.17f;
+        float rayInner = size * 0.25f;
+        float rayOuter = size * 0.40f;
+        float rayThickness = size * 0.026f;
 
         byte cr = (byte)Mathf.RoundToInt(color.r * 255f);
         byte cg = (byte)Mathf.RoundToInt(color.g * 255f);
@@ -334,10 +382,10 @@ public class ThemeManager : MonoBehaviour
                 float dist = Mathf.Sqrt(dx * dx + dy * dy);
 
                 float diskD = dist - diskR;
-                float diskAlpha = Mathf.Clamp01(0.5f - diskD);
+                float diskAlpha = Mathf.Clamp01(1.0f - diskD);
 
                 float rayAlpha = 0.0f;
-                if (dist >= rayInner - 1.0f && dist <= rayOuter + 1.0f)
+                if (dist >= rayInner - 1.5f && dist <= rayOuter + 1.5f)
                 {
                     float angle = Mathf.Atan2(dy, dx);
                     float step = Mathf.PI / 4.0f;
@@ -345,8 +393,8 @@ public class ThemeManager : MonoBehaviour
                     float diff = Mathf.Abs(angle - nearest);
                     while (diff > Mathf.PI) diff = Mathf.Abs(diff - 2.0f * Mathf.PI);
                     float perp = dist * Mathf.Sin(diff);
-                    float rFade = Mathf.Clamp01(Mathf.Min(dist - rayInner + 0.5f, rayOuter - dist + 0.5f));
-                    float tFade = Mathf.Clamp01(0.5f - (perp - rayThickness));
+                    float rFade = Mathf.Clamp01(Mathf.Min(dist - rayInner + 1.0f, rayOuter - dist + 1.0f));
+                    float tFade = Mathf.Clamp01(1.0f - (perp - rayThickness));
                     rayAlpha = rFade * tFade;
                 }
 
@@ -363,25 +411,26 @@ public class ThemeManager : MonoBehaviour
         }
 
         tex.SetPixels32(pixels);
-        tex.Apply(false, true);
+        tex.Apply(true, true);
         return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
     }
 
     private Sprite CreateMoonSprite(int size, Color color)
     {
-        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        tex.filterMode = FilterMode.Bilinear;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, true);
+        tex.filterMode = FilterMode.Trilinear;
         tex.wrapMode = TextureWrapMode.Clamp;
+        tex.anisoLevel = 4;
         Color32[] pixels = new Color32[size * size];
 
-        float cx = size / 2.0f;
-        float cy = size / 2.0f;
-        float oCx = cx - 2.0f;
+        float cx = size * 0.5f;
+        float cy = size * 0.5f;
+        float oCx = cx - size * 0.035f;
         float oCy = cy;
-        float oR = 16.0f;
-        float cCx = cx + 6.0f;
-        float cCy = cy - 4.0f;
-        float cR = 14.5f;
+        float oR = size * 0.27f;
+        float cCx = cx + size * 0.10f;
+        float cCy = cy - size * 0.06f;
+        float cR = size * 0.245f;
 
         byte cr = (byte)Mathf.RoundToInt(color.r * 255f);
         byte cg = (byte)Mathf.RoundToInt(color.g * 255f);
@@ -395,14 +444,14 @@ public class ThemeManager : MonoBehaviour
                 float dx1 = x + 0.5f - oCx;
                 float dy1 = y + 0.5f - oCy;
                 float dist1 = Mathf.Sqrt(dx1 * dx1 + dy1 * dy1);
-                float a1 = Mathf.Clamp01(0.5f - (dist1 - oR));
+                float a1 = Mathf.Clamp01(1.0f - (dist1 - oR));
 
                 float dx2 = x + 0.5f - cCx;
                 float dy2 = y + 0.5f - cCy;
                 float dist2 = Mathf.Sqrt(dx2 * dx2 + dy2 * dy2);
-                float a2 = Mathf.Clamp01((dist2 - cR) + 0.5f);
+                float a2 = Mathf.Clamp01((dist2 - cR) + 1.0f);
 
-                float finalAlpha = a1 * a2;
+                float finalAlpha = Mathf.Clamp01(a1 * a2);
                 if (finalAlpha > 0.01f)
                 {
                     pixels[y * size + x] = new Color32(cr, cg, cb, (byte)Mathf.RoundToInt(ca * finalAlpha));
@@ -415,7 +464,7 @@ public class ThemeManager : MonoBehaviour
         }
 
         tex.SetPixels32(pixels);
-        tex.Apply(false, true);
+        tex.Apply(true, true);
         return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
     }
 
@@ -440,6 +489,26 @@ public class ThemeManager : MonoBehaviour
         originalTextStates[tmp] = new OriginalTextState
         {
             color = tmp.color
+        };
+    }
+
+    private void CacheOriginalButton(Button btn)
+    {
+        if (btn == null || originalButtonStates.ContainsKey(btn)) return;
+        originalButtonStates[btn] = new OriginalButtonState
+        {
+            spriteState = btn.spriteState,
+            colors = btn.colors
+        };
+    }
+
+    private void CacheOriginalXRButton(XRButtonSelection xr)
+    {
+        if (xr == null || originalXRButtonStates.ContainsKey(xr)) return;
+        originalXRButtonStates[xr] = new OriginalXRButtonState
+        {
+            normalColor = xr.normalColor,
+            hoverColor = xr.hoverColor
         };
     }
 
@@ -468,6 +537,24 @@ public class ThemeManager : MonoBehaviour
             if (kvp.Key != null)
             {
                 kvp.Key.color = kvp.Value.color;
+            }
+        }
+
+        foreach (var kvp in originalButtonStates)
+        {
+            if (kvp.Key != null)
+            {
+                kvp.Key.spriteState = kvp.Value.spriteState;
+                kvp.Key.colors = kvp.Value.colors;
+            }
+        }
+
+        foreach (var kvp in originalXRButtonStates)
+        {
+            if (kvp.Key != null)
+            {
+                kvp.Key.normalColor = kvp.Value.normalColor;
+                kvp.Key.hoverColor = kvp.Value.hoverColor;
             }
         }
     }
@@ -778,6 +865,17 @@ public class ThemeManager : MonoBehaviour
         return false;
     }
 
+    private static bool IsIntroVideoPanel(Transform t)
+    {
+        while (t != null)
+        {
+            string n = t.name.ToLower();
+            if (n.Contains("intovideopanel") || n.Contains("introvideopanel") || n.Contains("videopanel")) return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
     /// <summary>
     /// Traverses the given root GameObject hierarchy and applies theme styling.
     /// In Dark Mode: Restores original cached sprites, colors, and materials.
@@ -816,6 +914,26 @@ public class ThemeManager : MonoBehaviour
                     tmp.color = origText.color;
                 }
             }
+
+            foreach (Button btn in root.GetComponentsInChildren<Button>(true))
+            {
+                if (btn == null || IsInsideThemeSelection(btn.transform)) continue;
+                if (originalButtonStates.TryGetValue(btn, out var origBtn))
+                {
+                    btn.spriteState = origBtn.spriteState;
+                    btn.colors = origBtn.colors;
+                }
+            }
+
+            foreach (XRButtonSelection xr in root.GetComponentsInChildren<XRButtonSelection>(true))
+            {
+                if (xr == null || IsInsideThemeSelection(xr.transform)) continue;
+                if (originalXRButtonStates.TryGetValue(xr, out var origXR))
+                {
+                    xr.normalColor = origXR.normalColor;
+                    xr.hoverColor = origXR.hoverColor;
+                }
+            }
             return;
         }
 
@@ -829,7 +947,7 @@ public class ThemeManager : MonoBehaviour
         Image[] images = root.GetComponentsInChildren<Image>(true);
         foreach (Image img in images)
         {
-            if (img == null || IsInsideThemeSelection(img.transform)) continue;
+            if (img == null || IsInsideThemeSelection(img.transform) || IsIntroVideoPanel(img.transform)) continue;
             string n = img.gameObject.name.ToLower();
 
             // Skip photos, artworks, raw textures, QR textures, and ThemeIcon
@@ -894,26 +1012,48 @@ public class ThemeManager : MonoBehaviour
                 img.color = Color.white;
                 img.material = null;
             }
-            // Circular control buttons (e.g. 7.png or Play, Replay, Close, Back, ThemeToggle, List buttons)
-            else if (sprName == "7" || n.Contains("close") || n.Contains("back") || n.Contains("play") ||
-                     n.Contains("replay") || n.Contains("restart") || n.Contains("circle") || n.Contains("themetoggle") ||
-                     n.Contains("listbutton"))
+            // Circular control buttons (e.g. 7.png or Play, Replay, Close, Back, ThemeToggle, standalone ListButton)
+            // Explicitly exclude room list buttons and panel rows so they are not turned into stretched ovals
+            else if ((sprName == "7" || n.Contains("close") || n.Contains("back") || n.Contains("play") ||
+                      n.Contains("replay") || n.Contains("restart") || n.Contains("circle") || n.Contains("themetoggle") ||
+                      n == "listbutton") && !n.Contains("room") && !n.Contains("row"))
             {
                 img.sprite = controlBtnSprite;
                 img.type = Image.Type.Simple;
                 img.color = Color.white;
                 img.material = null;
             }
-            // Sub-cards and slots (e.g. 8.png, 11.png, TentangArtefakCard, DetailArtefakCard, list rows, slots, ranks)
+            // Sub-cards and slots (e.g. 8.png, 11.png, TentangArtefakCard, DetailArtefakCard, list rows, slots, ranks, room buttons)
             else if (sprName == "8" || sprName == "11" || n.Contains("card") || n.Contains("frame") ||
-                     n.Contains("item") || n.Contains("slot") || n.Contains("rank") || n.Contains("row"))
+                     n.Contains("item") || n.Contains("slot") || n.Contains("rank") || n.Contains("row") ||
+                     n.Contains("room"))
             {
                 if (!n.Contains("imagesbutton") && !n.Contains("3dviewbutton"))
                 {
-                    img.sprite = cardSprite;
-                    img.type = Image.Type.Sliced;
-                    img.color = Color.white;
-                    img.material = null;
+                    // Options panel row cards (Row_Explore, Row_Artefak, Row_Ruang) use Mat_OptionsRowCard.
+                    // Copy exact dark mode shader setup with light mode colors (no oval distortion).
+                    if (n.StartsWith("row_") || (img.material != null && img.material.name.Contains("OptionsRowCard")))
+                    {
+                        if (matOptionsRowCard == null) CacheMaterials();
+                        if (matOptionsRowCard != null) img.material = matOptionsRowCard;
+                        img.sprite = null;
+                        img.color = Color.white;
+                    }
+                    else
+                    {
+                        img.sprite = cardSprite;
+                        img.type = Image.Type.Sliced;
+                        img.color = Color.white;
+                        img.material = null;
+                        if (n.Contains("room"))
+                        {
+                            img.pixelsPerUnitMultiplier = 14.87f;
+                        }
+                        else if (img.pixelsPerUnitMultiplier < 5f && (n.Contains("list") || n.Contains("button") || n.Contains("slot")))
+                        {
+                            img.pixelsPerUnitMultiplier = 14.87f;
+                        }
+                    }
                 }
             }
             // Separator lines & progress bars
@@ -931,7 +1071,7 @@ public class ThemeManager : MonoBehaviour
         TextMeshProUGUI[] texts = root.GetComponentsInChildren<TextMeshProUGUI>(true);
         foreach (TextMeshProUGUI tmp in texts)
         {
-            if (tmp == null || IsInsideThemeSelection(tmp.transform)) continue;
+            if (tmp == null || IsInsideThemeSelection(tmp.transform) || IsIntroVideoPanel(tmp.transform)) continue;
             string n = tmp.gameObject.name.ToLower();
 
             CacheOriginalText(tmp);
@@ -943,15 +1083,16 @@ public class ThemeManager : MonoBehaviour
                 continue;
             }
 
-            // Subtitle & Accent: artifact name under Artefak, bottom title, bulb/info icons, step counter
+            // Subtitle & Accent: artifact name under Artefak, bottom title, bulb/info icons, step counter, room numbers
             if (n.Contains("bottomtitle") || n.Contains("subtitle") || n.Contains("accent") ||
                 n.Contains("gamelan") || n.Contains("step") || n.Contains("counter") ||
+                n.Contains("num") || n.Contains("number") ||
                 tmp.text.StartsWith("“") || tmp.text.StartsWith("\""))
             {
                 tmp.color = lightAccentTextColor;
             }
-            // Titles & Main Headers
-            else if (n.Contains("title") || n.Contains("header") || tmp.fontSize >= 20f)
+            // Titles & Main Headers & Room Names
+            else if (n.Contains("title") || n.Contains("header") || n.Contains("name") || n.Contains("room") || tmp.fontSize >= 18f)
             {
                 tmp.color = lightHeaderTextColor;
             }
@@ -965,6 +1106,45 @@ public class ThemeManager : MonoBehaviour
             {
                 tmp.color = lightBodyTextColor;
             }
+        }
+
+        // 3. Process Buttons (eliminate dark 9.png highlight hover in Light Mode)
+        Sprite cardHoverSprite = GetOrCreateLightCardHoverSprite();
+        Button[] buttons = root.GetComponentsInChildren<Button>(true);
+        foreach (Button btn in buttons)
+        {
+            if (btn == null || IsInsideThemeSelection(btn.transform) || IsIntroVideoPanel(btn.transform)) continue;
+            CacheOriginalButton(btn);
+
+            if (btn.transition == Selectable.Transition.SpriteSwap)
+            {
+                SpriteState ss = btn.spriteState;
+                if (ss.highlightedSprite != null)
+                {
+                    ss.highlightedSprite = cardHoverSprite;
+                    ss.selectedSprite = cardHoverSprite;
+                    btn.spriteState = ss;
+                }
+            }
+            else if (btn.transition == Selectable.Transition.ColorTint)
+            {
+                ColorBlock cb = btn.colors;
+                cb.normalColor = Color.white;
+                cb.highlightedColor = new Color(1.08f, 1.10f, 1.02f, 1f);
+                cb.selectedColor = new Color(1.08f, 1.10f, 1.02f, 1f);
+                btn.colors = cb;
+            }
+        }
+
+        // 4. Process XRButtonSelection
+        XRButtonSelection[] xrButtons = root.GetComponentsInChildren<XRButtonSelection>(true);
+        foreach (XRButtonSelection xr in xrButtons)
+        {
+            if (xr == null || IsInsideThemeSelection(xr.transform) || IsIntroVideoPanel(xr.transform)) continue;
+            CacheOriginalXRButton(xr);
+
+            xr.normalColor = Color.white;
+            xr.hoverColor = new Color(1.04f, 1.08f, 0.96f, 1f);
         }
     }
 }

@@ -154,6 +154,11 @@ public class MainMenu : MonoBehaviour
         if (introVideoPanel != null)
         {
             introVideoPanel.SetActive(true);
+            // Ensure introduction video panel and button start in default Dark Mode
+            if (mainMenuCanvas != null)
+            {
+                ThemeManager.Instance.ApplyToHierarchy(mainMenuCanvas, UIThemeMode.Dark);
+            }
             FadeBackground(1f, fadeDuration);
 
             // EVERYTHING the player ever sees (name entry, main menu, wrist button) is
@@ -537,6 +542,13 @@ public class MainMenu : MonoBehaviour
             enterNamePanel.SetActive(false);
         }
 
+        // Hide canvas background so only the two minimalist buttons float in pass-through space
+        if (mainMenuCanvas != null)
+        {
+            Transform bg = mainMenuCanvas.transform.Find("Background");
+            if (bg != null) bg.gameObject.SetActive(false);
+        }
+
         if (themeSelectionPanel != null)
         {
             themeSelectionPanel.SetActive(true);
@@ -544,6 +556,11 @@ public class MainMenu : MonoBehaviour
         }
         else
         {
+            if (mainMenuCanvas != null)
+            {
+                Transform bg = mainMenuCanvas.transform.Find("Background");
+                if (bg != null) bg.gameObject.SetActive(true);
+            }
             if (enterNamePanel != null) enterNamePanel.SetActive(true);
         }
     }
@@ -556,6 +573,13 @@ public class MainMenu : MonoBehaviour
         if (themeSelectionPanel != null)
         {
             themeSelectionPanel.SetActive(false);
+        }
+
+        // Restore canvas background for name entry panel
+        if (mainMenuCanvas != null)
+        {
+            Transform bg = mainMenuCanvas.transform.Find("Background");
+            if (bg != null) bg.gameObject.SetActive(true);
         }
 
         if (enterNamePanel != null)
@@ -587,7 +611,7 @@ public class MainMenu : MonoBehaviour
         TextMeshProUGUI existingTmp = mainMenuCanvas.GetComponentInChildren<TextMeshProUGUI>(true);
         if (existingTmp != null) font = existingTmp.font;
 
-        // 1. Root Panel with frosted dark glass backing for high contrast in MR pass-through
+        // 1. Root Container: Pure transparent container (No background panel!)
         GameObject panelObj = new GameObject("ThemeSelectionPanel");
         panelObj.transform.SetParent(mainMenuCanvas.transform, false);
         RectTransform panelRect = panelObj.AddComponent<RectTransform>();
@@ -597,82 +621,37 @@ public class MainMenu : MonoBehaviour
         panelRect.anchoredPosition = Vector2.zero;
         panelRect.localScale = Vector3.one;
 
-        Image panelBg = panelObj.AddComponent<Image>();
-        panelBg.sprite = ThemeManager.CreateRoundedBoxSprite(
-            256, 256,
-            16f, 2f,
-            new Color(0.06f, 0.08f, 0.10f, 0.88f), // Frosted dark obsidian
-            new Color(0.35f, 0.42f, 0.52f, 0.40f), // Soft luminous rim
-            new Vector4(20, 20, 20, 20)
-        );
-        panelBg.type = Image.Type.Sliced;
-        panelBg.color = Color.white;
+        // Two horizontal 3:1 glass pill buttons side-by-side
+        // Aspect ratio 3:1 (138x46), spaced apart with a 32px gap
+        Vector2 buttonSize = new Vector2(138f, 46f);
+        float xOffset = 85f; // -85 for Left (Dark), +85 for Right (Light), 32px gap between them
 
-        // 2. Title Text
-        GameObject titleObj = new GameObject("TitleText");
-        titleObj.transform.SetParent(panelObj.transform, false);
-        RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.05f, 0.77f);
-        titleRect.anchorMax = new Vector2(0.95f, 0.94f);
-        titleRect.sizeDelta = Vector2.zero;
-        titleRect.anchoredPosition = Vector2.zero;
-        TextMeshProUGUI titleTmp = titleObj.AddComponent<TextMeshProUGUI>();
-        if (font != null) titleTmp.font = font;
-        titleTmp.text = "PILIH TEMA TAMPILAN";
-        titleTmp.fontSize = 15f;
-        titleTmp.fontStyle = FontStyles.Bold;
-        titleTmp.alignment = TextAlignmentOptions.Center;
-        titleTmp.color = Color.white;
-
-        // 3. Subtitle Text
-        GameObject subObj = new GameObject("SubtitleText");
-        subObj.transform.SetParent(panelObj.transform, false);
-        RectTransform subRect = subObj.AddComponent<RectTransform>();
-        subRect.anchorMin = new Vector2(0.05f, 0.66f);
-        subRect.anchorMax = new Vector2(0.95f, 0.77f);
-        subRect.sizeDelta = Vector2.zero;
-        subRect.anchoredPosition = Vector2.zero;
-        TextMeshProUGUI subTmp = subObj.AddComponent<TextMeshProUGUI>();
-        if (font != null) subTmp.font = font;
-        subTmp.text = "Pilih gaya visual untuk eksplorasi muzium anda";
-        subTmp.fontSize = 8.5f;
-        subTmp.alignment = TextAlignmentOptions.Center;
-        subTmp.color = new Color(0.86f, 0.90f, 0.78f, 0.98f); // Soft warm sage
-
-        // 4. Dark Mode Card (Slate aesthetic)
-        CreateThemeCard(
+        // 2. Dark Mode Floating Glass Button (Translucent Slate glass with Moon icon)
+        CreateMinimalThemeButton(
             panelObj.transform,
-            "Card_DarkMode",
-            new Vector2(0.07f, 0.08f),
-            new Vector2(0.47f, 0.64f),
+            "Button_DarkMode",
+            new Vector2(-xOffset, 0f),
+            buttonSize,
             ThemeManager.Instance.GetOrCreateMoonIconSprite(),
-            new Color(0.85f, 0.92f, 1.0f, 1.0f),
+            new Color(0.92f, 0.95f, 1.0f, 1.0f), // Soft luminous silver-white
             "Mode Gelap",
-            "Kontras Elegan\nNyaman di Mata",
-            "PILIH GELAP",
-            new Color(0.11f, 0.13f, 0.17f, 0.95f), // Dark Slate
-            new Color(0.32f, 0.42f, 0.58f, 0.85f), // Slate Border
-            new Color(0.24f, 0.35f, 0.52f, 0.98f), // Pill Button Bg
-            new Color(0.45f, 0.58f, 0.80f, 0.90f), // Pill Button Border
+            new Color(0.10f, 0.13f, 0.18f, 0.65f), // Deep frosted slate glass
+            new Color(0.48f, 0.65f, 0.95f, 0.92f), // Luminous ice-blue glass rim glow
             font,
             () => OnThemeSelected(UIThemeMode.Dark)
         );
 
-        // 5. Light Mode Card (Olive-Sage museum aesthetic)
-        CreateThemeCard(
+        // 3. Light Mode Floating Glass Button (Translucent Olive-Sage glass with Sun icon)
+        CreateMinimalThemeButton(
             panelObj.transform,
-            "Card_LightMode",
-            new Vector2(0.53f, 0.08f),
-            new Vector2(0.93f, 0.64f),
+            "Button_LightMode",
+            new Vector2(xOffset, 0f),
+            buttonSize,
             ThemeManager.Instance.GetOrCreateSunIconSprite(),
-            new Color(1.0f, 0.88f, 0.42f, 1.0f),
+            new Color(1.0f, 0.88f, 0.38f, 1.0f), // Warm golden radiant sun
             "Mode Terang",
-            "Olive-Sage Muzium\nCerah & Alami",
-            "PILIH TERANG",
-            new Color(0.42f, 0.46f, 0.37f, 0.95f), // Olive-Sage
-            new Color(0.72f, 0.78f, 0.56f, 0.85f), // Sage Border
-            new Color(0.55f, 0.63f, 0.32f, 0.98f), // Pill Button Bg
-            new Color(0.78f, 0.86f, 0.52f, 0.95f), // Pill Button Border
+            new Color(0.32f, 0.38f, 0.28f, 0.65f), // Frosted olive-sage museum glass
+            new Color(0.82f, 0.88f, 0.65f, 0.92f), // Luminous sage-gold glass rim glow
             font,
             () => OnThemeSelected(UIThemeMode.Light)
         );
@@ -680,128 +659,129 @@ public class MainMenu : MonoBehaviour
         themeSelectionPanel = panelObj;
     }
 
-    private GameObject CreateThemeCard(
+    private GameObject CreateMinimalThemeButton(
         Transform parent,
         string name,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
+        Vector2 anchoredPosition,
+        Vector2 sizeDelta,
         Sprite iconSprite,
         Color iconColor,
         string titleStr,
-        string descStr,
-        string btnStr,
         Color cardBgColor,
         Color cardBorderColor,
-        Color pillBgColor,
-        Color pillBorderColor,
         TMP_FontAsset font,
         UnityEngine.Events.UnityAction onClickAction)
     {
-        GameObject card = new GameObject(name);
-        card.transform.SetParent(parent, false);
+        GameObject buttonObj = new GameObject(name);
+        buttonObj.transform.SetParent(parent, false);
 
-        RectTransform cardRect = card.AddComponent<RectTransform>();
-        cardRect.anchorMin = anchorMin;
-        cardRect.anchorMax = anchorMax;
-        cardRect.sizeDelta = Vector2.zero;
-        cardRect.anchoredPosition = Vector2.zero;
-        cardRect.localScale = Vector3.one;
+        RectTransform rect = buttonObj.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = anchoredPosition;
+        rect.sizeDelta = sizeDelta;
+        rect.localScale = Vector3.one;
 
-        Image cardImg = card.AddComponent<Image>();
-        cardImg.sprite = ThemeManager.CreateRoundedBoxSprite(128, 128, 14f, 2f, cardBgColor, cardBorderColor, new Vector4(16, 16, 16, 16));
-        cardImg.type = Image.Type.Sliced;
-        cardImg.color = Color.white;
-        cardImg.material = null;
-        cardImg.raycastTarget = true;
+        Image img = buttonObj.AddComponent<Image>();
 
-        Button btn = card.AddComponent<Button>();
-        btn.targetGraphic = cardImg;
+        // Dedicated Glass Shader for mathematical vector smoothness & physical glass sheen
+        Shader glassShader = Shader.Find("UI/GlassButton");
+        if (glassShader == null && ThemeManager.Instance != null)
+        {
+            glassShader = ThemeManager.Instance.GetGlassButtonShader();
+        }
+        if (glassShader == null)
+        {
+            glassShader = Shader.Find("UI/RoundedCorners");
+        }
+
+        if (glassShader != null)
+        {
+            Material glassMat = new Material(glassShader);
+            glassMat.name = $"Mat_{name}";
+            glassMat.SetFloat("_Aspect", sizeDelta.x / sizeDelta.y); // 3.0
+            glassMat.SetFloat("_CornerRadius", 0.45f); // Smooth pill capsule
+            glassMat.SetFloat("_BorderWidth", 0.024f); // Crisp luminous rim
+            glassMat.SetFloat("_SheenIntensity", 0.40f); // Curved glass reflection
+            glassMat.SetColor("_Color", cardBgColor);
+            glassMat.SetColor("_BorderColor", cardBorderColor);
+            glassMat.SetColor("_SheenColor", new Color(1f, 1f, 1f, 0.35f));
+            img.material = glassMat;
+            img.type = Image.Type.Simple;
+        }
+        else
+        {
+            // High-resolution fallback sprite
+            img.sprite = ThemeManager.CreateRoundedBoxSprite(
+                512, 170,
+                80f, 6f,
+                cardBgColor,
+                cardBorderColor,
+                new Vector4(85, 80, 85, 80)
+            );
+            img.type = Image.Type.Sliced;
+        }
+
+        img.color = Color.white;
+        img.raycastTarget = true;
+
+        Button btn = buttonObj.AddComponent<Button>();
+        btn.targetGraphic = img;
+        btn.transition = Selectable.Transition.None;
         btn.onClick.AddListener(onClickAction);
 
-        XRButtonSelection xrBtn = card.AddComponent<XRButtonSelection>();
+        XRButtonSelection xrBtn = buttonObj.AddComponent<XRButtonSelection>();
+        xrBtn.buttonImage = img;
+        xrBtn.normalColor = Color.white;
+        xrBtn.hoverColor = new Color(1.12f, 1.15f, 1.22f, 1.0f);
+        xrBtn.hoverScaleMultiplier = 1.06f;
+        xrBtn.scaleTarget = buttonObj.transform;
+        xrBtn.interactionLayers = ~0;
         xrBtn.onClick.AddListener(onClickAction);
-        xrBtn.hoverScaleMultiplier = 1.04f;
 
-        card.AddComponent<UIButtonAudio>();
+        BoxCollider boxCol = buttonObj.AddComponent<BoxCollider>();
+        boxCol.size = new Vector3(sizeDelta.x, sizeDelta.y, 25f);
+        boxCol.center = Vector3.zero;
 
-        // Procedural Vector Icon (No missing glyph square boxes)
-        GameObject iconObj = new GameObject("ThemeIcon");
-        iconObj.transform.SetParent(card.transform, false);
+        buttonObj.AddComponent<UIButtonAudio>();
+
+        // Minimalist Vector Icon on Left
+        GameObject iconObj = new GameObject("Icon");
+        iconObj.transform.SetParent(buttonObj.transform, false);
         RectTransform iconRect = iconObj.AddComponent<RectTransform>();
-        iconRect.anchorMin = new Vector2(0.5f, 0.78f);
-        iconRect.anchorMax = new Vector2(0.5f, 0.78f);
-        iconRect.sizeDelta = new Vector2(28f, 28f);
-        iconRect.anchoredPosition = Vector2.zero;
+        iconRect.anchorMin = new Vector2(0f, 0.5f);
+        iconRect.anchorMax = new Vector2(0f, 0.5f);
+        iconRect.pivot = new Vector2(0.5f, 0.5f);
+        iconRect.sizeDelta = new Vector2(26f, 26f);
+        iconRect.anchoredPosition = new Vector2(24f, 0f);
         Image iconImg = iconObj.AddComponent<Image>();
         iconImg.sprite = iconSprite;
         iconImg.color = iconColor;
         iconImg.preserveAspect = true;
         iconImg.raycastTarget = false;
 
-        // Title
+        // Minimalist Single-Line Title on Right
         GameObject titleObj = new GameObject("Title");
-        titleObj.transform.SetParent(card.transform, false);
+        titleObj.transform.SetParent(buttonObj.transform, false);
         RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-        titleRect.anchorMin = new Vector2(0.05f, 0.49f);
-        titleRect.anchorMax = new Vector2(0.95f, 0.65f);
-        titleRect.sizeDelta = Vector2.zero;
-        titleRect.anchoredPosition = Vector2.zero;
+        titleRect.anchorMin = new Vector2(0f, 0f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0f, 0.5f);
+        titleRect.offsetMin = new Vector2(44f, 0f);
+        titleRect.offsetMax = new Vector2(-12f, 0f);
         TextMeshProUGUI titleTmp = titleObj.AddComponent<TextMeshProUGUI>();
         if (font != null) titleTmp.font = font;
         titleTmp.text = titleStr;
         titleTmp.fontSize = 11.5f;
         titleTmp.fontStyle = FontStyles.Bold;
-        titleTmp.alignment = TextAlignmentOptions.Center;
+        titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
+        titleTmp.enableWordWrapping = false;
+        titleTmp.overflowMode = TextOverflowModes.Ellipsis;
         titleTmp.color = Color.white;
         titleTmp.raycastTarget = false;
 
-        // Subtext / Desc
-        GameObject descObj = new GameObject("Desc");
-        descObj.transform.SetParent(card.transform, false);
-        RectTransform descRect = descObj.AddComponent<RectTransform>();
-        descRect.anchorMin = new Vector2(0.05f, 0.28f);
-        descRect.anchorMax = new Vector2(0.95f, 0.48f);
-        descRect.sizeDelta = Vector2.zero;
-        descRect.anchoredPosition = Vector2.zero;
-        TextMeshProUGUI descTmp = descObj.AddComponent<TextMeshProUGUI>();
-        if (font != null) descTmp.font = font;
-        descTmp.text = descStr;
-        descTmp.fontSize = 6.5f;
-        descTmp.alignment = TextAlignmentOptions.Center;
-        descTmp.color = new Color(0.90f, 0.92f, 0.88f, 0.90f);
-        descTmp.raycastTarget = false;
-
-        // Pill Button
-        GameObject pillObj = new GameObject("Pill");
-        pillObj.transform.SetParent(card.transform, false);
-        RectTransform pillRect = pillObj.AddComponent<RectTransform>();
-        pillRect.anchorMin = new Vector2(0.16f, 0.07f);
-        pillRect.anchorMax = new Vector2(0.84f, 0.24f);
-        pillRect.sizeDelta = Vector2.zero;
-        pillRect.anchoredPosition = Vector2.zero;
-        Image pillImg = pillObj.AddComponent<Image>();
-        pillImg.sprite = ThemeManager.CreateRoundedBoxSprite(128, 64, 26f, 2f, pillBgColor, pillBorderColor, new Vector4(28, 26, 28, 26));
-        pillImg.type = Image.Type.Sliced;
-        pillImg.color = Color.white;
-        pillImg.raycastTarget = false;
-
-        GameObject pillTextObj = new GameObject("PillText");
-        pillTextObj.transform.SetParent(pillObj.transform, false);
-        RectTransform pillTextRect = pillTextObj.AddComponent<RectTransform>();
-        pillTextRect.anchorMin = Vector2.zero;
-        pillTextRect.anchorMax = Vector2.one;
-        pillTextRect.sizeDelta = Vector2.zero;
-        pillTextRect.anchoredPosition = Vector2.zero;
-        TextMeshProUGUI pillTmp = pillTextObj.AddComponent<TextMeshProUGUI>();
-        if (font != null) pillTmp.font = font;
-        pillTmp.text = btnStr;
-        pillTmp.fontSize = 7f;
-        pillTmp.fontStyle = FontStyles.Bold;
-        pillTmp.alignment = TextAlignmentOptions.Center;
-        pillTmp.color = Color.white;
-        pillTmp.raycastTarget = false;
-
-        return card;
+        return buttonObj;
     }
 
     /// <summary>

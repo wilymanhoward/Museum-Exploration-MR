@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.XR.Hands;
 using Unity.XR.CoreUtils;
 
@@ -205,7 +206,13 @@ public class WristWatch : MonoBehaviour
     {
         if (optionsPanelObj == null) return;
 
-        // 1. Restore original anchors of Row_Explore and Row_Artefak
+        // 1. Restore original anchors and material of Row_Explore and Row_Artefak
+        Material rowMat = null;
+        foreach (Material m in Resources.FindObjectsOfTypeAll<Material>())
+        {
+            if (m != null && m.name == "Mat_OptionsRowCard") { rowMat = m; break; }
+        }
+
         Transform artefakRow = FindDeepChild(optionsPanelObj.transform, "Row_Artefak");
         if (exploreRow != null)
         {
@@ -215,6 +222,16 @@ public class WristWatch : MonoBehaviour
                 rtExplore.anchorMin = new Vector2(0.06f, 0.44f);
                 rtExplore.anchorMax = new Vector2(0.94f, 0.72f);
             }
+            if (rowMat != null)
+            {
+                UnityEngine.UI.Image img = exploreRow.GetComponent<UnityEngine.UI.Image>();
+                if (img != null)
+                {
+                    img.material = rowMat;
+                    img.sprite = null;
+                    img.color = Color.white;
+                }
+            }
         }
         if (artefakRow != null)
         {
@@ -223,6 +240,16 @@ public class WristWatch : MonoBehaviour
             {
                 rtArtefak.anchorMin = new Vector2(0.06f, 0.10f);
                 rtArtefak.anchorMax = new Vector2(0.94f, 0.38f);
+            }
+            if (rowMat != null)
+            {
+                UnityEngine.UI.Image img = artefakRow.GetComponent<UnityEngine.UI.Image>();
+                if (img != null)
+                {
+                    img.material = rowMat;
+                    img.sprite = null;
+                    img.color = Color.white;
+                }
             }
         }
 
@@ -247,7 +274,7 @@ public class WristWatch : MonoBehaviour
             if (rtTitle != null && rtClose != null)
             {
                 float anchorW = rtClose.anchorMax.x - rtClose.anchorMin.x;
-                float gap = 0.02f;
+                float gap = 0.045f;
                 float themeLeft = rtClose.anchorMin.x - gap - anchorW;
                 rtTitle.anchorMax = new Vector2(Mathf.Min(rtTitle.anchorMax.x, themeLeft - 0.02f), rtTitle.anchorMax.y);
             }
@@ -280,7 +307,7 @@ public class WristWatch : MonoBehaviour
                 rtTheme.localEulerAngles = rtClose.localEulerAngles;
 
                 float width = rtClose.anchorMax.x - rtClose.anchorMin.x;
-                float gap = 0.02f;
+                float gap = 0.045f;
 
                 // Match vertical row anchors and position EXACTLY with CloseButton
                 rtTheme.anchorMin = new Vector2(rtClose.anchorMin.x - gap - width, rtClose.anchorMin.y);
@@ -324,18 +351,30 @@ public class WristWatch : MonoBehaviour
                 DestroyImmediate(oldBtn);
             }
 
+            // Ensure collider is enabled, trigger, and properly sized for hand-ray / poke pinch detection
+            BoxCollider col = themeToggleBtn.GetComponent<BoxCollider>();
+            if (col == null) col = themeToggleBtn.AddComponent<BoxCollider>();
+            col.enabled = true;
+            col.isTrigger = true;
+            col.size = new Vector3(32f, 32f, 25f);
+            col.center = Vector3.zero;
+
             // 3. Add fresh XRButtonSelection for MR/VR interactions (free of any CloseOptionsPanel call)
             XRButtonSelection newXr = themeToggleBtn.AddComponent<XRButtonSelection>();
             newXr.buttonImage = themeToggleBtn.GetComponent<UnityEngine.UI.Image>();
             newXr.scaleTarget = themeToggleBtn.transform;
             newXr.normalColor = new Color(0.9f, 0.9f, 0.93f, 0.8f);
             newXr.hoverColor = new Color(0.8f, 0.85f, 0.96f, 0.95f);
-            newXr.hoverScaleMultiplier = 1.1f;
-            newXr.transitionSpeed = 8f;
+            newXr.hoverScaleMultiplier = 1.15f;
+            newXr.transitionSpeed = 10f;
+            newXr.interactionLayers = ~0; // Accept all interactors (hand rays, pokes, controllers)
+            newXr.colliders.Clear();
+            newXr.colliders.Add(col);
             newXr.onClick.AddListener(OnClickThemeToggle);
 
             // 4. Add fresh UGUI Button for standard clicks
             UnityEngine.UI.Button newBtn = themeToggleBtn.AddComponent<UnityEngine.UI.Button>();
+            newBtn.targetGraphic = themeToggleBtn.GetComponent<UnityEngine.UI.Image>();
             newBtn.onClick.AddListener(OnClickThemeToggle);
 
             // 5. Setup ThemeIcon
@@ -365,8 +404,16 @@ public class WristWatch : MonoBehaviour
         }
     }
 
+    private float lastThemeToggleTime = -1f;
+    private const float ThemeToggleDebounce = 0.35f;
+
     private void OnClickThemeToggle()
     {
+        // Debounce redundant click events so a single quick pinch (which fires both PointerDown and PointerClick)
+        // toggles the theme exactly once instead of toggling twice and cancelling out.
+        if (Time.unscaledTime - lastThemeToggleTime < ThemeToggleDebounce) return;
+        lastThemeToggleTime = Time.unscaledTime;
+
         if (ThemeManager.Instance != null)
         {
             ThemeManager.Instance.ToggleTheme();
