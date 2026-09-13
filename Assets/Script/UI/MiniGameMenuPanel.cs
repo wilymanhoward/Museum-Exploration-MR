@@ -87,18 +87,22 @@ public class MiniGameMenuPanel : MonoBehaviour
         if (Instance == null) Instance = this;
         else { Destroy(this); return; }
 
+        DeactivateHeaderIcon();
         AutoFindButtons();
         WireButtons();
     }
 
     private void OnEnable()
     {
+        DeactivateHeaderIcon();
         if (games != null && games.Length > 0)
         {
             currentIndex = Mathf.Clamp(currentIndex, 0, games.Length - 1);
         }
         RefreshTitle();
         EnsureLeaderboardButtonVisible();
+        SetupNavButton(previousButton, true);
+        SetupNavButton(nextButton, false);
         if (ThemeManager.Instance != null)
         {
             ThemeManager.Instance.ApplyToHierarchy(gameObject);
@@ -332,5 +336,64 @@ public class MiniGameMenuPanel : MonoBehaviour
         foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
             if (t != null && t.name == childName) return t;
         return null;
+    }
+
+    private void DeactivateHeaderIcon()
+    {
+        Transform headerIcon = transform.Find("HeaderIcon");
+        if (headerIcon != null && headerIcon.gameObject.activeSelf)
+        {
+            headerIcon.gameObject.SetActive(false);
+        }
+    }
+
+    private void SetupNavButton(Button btn, bool isLeft)
+    {
+        if (btn == null) return;
+
+        // Ensure child Icon exists with the 23.png chevron arrow sprite
+        Transform iconT = btn.transform.Find("Icon");
+        Image iconImg = null;
+        if (iconT != null)
+        {
+            iconImg = iconT.GetComponent<Image>();
+        }
+        else
+        {
+            GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObj.transform.SetParent(btn.transform, false);
+            iconT = iconObj.transform;
+            iconImg = iconObj.GetComponent<Image>();
+        }
+
+        RectTransform rt = iconT as RectTransform;
+        if (rt != null)
+        {
+            rt.anchorMin = new Vector2(0.2f, 0.2f);
+            rt.anchorMax = new Vector2(0.8f, 0.8f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
+        }
+
+        Image parentImg = btn.GetComponent<Image>();
+        if (iconImg != null)
+        {
+            if (iconImg.sprite == null)
+            {
+                if (parentImg != null && parentImg.sprite != null && parentImg.sprite.name == "23")
+                {
+                    iconImg.sprite = parentImg.sprite;
+                }
+                else if (ThemeManager.Instance != null && ThemeManager.Instance.TryGetOriginalSprite(parentImg, out var origSprite) && origSprite != null)
+                {
+                    iconImg.sprite = origSprite;
+                }
+            }
+            iconImg.color = Color.white;
+            iconImg.type = Image.Type.Simple;
+            iconImg.preserveAspect = true;
+            iconImg.raycastTarget = false;
+        }
     }
 }

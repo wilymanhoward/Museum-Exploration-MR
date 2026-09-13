@@ -104,6 +104,17 @@ public class ThemeManager : MonoBehaviour
     private readonly Dictionary<Button, OriginalButtonState> originalButtonStates = new Dictionary<Button, OriginalButtonState>();
     private readonly Dictionary<XRButtonSelection, OriginalXRButtonState> originalXRButtonStates = new Dictionary<XRButtonSelection, OriginalXRButtonState>();
 
+    public bool TryGetOriginalSprite(Graphic g, out Sprite sprite)
+    {
+        sprite = null;
+        if (g != null && originalGraphicStates.TryGetValue(g, out var state))
+        {
+            sprite = state.sprite;
+            return sprite != null;
+        }
+        return false;
+    }
+
     // Cached Procedural 9-Sliced Sprites matching 2.png / 8.png geometry & transparency
     private Sprite lightPanelSprite;
     private Sprite lightCardSprite;
@@ -1150,11 +1161,20 @@ public class ThemeManager : MonoBehaviour
 
             string sprName = img.sprite != null ? img.sprite.name : "";
 
-            // If this is a child icon/image inside a control button or next/skip button
+            // If this is a child icon/image inside a control button or navigation/skip button
             if (img.transform.parent != null)
             {
                 string parentName = img.transform.parent.name.ToLower();
-                if (parentName.Contains("skipnarration") || parentName.Contains("next") || parentName.Contains("lanjut"))
+                // MiniGame carousel Previous / Next buttons child arrow icon (23.png)
+                if (parentName.Contains("previous") || (parentName.Contains("next") && !parentName.Contains("skipnarration") && (sprName == "23" || n == "icon" || n == "image" || n.Contains("symbol"))))
+                {
+                    CacheOriginalGraphic(img);
+                    img.color = Color.white;
+                    img.type = Image.Type.Simple;
+                    img.preserveAspect = true;
+                    continue;
+                }
+                else if (parentName.Contains("skipnarration") || parentName.Contains("lanjut"))
                 {
                     if (n == "image" || n.Contains("icon") || n.Contains("symbol") || sprName == "15" || sprName == "32")
                     {
@@ -1174,6 +1194,14 @@ public class ThemeManager : MonoBehaviour
                 }
             }
 
+            // Deactivate unused/dummy HeaderIcon in game panels (e.g. MiniGameMenuPanel, Game1Panel, etc.)
+            if (n == "headericon" && (sprName == "7" || sprName == "") && img.transform.parent != null &&
+                (img.transform.parent.name.ToLower().Contains("minigame") || img.transform.parent.name.ToLower().Contains("game") || img.transform.parent.name.ToLower().Contains("leaderboard")))
+            {
+                img.gameObject.SetActive(false);
+                continue;
+            }
+
             // Skip transparent raycast blocker panels
             if (img.color.a < 0.05f && sprName != "2" && n != "background")
             {
@@ -1190,18 +1218,44 @@ public class ThemeManager : MonoBehaviour
                 img.color = Color.white;
                 img.material = null;
             }
-            // Action buttons (e.g. 10.png, 23.png, CheckButton, StartButton, ContinueButton, ReturnToMenuButton)
-            else if (sprName == "10" || sprName == "23" || n.Contains("checkbutton") || n.Contains("startbutton") ||
-                     n.Contains("continuebutton") || n.Contains("returntomenu") || n.Contains("mulaibutton") ||
-                     n.Contains("previousbutton") || n.Contains("nextbutton"))
+            // Carousel navigation buttons (e.g. PreviousButton, NextButton with 23.png chevron arrow)
+            else if (sprName == "23" || n.Contains("previousbutton") || n.Contains("nextbutton"))
+            {
+                // If button has a child Image (an icon), parent acts as active button background plate
+                if (img.transform.childCount > 0 && img.transform.GetComponentInChildren<Image>() != img)
+                {
+                    img.sprite = activeBtnSprite;
+                    img.type = Image.Type.Sliced;
+                    img.color = Color.white;
+                    img.material = null;
+                }
+                else
+                {
+                    // No child icon exists: retain 23.png arrow directly on this Image
+                    img.color = Color.white;
+                    img.type = Image.Type.Simple;
+                    img.preserveAspect = true;
+                    img.material = null;
+                    if (img.sprite == null || img.sprite.name != "23")
+                    {
+                        if (originalGraphicStates.TryGetValue(img, out var orig) && orig.sprite != null)
+                        {
+                            img.sprite = orig.sprite;
+                        }
+                    }
+                }
+            }
+            // Action buttons (e.g. 10.png, CheckButton, StartButton, ContinueButton, ReturnToMenuButton, MulaiButton)
+            else if (sprName == "10" || n.Contains("checkbutton") || n.Contains("startbutton") ||
+                     n.Contains("continuebutton") || n.Contains("returntomenu") || n.Contains("mulaibutton"))
             {
                 img.sprite = activeBtnSprite;
                 img.type = Image.Type.Sliced;
                 img.color = Color.white;
                 img.material = null;
             }
-            // Next / Skip Narration Action Button (e.g. SkipNarrationButton, NextButton)
-            else if (n.Contains("skipnarration") || n.Contains("nextbutton") || n.Contains("lanjut"))
+            // Next / Skip Narration Action Button (e.g. SkipNarrationButton, LanjutButton)
+            else if (n.Contains("skipnarration") || n.Contains("lanjut"))
             {
                 img.sprite = GetOrCreateLightActionCircleBtnSprite();
                 img.type = Image.Type.Simple;
