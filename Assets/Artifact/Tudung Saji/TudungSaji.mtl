@@ -1,0 +1,10 @@
+# Material for Tudung Saji Besar
+newmtl TudungSajiMaterial
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.150000 0.150000 0.150000
+Ns 40.000000
+d 1.000000
+illum 2
+map_Kd Textures/TudungSaji_BaseColor.png
+map_Bump Textures/TudungSaji_Normal.png

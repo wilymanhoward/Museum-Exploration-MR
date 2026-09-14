@@ -444,6 +444,13 @@ public class Artifact : MonoBehaviour
             model = Resources.Load<GameObject>("Models/model_artifact_batik");
             if (model != null) return model;
         }
+        if (id.Contains("tudung") || name.Contains("tudung") || id.Contains("saji") || name.Contains("saji"))
+        {
+            model = Resources.Load<GameObject>("Models/model_artifact_tudung_saji") ??
+                    Resources.Load<GameObject>("Models/model_artifact_room_4_3") ??
+                    Resources.Load<GameObject>("Prefabs/model_artifact_tudung_saji");
+            if (model != null) return model;
+        }
 
         return null;
     }
