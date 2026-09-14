@@ -594,6 +594,7 @@ public class RoomManager : MonoBehaviour
             if (artSprite != null)
             {
                 thumbImg.sprite = artSprite;
+                thumbImg.preserveAspect = true;
                 thumbImg.color = Color.white;
                 thumbImg.gameObject.SetActive(true);
             }

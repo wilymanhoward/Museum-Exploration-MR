@@ -91,6 +91,8 @@ public class BaseGame : MonoBehaviour
             int mins = Mathf.FloorToInt(elapsed / 60f);
             int secs = Mathf.FloorToInt(elapsed % 60f);
             timerText.text = $"{mins:D2}:{secs:D2}";
+            timerText.color = Color.white;
+            if (!timerText.gameObject.activeSelf) timerText.gameObject.SetActive(true);
         }
     }
 
@@ -308,16 +310,21 @@ public class BaseGame : MonoBehaviour
             if (found != null && found.name != "TimerBadge")
             {
                 timerText = found.GetComponent<TMPro.TMP_Text>();
-                if (timerText != null) return;
+                if (timerText != null) break;
             }
         }
 
         // Check if TimerBadge was already built
         Transform existingBadge = FindDeepChild(transform, "TimerBadge");
-        if (existingBadge != null)
+        if (existingBadge != null && timerText == null)
         {
             timerText = existingBadge.GetComponentInChildren<TMPro.TMP_Text>(true);
-            if (timerText != null) return;
+        }
+
+        if (timerText != null)
+        {
+            ConfigureTimerText(timerText);
+            return;
         }
 
         // 2. Dynamically create a sleek TimerBadge at top of panel with dedicated Stopwatch Icon
@@ -329,7 +336,7 @@ public class BaseGame : MonoBehaviour
         badgeRect.anchorMax = new Vector2(0.5f, 1f);
         badgeRect.pivot = new Vector2(0.5f, 1f);
         badgeRect.anchoredPosition = new Vector2(0f, -12f);
-        badgeRect.sizeDelta = new Vector2(115f, 32f);
+        badgeRect.sizeDelta = new Vector2(125f, 32f);
 
         Image bgImage = badgeObj.GetComponent<Image>();
         bgImage.sprite = GetOrCreateCapsuleSprite();
@@ -345,7 +352,7 @@ public class BaseGame : MonoBehaviour
         iconRect.anchorMin = new Vector2(0f, 0.5f);
         iconRect.anchorMax = new Vector2(0f, 0.5f);
         iconRect.pivot = new Vector2(0f, 0.5f);
-        iconRect.anchoredPosition = new Vector2(12f, 0f);
+        iconRect.anchoredPosition = new Vector2(10f, 0f);
         iconRect.sizeDelta = new Vector2(18f, 18f);
 
         Image iconImg = iconObj.GetComponent<Image>();
@@ -354,30 +361,51 @@ public class BaseGame : MonoBehaviour
         iconImg.raycastTarget = false;
 
         // Create TextMeshProUGUI inside badge
-        GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+        GameObject textObj = new GameObject("TimerText", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
         textObj.transform.SetParent(badgeObj.transform, false);
 
         RectTransform textRect = textObj.GetComponent<RectTransform>();
         textRect.anchorMin = new Vector2(0f, 0f);
         textRect.anchorMax = new Vector2(1f, 1f);
-        textRect.offsetMin = new Vector2(36f, 0f);
-        textRect.offsetMax = new Vector2(-10f, 0f);
+        textRect.offsetMin = new Vector2(34f, 0f);
+        textRect.offsetMax = new Vector2(-6f, 0f);
 
         TMPro.TextMeshProUGUI tmp = textObj.GetComponent<TMPro.TextMeshProUGUI>();
-        tmp.fontSize = 15;
+        ConfigureTimerText(tmp);
+        timerText = tmp;
+    }
+
+    private void ConfigureTimerText(TMPro.TMP_Text tmp)
+    {
+        if (tmp == null) return;
+        tmp.fontSize = 15f;
         tmp.fontStyle = TMPro.FontStyles.Bold;
         tmp.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
         tmp.color = Color.white;
         tmp.raycastTarget = false;
+        tmp.enableWordWrapping = false;
+        tmp.overflowMode = TMPro.TextOverflowModes.Overflow;
 
-        // Borrow font asset from an existing TMP in this panel
-        TMPro.TMP_Text sampleText = GetComponentInChildren<TMPro.TMP_Text>(true);
-        if (sampleText != null && sampleText.font != null)
+        // Guarantee valid font asset
+        if (tmp.font == null)
         {
-            tmp.font = sampleText.font;
-        }
+            TMPro.TMP_Text[] allTmps = GetComponentsInChildren<TMPro.TMP_Text>(true);
+            foreach (var t in allTmps)
+            {
+                if (t != null && t != tmp && t.font != null)
+                {
+                    tmp.font = t.font;
+                    break;
+                }
+            }
 
-        timerText = tmp;
+            if (tmp.font == null)
+            {
+                tmp.font = Resources.Load<TMPro.TMP_FontAsset>("Fonts & Materials/Georgia SDF")
+                        ?? Resources.Load<TMPro.TMP_FontAsset>("Fonts & Materials/LiberationSans SDF")
+                        ?? TMPro.TMP_Settings.defaultFontAsset;
+            }
+        }
     }
 
     private static Transform FindDeepChild(Transform root, string childName)

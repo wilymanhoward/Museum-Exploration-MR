@@ -825,6 +825,7 @@ public class Artifact : MonoBehaviour
             {
                 displayImage.gameObject.SetActive(true);
                 displayImage.sprite = artifactData.images[currentImageIndex].sprite;
+                displayImage.preserveAspect = true;
                 displayImage.color = Color.white;
             }
             if (noImagesText != null)

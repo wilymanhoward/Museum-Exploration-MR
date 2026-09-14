@@ -31,8 +31,7 @@ public class MiniGameMenuPanel : MonoBehaviour
     public GameEntry[] games = new GameEntry[]
     {
         new GameEntry { gameID = "game_1", gameName = "Teka Bayang Artifak" },
-        new GameEntry { gameID = "game_2", gameName = "Susun Proses Pembuatan Batik" },
-        new GameEntry { gameID = "game_3", gameName = "Susun Garis Masa Sejarah" }
+        new GameEntry { gameID = "game_2", gameName = "Susun Langkah & Kisah" }
     };
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -89,6 +88,7 @@ public class MiniGameMenuPanel : MonoBehaviour
 
         DeactivateHeaderIcon();
         AutoFindButtons();
+        EnsureStartButtonTextCrisp();
         WireButtons();
     }
 
@@ -101,6 +101,7 @@ public class MiniGameMenuPanel : MonoBehaviour
         }
         RefreshTitle();
         EnsureLeaderboardButtonVisible();
+        EnsureStartButtonTextCrisp();
         SetupNavButton(previousButton, true);
         SetupNavButton(nextButton, false);
         if (ThemeManager.Instance != null)
@@ -175,19 +176,14 @@ public class MiniGameMenuPanel : MonoBehaviour
             Game1GuessName g1 = FindObjectOfType<Game1GuessName>(true);
             if (g1 != null) return g1.gameObject;
         }
-        else if (cleanId == "game_2")
+        else if (cleanId == "game_2" || cleanId == "game_3")
         {
             Game2OrderProcess g2 = FindObjectOfType<Game2OrderProcess>(true);
             if (g2 != null) return g2.gameObject;
         }
-        else if (cleanId == "game_3")
-        {
-            Game3OrderTimeline g3 = FindObjectOfType<Game3OrderTimeline>(true);
-            if (g3 != null) return g3.gameObject;
-        }
 
         // Scene search fallback by name
-        string targetName = cleanId == "game_1" ? "Game1Panel" : (cleanId == "game_2" ? "Game2Panel" : "Game3Panel");
+        string targetName = cleanId == "game_1" ? "Game1Panel" : "Game2Panel";
         foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
         {
             if (t.name.Equals(targetName, System.StringComparison.OrdinalIgnoreCase) && t.gameObject.scene.IsValid())
@@ -396,4 +392,92 @@ public class MiniGameMenuPanel : MonoBehaviour
             iconImg.raycastTarget = false;
         }
     }
+
+    /// <summary>
+    /// Ensures the Mulai (Start) button uses a razor-sharp TextMeshProUGUI component
+    /// with Cardo-Regular SDF font, bold styling, auto-sizing, and centered alignment,
+    /// upgrading legacy UI Text automatically if detected.
+    /// </summary>
+    private void EnsureStartButtonTextCrisp()
+    {
+        if (startButton == null)
+        {
+            startButton = FindChildButton("StartButton", "ButtonStart", "Mulai", "MulaiButton");
+        }
+        if (startButton == null) return;
+
+        // Check if there is a legacy Text component attached to StartButton or its children
+        Text legacyText = startButton.GetComponentInChildren<Text>(true);
+        string labelText = "Mulai";
+        if (legacyText != null)
+        {
+            if (!string.IsNullOrEmpty(legacyText.text)) labelText = legacyText.text.Trim();
+            GameObject targetObj = legacyText.gameObject;
+            Destroy(legacyText);
+
+            TextMeshProUGUI newTmp = targetObj.GetComponent<TextMeshProUGUI>();
+            if (newTmp == null) newTmp = targetObj.AddComponent<TextMeshProUGUI>();
+            ConfigureTmp(newTmp, labelText);
+            return;
+        }
+
+        TextMeshProUGUI existingTmp = startButton.GetComponentInChildren<TextMeshProUGUI>(true);
+        if (existingTmp != null)
+        {
+            string curText = string.IsNullOrEmpty(existingTmp.text) ? labelText : existingTmp.text.Trim();
+            ConfigureTmp(existingTmp, curText);
+        }
+        else
+        {
+            Transform childText = startButton.transform.Find("Text") ?? startButton.transform.Find("Text (Legacy)");
+            GameObject textObj = childText != null ? childText.gameObject : new GameObject("Text", typeof(RectTransform));
+            if (childText == null)
+            {
+                textObj.transform.SetParent(startButton.transform, false);
+            }
+            TextMeshProUGUI addedTmp = textObj.GetComponent<TextMeshProUGUI>() ?? textObj.AddComponent<TextMeshProUGUI>();
+            ConfigureTmp(addedTmp, labelText);
+        }
+    }
+
+    private void ConfigureTmp(TextMeshProUGUI tmp, string text)
+    {
+        if (tmp == null) return;
+
+        tmp.text = text;
+
+        // Inherit Cardo-Regular SDF font from gameTitle or fallback
+        if (tmp.font == null || tmp.font.name.Contains("LiberationSans"))
+        {
+            if (gameTitle != null && gameTitle.font != null)
+            {
+                tmp.font = gameTitle.font;
+            }
+            else
+            {
+                TMP_FontAsset cardoFont = Resources.Load<TMP_FontAsset>("Fonts/Cardo-Regular SDF");
+                if (cardoFont != null) tmp.font = cardoFont;
+            }
+        }
+
+        tmp.fontStyle = FontStyles.Bold;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.enableAutoSizing = true;
+        tmp.fontSizeMin = 8f;
+        tmp.fontSizeMax = 14f;
+        tmp.raycastTarget = false;
+        tmp.richText = true;
+        tmp.overflowMode = TextOverflowModes.Ellipsis;
+
+        RectTransform rt = tmp.rectTransform;
+        if (rt != null)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.localScale = Vector3.one;
+        }
+    }
 }
+

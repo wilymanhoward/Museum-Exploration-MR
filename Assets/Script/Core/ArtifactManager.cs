@@ -655,6 +655,7 @@ public class ArtifactManager : MonoBehaviour
             if (artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null)
             {
                 thumbImg.sprite = artifact.images[0].sprite;
+                thumbImg.preserveAspect = true;
                 thumbImg.color = Color.white;
                 thumbImg.gameObject.SetActive(true);
             }

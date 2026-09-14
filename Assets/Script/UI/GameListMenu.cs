@@ -25,8 +25,7 @@ public class GameListMenu : MonoBehaviour
     public List<GameEntry> games = new List<GameEntry>
     {
         new GameEntry { gameId = "game_1", displayName = "Teka Bayang Artifak" },
-        new GameEntry { gameId = "game_2", displayName = "Susun Proses Pembuatan Batik" },
-        new GameEntry { gameId = "game_3", displayName = "Susun Garis Masa Sejarah" },
+        new GameEntry { gameId = "game_2", displayName = "Susun Langkah & Kisah" },
     };
 
     [Header("References (auto-found if empty)")]

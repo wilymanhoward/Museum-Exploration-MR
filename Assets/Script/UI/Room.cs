@@ -235,6 +235,7 @@ public class Room : MonoBehaviour
                         if (artSprite != null)
                         {
                             img.sprite = artSprite;
+                            img.preserveAspect = true;
                             img.color = Color.white;
                             img.gameObject.SetActive(true);
                         }

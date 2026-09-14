@@ -42,6 +42,7 @@ public class ThemeManager : MonoBehaviour
 
     [Header("Current Theme State")]
     public UIThemeMode currentTheme = UIThemeMode.Dark;
+    public bool IsDarkMode => currentTheme == UIThemeMode.Dark;
     public static event Action<UIThemeMode> OnThemeChanged;
 
     [Header("Light Mode Palette (Olive-Sage Glass Aesthetic)")]
@@ -694,6 +695,16 @@ public class ThemeManager : MonoBehaviour
         {
             // Restore all modified elements back to their exact original Dark Mode authored states
             RestoreOriginals();
+
+            foreach (Canvas canvas in Resources.FindObjectsOfTypeAll<Canvas>())
+            {
+                if (canvas == null || !canvas.gameObject.scene.IsValid() || !canvas.gameObject.scene.isLoaded) continue;
+                Game2OrderProcess g2Dark = canvas.GetComponentInChildren<Game2OrderProcess>(true);
+                if (g2Dark != null && g2Dark.gameObject.activeInHierarchy)
+                {
+                    g2Dark.ApplyCardTheme(UIThemeMode.Dark);
+                }
+            }
         }
         else
         {
@@ -1024,6 +1035,14 @@ public class ThemeManager : MonoBehaviour
             foreach (Graphic g in root.GetComponentsInChildren<Graphic>(true))
             {
                 if (g == null || IsInsideThemeSelection(g.transform)) continue;
+
+                string gn = g.gameObject.name.ToLower();
+                // Skip game 2 process illustration / text cards so Game2OrderProcess controls them
+                if (gn.StartsWith("process") && !gn.Contains("layout") && !gn.Contains("panel"))
+                {
+                    continue;
+                }
+
                 if (originalGraphicStates.TryGetValue(g, out var orig))
                 {
                     Image img = g as Image;
@@ -1047,7 +1066,6 @@ public class ThemeManager : MonoBehaviour
                 }
 
                 // Ensure progress bars in Dark Mode always have high contrast
-                string gn = g.gameObject.name.ToLower();
                 if (gn.Contains("fill") || (gn.Contains("progress") && gn.Contains("bar") && gn.Contains("fill")))
                 {
                     g.color = darkProgressFillColor;
@@ -1061,6 +1079,7 @@ public class ThemeManager : MonoBehaviour
             foreach (TextMeshProUGUI tmp in root.GetComponentsInChildren<TextMeshProUGUI>(true))
             {
                 if (tmp == null || IsInsideThemeSelection(tmp.transform)) continue;
+                if (tmp.gameObject.name == "CardText" || tmp.gameObject.name == "TimerText" || (tmp.transform.parent != null && tmp.transform.parent.name == "TimerBadge")) continue;
                 if (originalTextStates.TryGetValue(tmp, out var origText))
                 {
                     tmp.color = origText.color;
@@ -1114,6 +1133,12 @@ public class ThemeManager : MonoBehaviour
                 input.caretColor = new Color(0.85f, 0.88f, 0.95f, 1f);
                 input.selectionColor = new Color(0.30f, 0.45f, 0.65f, 0.50f);
             }
+
+            Game2OrderProcess g2 = root.GetComponentInChildren<Game2OrderProcess>(true);
+            if (g2 != null && g2.gameObject.activeInHierarchy)
+            {
+                g2.ApplyCardTheme(UIThemeMode.Dark);
+            }
             return;
         }
 
@@ -1143,6 +1168,12 @@ public class ThemeManager : MonoBehaviour
             if (n.Contains("photo") || n.Contains("thumb") || n.Contains("displayimage") ||
                 n.Contains("artifactimage") || n.Contains("qr") || n.Contains("video") ||
                 n.Contains("themeicon") || (img.transform.parent != null && img.transform.parent.name == "ThemeToggleButton"))
+            {
+                continue;
+            }
+
+            // Skip timer badge and timer icon so they retain rich obsidian and amber gold
+            if (n.Contains("timerbadge") || n.Contains("timericon") || (img.transform.parent != null && img.transform.parent.name == "TimerBadge"))
             {
                 continue;
             }
@@ -1328,6 +1359,7 @@ public class ThemeManager : MonoBehaviour
         foreach (TextMeshProUGUI tmp in texts)
         {
             if (tmp == null || IsInsideThemeSelection(tmp.transform) || IsIntroVideoPanel(tmp.transform)) continue;
+            if (tmp.gameObject.name == "CardText" || tmp.gameObject.name == "TimerText" || (tmp.transform.parent != null && tmp.transform.parent.name == "TimerBadge")) continue;
             string n = tmp.gameObject.name.ToLower();
 
             CacheOriginalText(tmp);
@@ -1432,6 +1464,12 @@ public class ThemeManager : MonoBehaviour
             input.customCaretColor = true;
             input.caretColor = new Color(0.12f, 0.15f, 0.10f, 1f);
             input.selectionColor = new Color(0.60f, 0.75f, 0.50f, 0.50f);
+        }
+
+        Game2OrderProcess g2Light = root.GetComponentInChildren<Game2OrderProcess>(true);
+        if (g2Light != null && g2Light.gameObject.activeInHierarchy)
+        {
+            g2Light.ApplyCardTheme(UIThemeMode.Light);
         }
     }
 }
