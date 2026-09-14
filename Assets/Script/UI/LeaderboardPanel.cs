@@ -214,6 +214,38 @@ public class LeaderboardPanel : MonoBehaviour
         return new List<LocalEntry>();
     }
 
+    /// <summary>
+    /// Clears local high scores from PlayerPrefs for a specific game.
+    /// </summary>
+    public static void ClearLocalLeaderboard(string gameId)
+    {
+        string cleanGameId = (gameId ?? "").Trim().ToLower();
+        string key = $"LocalLeaderboard_{cleanGameId}";
+        PlayerPrefs.DeleteKey(key);
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>
+    /// Clears all local high scores from PlayerPrefs.
+    /// </summary>
+    public static void ClearAllLocalLeaderboards()
+    {
+        PlayerPrefs.DeleteKey("LocalLeaderboard_game_1");
+        PlayerPrefs.DeleteKey("LocalLeaderboard_game_2");
+        PlayerPrefs.DeleteKey("LocalLeaderboard_game_3");
+        PlayerPrefs.Save();
+        Debug.Log("[Leaderboard] Cleared all local leaderboard entries from PlayerPrefs.");
+    }
+
+#if UNITY_EDITOR
+    [UnityEditor.MenuItem("Tools/Museum MR/Leaderboard/Clear Local High Scores (PlayerPrefs)")]
+    public static void MenuItemClearLocalLeaderboards()
+    {
+        ClearAllLocalLeaderboards();
+        UnityEditor.EditorUtility.DisplayDialog("Leaderboard", "Local high scores for all games have been cleared from PlayerPrefs.", "OK");
+    }
+#endif
+
     private static List<LeaderboardEntry> GetLocalDisplayEntries(string gameId)
     {
         List<LocalEntry> local = LoadLocalEntries(gameId);
