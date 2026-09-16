@@ -35,7 +35,7 @@ MonoBehaviour:
     alat perhiasan yang diletakkan pada dinding dan tiang rumah tradisional Melayu."
   modelPrefab: {fileID: 919132149155446097, guid: 3a7e4b9c1d8f2a6071b5e3c849102d5a,
     type: 3}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: 04ec2aacf2f3c6642b275c09b8e0a8eb, type: 3}
   instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: 237ba2116d1655e4ca13494b36cd8bff, type: 3}
