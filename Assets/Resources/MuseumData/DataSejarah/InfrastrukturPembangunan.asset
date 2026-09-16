@@ -42,4 +42,4 @@ MonoBehaviour:
     caption: 'Infrastruktur & Pembangunan Terengganu 4'
   displaySprite: {fileID: 21300000, guid: f1c3fc7035763034dbe84ade85c4927b, type: 3}
   videoClip: {fileID: 0}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: f47f286895f20f5439acd8b30f2cdcd6, type: 3}

@@ -36,4 +36,4 @@ MonoBehaviour:
     caption: 'Zaman Penjajahan di Terengganu'
   displaySprite: {fileID: 21300000, guid: d8a61c52ee12d10429198a9996138d7a, type: 3}
   videoClip: {fileID: 0}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: e5c558865a3ac5c45b8eecf715e338a6, type: 3}

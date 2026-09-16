@@ -32,4 +32,4 @@ MonoBehaviour:
     caption: 'Tragedi Megat Panji Alam'
   displaySprite: {fileID: 21300000, guid: 3bbe7ac8fb508bc48aab6f911b170ff2, type: 3}
   videoClip: {fileID: 32900000, guid: b5992a517807f5c47aba44443fc0b226, type: 3}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: f45310f6e1cc8f747ab040e904b9bfde, type: 3}

@@ -32,4 +32,4 @@ MonoBehaviour:
   images: []
   displaySprite: {fileID: 0}
   videoClip: {fileID: 0}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: 3125ec33b2376eb4db61cc61cd02ccb5, type: 3}

@@ -38,5 +38,5 @@ MonoBehaviour:
     caption: 'Ekonomi Terengganu 3'
   displaySprite: {fileID: 21300000, guid: 9f1a23847b2c5e019348d71629fa8211, type: 3}
   videoClip: {fileID: 0}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: a38714609caa90c459a5b4bc83108a13, type: 3}
 

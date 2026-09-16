@@ -36,4 +36,4 @@ MonoBehaviour:
     caption: 'Pemberontakan Tani Terengganu'
   displaySprite: {fileID: 21300000, guid: 7d06b7d6fd7b75f47bc6841214232d0c, type: 3}
   videoClip: {fileID: 0}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: 571f06e98d2aeac44af05705822d41e6, type: 3}
