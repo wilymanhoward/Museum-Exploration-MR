@@ -147,25 +147,21 @@ public class HistoryManager : MonoBehaviour
             }
         }
 
-        // Calculate spawn position in world space (detecting wall at eye level or floating at eye level)
+        // Calculate spawn position in world space
         Transform cam = Camera.main != null ? Camera.main.transform : null;
-        Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
-            cam,
-            activePanelInstances.Count,
-            0.65f,
-            out bool isWallMounted
-        );
-        Vector3 spawnPos = placementPose.position;
-        Quaternion spawnRot = placementPose.rotation;
+        Vector3 forward = cam != null ? Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized : Vector3.forward;
+        if (forward == Vector3.zero) forward = Vector3.forward;
+        Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+
+        // Stagger multiple open panels horizontally: 0m, +0.65m, -0.65m, +1.3m, -1.3m
+        int count = activePanelInstances.Count;
+        float sideOffset = (count == 0) ? 0f : ((count % 2 == 1) ? ((count + 1) / 2) * 0.65f : -(count / 2) * 0.65f);
+
+        Vector3 spawnPos = (cam != null ? cam.position : Vector3.zero) + forward * 0.85f + right * sideOffset - Vector3.up * 0.05f;
+        Quaternion spawnRot = Quaternion.LookRotation(forward, Vector3.up);
 
         GameObject newPanelInstance = BuildWorldSpacePanel(historyDetailPanel.gameObject, spawnPos, spawnRot);
         newPanelInstance.name = $"HistoryDetailPanel_{data.name}";
-
-        ArtifactPanelDragger dragger = newPanelInstance.GetComponentInChildren<ArtifactPanelDragger>(true);
-        if (dragger != null)
-        {
-            dragger.SetSnappedToWall(isWallMounted);
-        }
 
         HistoryPanel newHp = newPanelInstance.GetComponentInChildren<HistoryPanel>(true);
         if (newHp != null)
@@ -185,7 +181,7 @@ public class HistoryManager : MonoBehaviour
         historyDetailPanel.gameObject.SetActive(false);
 
         activePanelInstances.Add(newPanelInstance);
-        Debug.Log($"HistoryManager: Spawned history panel for '{data.name}' in world space (Wall: {isWallMounted}). Total active panels: {activePanelInstances.Count}");
+        Debug.Log($"HistoryManager: Spawned history panel for '{data.name}' in world space. Total active panels: {activePanelInstances.Count}");
         return newPanelInstance;
     }
 

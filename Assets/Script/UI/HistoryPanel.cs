@@ -2409,19 +2409,15 @@ public class HistoryPanel : MonoBehaviour
         Transform cam = Camera.main != null ? Camera.main.transform : null;
         if (cam == null) return;
 
-        Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
-            cam,
-            0,
-            0.65f,
-            out bool isWallMounted
-        );
+        Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+        if (forward == Vector3.zero) forward = Vector3.forward;
 
-        transform.position = placementPose.position;
-        transform.rotation = placementPose.rotation;
-
-        if (dragger != null)
+        transform.position = cam.position + forward * 0.7f - Vector3.up * 0.05f;
+        Vector3 toPlayer = cam.position - transform.position;
+        toPlayer.y = 0;
+        if (toPlayer.sqrMagnitude > 0.0001f)
         {
-            dragger.SetSnappedToWall(isWallMounted);
+            transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
         }
     }
 

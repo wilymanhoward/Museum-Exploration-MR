@@ -41,11 +41,6 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     public bool IsUserMoved => isUserMoved;
     public bool IsSnappedToWall => isSnappedToWall;
 
-    public void SetSnappedToWall(bool snapped)
-    {
-        isSnappedToWall = snapped;
-    }
-
     public void ResetUserMoved()
     {
         isUserMoved = false;

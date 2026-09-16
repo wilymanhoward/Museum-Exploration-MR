@@ -227,29 +227,21 @@ public class Artifact : MonoBehaviour
             trackedPlayer = Camera.main.transform;
         }
 
-        Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
-            trackedPlayer,
-            0,
-            0.60f,
-            out bool isWallMounted
-        );
-
-        Transform targetTransform = (transform.parent != null && transform.parent.GetComponent<Canvas>() != null)
-            ? transform.parent
-            : transform;
-
-        targetTransform.position = placementPose.position;
-        targetTransform.rotation = placementPose.rotation;
-
-        if (targetTransform != transform)
+        if (trackedPlayer != null)
         {
-            transform.localPosition = Vector3.zero;
-            transform.localRotation = Quaternion.identity;
-        }
+            Vector3 forwardDir = Vector3.ProjectOnPlane(trackedPlayer.forward, Vector3.up).normalized;
+            if (forwardDir == Vector3.zero) forwardDir = Vector3.forward;
 
-        if (dragger != null)
-        {
-            dragger.SetSnappedToWall(isWallMounted);
+            // Spawn exactly 1.0 meter in front of the user's camera
+            transform.position = trackedPlayer.position + forwardDir * 1.0f;
+
+            Vector3 directionToPlayer = trackedPlayer.position - transform.position;
+            directionToPlayer.y = 0;
+            if (directionToPlayer != Vector3.zero)
+            {
+                Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
+                transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
+            }
         }
     }
 
@@ -266,24 +258,7 @@ public class Artifact : MonoBehaviour
         onCloseCallback = onClose;
         if (playerTransform != null) trackedPlayer = playerTransform;
 
-        if (qrPose.position != Vector3.zero || qrPose.rotation != Quaternion.identity)
-        {
-            Transform targetTransform = (transform.parent != null && transform.parent.GetComponent<Canvas>() != null)
-                ? transform.parent
-                : transform;
-            targetTransform.position = qrPose.position;
-            targetTransform.rotation = qrPose.rotation;
-            if (targetTransform != transform)
-            {
-                transform.localPosition = Vector3.zero;
-                transform.localRotation = Quaternion.identity;
-            }
-        }
-        else
-        {
-            PositionInFrontOfUser();
-        }
-
+        PositionInFrontOfUser();
         EnsureGrabbablePanel();
 
         Canvas canvas = GetComponent<Canvas>();
