@@ -172,6 +172,7 @@ public class ArtifactManager : MonoBehaviour
         // Calculate spawn position in world space
         Vector3 spawnPos;
         Quaternion spawnRot;
+        bool isWallMounted = false;
 
         if (customPose.position != Vector3.zero || customPose.rotation != Quaternion.identity)
         {
@@ -180,18 +181,14 @@ public class ArtifactManager : MonoBehaviour
         }
         else
         {
-            // Position 1.0m in front of player, staggered side-by-side if multiple panels are open
-            Vector3 fwd = playerTransform != null ? Vector3.ProjectOnPlane(playerTransform.forward, Vector3.up).normalized : Vector3.forward;
-            if (fwd == Vector3.zero) fwd = Vector3.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
-
-            // Stagger multiple open panels horizontally: 0m, +0.6m, -0.6m, +1.2m, -1.2m
-            int count = activePanelInstances.Count;
-            float sideOffset = (count % 2 == 1) ? ((count + 1) / 2) * 0.6f : -(count / 2) * 0.6f;
-
-            Vector3 basePos = playerTransform != null ? playerTransform.position : Vector3.zero;
-            spawnPos = basePos + fwd * 1.0f + right * sideOffset;
-            spawnRot = Quaternion.LookRotation(-fwd, Vector3.up);
+            Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
+                playerTransform,
+                activePanelInstances.Count,
+                0.60f,
+                out isWallMounted
+            );
+            spawnPos = placementPose.position;
+            spawnRot = placementPose.rotation;
         }
 
         if (source == null)
@@ -235,11 +232,17 @@ public class ArtifactManager : MonoBehaviour
             });
         }
 
+        ArtifactPanelDragger dragger = newPanelInstance.GetComponentInChildren<ArtifactPanelDragger>(true);
+        if (dragger != null)
+        {
+            dragger.SetSnappedToWall(isWallMounted);
+        }
+
         activePanelInstances.Add(newPanelInstance);
         selectedArtifact = artifact;
         lastSelectedArtifact = artifact;
 
-        Debug.Log($"ArtifactManager: Spawned detail panel for '{artifact.artifactName}' in world space. Total open panels: {activePanelInstances.Count}");
+        Debug.Log($"ArtifactManager: Spawned detail panel for '{artifact.artifactName}' in world space (Wall: {isWallMounted}). Total open panels: {activePanelInstances.Count}");
         return newPanelInstance;
     }
 
@@ -291,9 +294,7 @@ public class ArtifactManager : MonoBehaviour
     private Pose CalculateDefaultPose()
     {
         Transform referenceTransform = playerTransform != null ? playerTransform : (Camera.main != null ? Camera.main.transform : transform);
-        Vector3 pos = referenceTransform.position + referenceTransform.forward * 1.5f;
-        Quaternion rot = Quaternion.LookRotation(referenceTransform.forward, Vector3.up);
-        return new Pose(pos, rot);
+        return WallPlacementHelper.CalculatePlacementPose(referenceTransform, activePanelInstances.Count, 0.60f, out _);
     }
 
     /// <summary>
