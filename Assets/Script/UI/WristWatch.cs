@@ -2,7 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR.Hands;
+using UnityEngine.XR.Hands.Gestures;
 using Unity.XR.CoreUtils;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
 
 public class WristWatch : MonoBehaviour
 {
@@ -67,6 +71,37 @@ public class WristWatch : MonoBehaviour
     [Tooltip("Ignore repeat toggle calls within this many seconds so one click counts once.")]
     public float toggleDebounce = 0.3f;
     private float lastToggleTime = -1f;
+
+    [Header("Gesture Detection (Thumbs Up)")]
+    [Tooltip("If true, a Left Hand Thumbs-Up gesture will trigger the options panel to open.")]
+    public bool enableThumbsUpGesture = true;
+
+    [Tooltip("Minimum time (in seconds) the thumbs-up gesture must be steadily held before triggering.")]
+    public float thumbsUpHoldDuration = 0.30f;
+
+    [Tooltip("Cooldown period (in seconds) after a trigger during which the gesture will not re-trigger.")]
+    public float thumbsUpCooldown = 1.20f;
+
+    [Tooltip("Maximum allowed curl value for the thumb (0 = fully straight, 1 = fully curled). Lower means stricter straightness.")]
+    [Range(0.1f, 0.6f)]
+    public float thumbCurlThreshold = 0.35f;
+
+    [Tooltip("Minimum required curl value for the other 4 fingers (Index, Middle, Ring, Little). Higher means tighter fist.")]
+    [Range(0.3f, 0.9f)]
+    public float fingerCurlThreshold = 0.55f;
+
+    [Tooltip("Alignment threshold between thumb direction and world up (1.0 = straight up). Default 0.60 allows ~53 degrees tilt.")]
+    [Range(0.4f, 0.95f)]
+    public float thumbUpAlignmentThreshold = 0.60f;
+
+    [Tooltip("If true, making a thumbs-up gesture while the options panel is open will close it (toggle). If false, it only opens if closed.")]
+    public bool toggleMenuWithThumbsUp = false;
+
+    [Tooltip("Log debug information to the Unity Console when a thumbs-up gesture is detected.")]
+    public bool debugLogGesture = true;
+
+    private float currentThumbsUpHoldTime = 0f;
+    private float thumbsUpCooldownTimer = 0f;
 
     // Wrist pose sources. The "Left Hand" rig object is NOT pose-driven (only its joint
     // visuals are), so hand-tracking poses must come from the XRHandSubsystem wrist joint.
@@ -736,6 +771,7 @@ public class WristWatch : MonoBehaviour
         }
 
         UpdateAnchorPose();
+        UpdateThumbsUpGestureDetection();
 
         // Stabilization: while the left hand is untracked and player reaches in to click,
         // hold the last solid pose so the button doesn't jump around. Otherwise, use live anchor pose.
@@ -1069,6 +1105,18 @@ public class WristWatch : MonoBehaviour
     }
 
     /// <summary>
+    /// Opens the main wrist options panel explicitly if it is currently closed.
+    /// </summary>
+    public void OpenOptionsPanel()
+    {
+        if (!MainMenu.IsExplorationStarted || forceHidden) return;
+        if (!optionsPanelActive)
+        {
+            ToggleOptionsPanel();
+        }
+    }
+
+    /// <summary>
     /// Toggles the main wrist options panel open/closed.
     /// </summary>
     public void ToggleOptionsPanel()
@@ -1130,6 +1178,150 @@ public class WristWatch : MonoBehaviour
             wristWatchButtonObj.SetActive(true);
         }
         Debug.Log("WristWatch: Options Panel Closed.");
+    }
+
+    /// <summary>
+    /// Checks for a Left Hand Thumbs-Up gesture every frame.
+    /// When held for thumbsUpHoldDuration, triggers OpenOptionsPanel() or ToggleOptionsPanel().
+    /// Also supports pressing 'T' in the Unity Editor for desktop simulation.
+    /// </summary>
+    private void UpdateThumbsUpGestureDetection()
+    {
+        if (!enableThumbsUpGesture) return;
+        if (!MainMenu.IsExplorationStarted || forceHidden) return;
+
+        if (thumbsUpCooldownTimer > 0f)
+        {
+            thumbsUpCooldownTimer -= Time.unscaledDeltaTime;
+        }
+
+#if UNITY_EDITOR
+        // Desktop simulation: Press 'T' to simulate Left Hand Thumbs Up
+        bool editorHotkeyPressed = false;
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.tKey.wasPressedThisFrame)
+        {
+            editorHotkeyPressed = true;
+        }
+#elif ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+            editorHotkeyPressed = true;
+        }
+#endif
+        if (editorHotkeyPressed)
+        {
+            Debug.Log("<color=cyan>WristWatch: [Editor Simulation] Thumbs Up triggered via 'T' key!</color>");
+            ExecuteThumbsUpTrigger();
+            return;
+        }
+#endif
+
+        if (handSubsystem == null || !handSubsystem.running || !handSubsystem.leftHand.isTracked)
+        {
+            currentThumbsUpHoldTime = 0f;
+            return;
+        }
+
+        XRHand leftHand = handSubsystem.leftHand;
+        bool isThumbsUp = CheckThumbsUpGesture(leftHand);
+
+        if (isThumbsUp)
+        {
+            currentThumbsUpHoldTime += Time.unscaledDeltaTime;
+            if (currentThumbsUpHoldTime >= thumbsUpHoldDuration)
+            {
+                if (thumbsUpCooldownTimer <= 0f)
+                {
+                    ExecuteThumbsUpTrigger();
+                }
+                currentThumbsUpHoldTime = 0f;
+            }
+        }
+        else
+        {
+            currentThumbsUpHoldTime = Mathf.Max(0f, currentThumbsUpHoldTime - Time.unscaledDeltaTime * 2f);
+        }
+    }
+
+    private bool CheckThumbsUpGesture(XRHand hand)
+    {
+        // 1. Thumb must be extended (low curl)
+        XRFingerShape thumbShape = hand.CalculateFingerShape(XRHandFingerID.Thumb, XRFingerShapeTypes.FullCurl);
+        if (thumbShape.TryGetFullCurl(out float thumbCurl))
+        {
+            if (thumbCurl > thumbCurlThreshold) return false;
+        }
+
+        // 2. The four fingers (Index, Middle, Ring, Little) must be curled into palm
+        XRFingerShape indexShape = hand.CalculateFingerShape(XRHandFingerID.Index, XRFingerShapeTypes.FullCurl);
+        XRFingerShape middleShape = hand.CalculateFingerShape(XRHandFingerID.Middle, XRFingerShapeTypes.FullCurl);
+        XRFingerShape ringShape = hand.CalculateFingerShape(XRHandFingerID.Ring, XRFingerShapeTypes.FullCurl);
+        XRFingerShape littleShape = hand.CalculateFingerShape(XRHandFingerID.Little, XRFingerShapeTypes.FullCurl);
+
+        int curledCount = 0;
+        if (indexShape.TryGetFullCurl(out float indexCurl) && indexCurl >= fingerCurlThreshold) curledCount++;
+        if (middleShape.TryGetFullCurl(out float middleCurl) && middleCurl >= fingerCurlThreshold) curledCount++;
+        if (ringShape.TryGetFullCurl(out float ringCurl) && ringCurl >= fingerCurlThreshold) curledCount++;
+        if (littleShape.TryGetFullCurl(out float littleCurl) && littleCurl >= fingerCurlThreshold) curledCount++;
+
+        // At least 3 fingers must be curled, and index + middle must be curled with tolerance
+        if (curledCount < 3) return false;
+        if (indexShape.TryGetFullCurl(out float ic) && ic < (fingerCurlThreshold - 0.15f)) return false;
+        if (middleShape.TryGetFullCurl(out float mc) && mc < (fingerCurlThreshold - 0.15f)) return false;
+
+        // 3. Thumb direction must point upward in world space
+        XRHandJoint thumbTip = hand.GetJoint(XRHandJointID.ThumbTip);
+        XRHandJoint thumbProximal = hand.GetJoint(XRHandJointID.ThumbProximal);
+        if (!thumbProximal.TryGetPose(out Pose proxPose))
+        {
+            thumbProximal = hand.GetJoint(XRHandJointID.ThumbMetacarpal);
+            thumbProximal.TryGetPose(out proxPose);
+        }
+
+        if (!thumbTip.TryGetPose(out Pose tipPose)) return false;
+
+        Vector3 thumbLocalDir = (tipPose.position - proxPose.position).normalized;
+        Vector3 thumbWorldDir = sessionSpaceRoot != null
+            ? sessionSpaceRoot.TransformDirection(thumbLocalDir)
+            : thumbLocalDir;
+
+        float upDot = Vector3.Dot(thumbWorldDir, Vector3.up);
+        if (upDot < thumbUpAlignmentThreshold) return false;
+
+        // 4. Palm should not be facing downward
+        XRHandJoint palm = hand.GetJoint(XRHandJointID.Palm);
+        if (palm.TryGetPose(out Pose palmPose))
+        {
+            Vector3 palmNormalLocal = palmPose.up; // In OpenXR standard, palm.up points outwards from palm
+            Vector3 palmNormalWorld = sessionSpaceRoot != null
+                ? sessionSpaceRoot.TransformDirection(palmNormalLocal)
+                : palmNormalLocal;
+
+            // Reject if palm points towards the ground (such as resting hand on lap)
+            if (Vector3.Dot(palmNormalWorld, Vector3.down) > 0.65f) return false;
+        }
+
+        return true;
+    }
+
+    private void ExecuteThumbsUpTrigger()
+    {
+        thumbsUpCooldownTimer = thumbsUpCooldown;
+
+        if (debugLogGesture)
+        {
+            Debug.Log("<color=green>WristWatch: Thumbs Up gesture detected on Left Hand! Opening options menu.</color>");
+        }
+
+        if (toggleMenuWithThumbsUp)
+        {
+            ToggleOptionsPanel();
+        }
+        else
+        {
+            OpenOptionsPanel();
+        }
     }
 
     /// <summary>

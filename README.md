@@ -309,6 +309,7 @@ Test the entire application in the Unity Editor without putting on a headset usi
 | `9` | Launch Game 1: Tebak Bayangan Artefak (`game_1`) |
 | `G` | Launch Game 2: Susun Langkah & Kisah (`game_2`) |
 | `0` | Launch Game 3 (`game_3`) |
+| `T` | Simulate Left Hand Thumbs Up gesture (triggers Wrist Menu) |
 | `X` | Simulate QR code lost / walk away |
 
 ---
