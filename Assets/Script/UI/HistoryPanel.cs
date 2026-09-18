@@ -21,7 +21,7 @@ public class HistoryPanel : MonoBehaviour
     public static HistoryPanel Instance { get; private set; }
 
     [Header("Header UI References")]
-    [Tooltip("Main title text (e.g. 'Artefak' or 'Sejarah').")]
+    [Tooltip("Main title text (e.g. 'Artifak' or 'Sejarah').")]
     public TMP_Text topTitleText;
 
     [Tooltip("Category subtitle text (e.g. 'Gamelan').")]

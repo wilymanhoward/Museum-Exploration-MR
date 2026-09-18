@@ -116,7 +116,7 @@ public class Game3OrderTimeline : BaseGame
     [Tooltip("Slot indicator GameObjects or Transforms. Optional.")]
     public Transform[] slotObjects;
 
-    [Tooltip("'Periksa Jawaban' Check Button (CheckButton).")]
+    [Tooltip("'Semak Jawapan' Check Button (CheckButton).")]
     public Button checkAnswerButton;
 
     [Tooltip("Wrong answer warning text object (Wrong Text).")]
@@ -216,9 +216,9 @@ public class Game3OrderTimeline : BaseGame
         if (taskText != null)
         {
             string title = string.IsNullOrWhiteSpace(qData.questionTitle) ? "Sejarah" : qData.questionTitle.Trim();
-            string formattedTitle = title.StartsWith("Susunkan", System.StringComparison.OrdinalIgnoreCase)
+            string formattedTitle = title.StartsWith("Susun", System.StringComparison.OrdinalIgnoreCase)
                 ? title
-                : $"Susunkan garis masa {title}";
+                : $"Susun garis masa {title}";
 
             taskText.text = $"({displayRoundNum}/{totalQuestions}) {formattedTitle}";
             taskText.enableAutoSizing = true;

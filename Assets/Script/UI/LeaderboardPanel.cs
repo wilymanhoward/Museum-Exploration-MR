@@ -606,7 +606,7 @@ public class LeaderboardPanel : MonoBehaviour
 
         // Close Buttons
         if (closeButton == null) closeButton = FindChildButton("CloseButton", "ButtonClose", "CloseBtn");
-        if (returnToMenuButton == null) returnToMenuButton = FindChildButton("Return To Menu", "ReturnToMenu", "ButtonReturn", "Mulai");
+        if (returnToMenuButton == null) returnToMenuButton = FindChildButton("Kembali ke Menu", "Return To Menu", "ReturnToMenu", "ButtonReturn", "Mula", "Mulai");
 
         WireButton(closeButton, OnClose);
         WireButton(returnToMenuButton, OnClose);

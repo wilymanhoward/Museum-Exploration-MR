@@ -17,7 +17,7 @@ public class HistoryData : ScriptableObject
     public string historyId;
 
     [Header("Header Info")]
-    [Tooltip("Main title (e.g. 'Sejarah' or 'Artefak').")]
+    [Tooltip("Main title (e.g. 'Sejarah' or 'Artifak').")]
     public string topTitle = "Sejarah";
 
     [Tooltip("Category or artifact type subtitle (e.g. 'Gamelan', 'Batu Bersurat').")]

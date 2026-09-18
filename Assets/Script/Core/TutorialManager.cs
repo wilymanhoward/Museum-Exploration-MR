@@ -60,7 +60,7 @@ public class TutorialManager : MonoBehaviour
     [TextArea] public string introBodyText =
         "Sebelum meneroka muzium, mari kita belajar cara mengawal aplikasi ini menggunakan tangan anda. Tutorial ini mengambil masa kurang dari seminit.";
     [TextArea] public string praiseText = "Bagus!";
-    [TextArea] public string completionText = "Tutorial selesai! Selamat meneroka muzium.";
+    [TextArea] public string completionText = "Tutorial selesai! Selamat Meneroka Muzium.";
 
     [Header("Narration (optional voice-over)")]
     [Tooltip("Played once when the tutorial starts, before the first step - a general welcome plus how the hand-ray/pinch controls work. Leave empty to skip.")]

@@ -139,7 +139,7 @@ public class Game2OrderProcess : BaseGame
     [Tooltip("Parent transform containing 1, 2, 3, 4, 5 slot indicator objects.")]
     public Transform numberSlotPanel;
 
-    [Tooltip("'Periksa Jawaban' Check Button.")]
+    [Tooltip("'Semak Jawapan' Check Button.")]
     public Button checkAnswerButton;
 
     [Tooltip("Wrong answer warning text object (e.g. 'Wrong Text').")]
@@ -291,19 +291,19 @@ public class Game2OrderProcess : BaseGame
         // 1. Update TaskText with (X/5) progress counter
         if (taskText != null)
         {
-            string title = string.IsNullOrWhiteSpace(qData.questionTitle) ? "Artefak" : qData.questionTitle.Trim();
+            string title = string.IsNullOrWhiteSpace(qData.questionTitle) ? "Artifak" : qData.questionTitle.Trim();
             if (qData.isImageQuestion)
             {
                 string formatted = title.StartsWith("Susun", System.StringComparison.OrdinalIgnoreCase)
                     ? title
-                    : $"Susunkan {title}";
+                    : $"Susun {title}";
                 taskText.text = $"({displayRoundNum}/{totalQuestions}) {formatted}";
             }
             else
             {
                 string formatted = title.StartsWith("Susun", System.StringComparison.OrdinalIgnoreCase)
                     ? title
-                    : $"Susunkan garis masa {title}";
+                    : $"Susun garis masa {title}";
                 taskText.text = $"({displayRoundNum}/{totalQuestions}) {formatted}";
             }
 

@@ -402,13 +402,13 @@ public class MiniGameMenuPanel : MonoBehaviour
     {
         if (startButton == null)
         {
-            startButton = FindChildButton("StartButton", "ButtonStart", "Mulai", "MulaiButton");
+            startButton = FindChildButton("StartButton", "ButtonStart", "Mula", "Mulai", "MulaiButton");
         }
         if (startButton == null) return;
 
         // Check if there is a legacy Text component attached to StartButton or its children
         Text legacyText = startButton.GetComponentInChildren<Text>(true);
-        string labelText = "Mulai";
+        string labelText = "Mula";
         if (legacyText != null)
         {
             if (!string.IsNullOrEmpty(legacyText.text)) labelText = legacyText.text.Trim();
@@ -425,6 +425,7 @@ public class MiniGameMenuPanel : MonoBehaviour
         if (existingTmp != null)
         {
             string curText = string.IsNullOrEmpty(existingTmp.text) ? labelText : existingTmp.text.Trim();
+            if (curText.Equals("Mulai", System.StringComparison.OrdinalIgnoreCase)) curText = "Mula";
             ConfigureTmp(existingTmp, curText);
         }
         else

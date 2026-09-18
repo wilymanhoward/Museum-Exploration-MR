@@ -35,7 +35,7 @@ public class PinchDragRotateStep : TutorialStep
 
     private void Reset()
     {
-        stepTitle = "Langkah 2: Cubit & Tahan untuk Putar";
+        stepTitle = "Langkah 2 : PICIT dan TAHAN artifak untuk digerakkan.";
         instructionText =
             "CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk memutarkannya. Terus putar sehingga bar penuh!";
     }

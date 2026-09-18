@@ -167,7 +167,7 @@ public class TimelineGamePrefabCreator : Editor
         ctRect.anchorMax = Vector2.one;
         ctRect.sizeDelta = Vector2.zero;
         TextMeshProUGUI checkTxt = checkTxtObj.AddComponent<TextMeshProUGUI>();
-        checkTxt.text = "Periksa Jawapan  >";
+        checkTxt.text = "Semak Jawapan  >";
         checkTxt.fontSize = 13;
         checkTxt.alignment = TextAlignmentOptions.Center;
         checkTxt.color = new Color(0.96f, 0.96f, 0.92f, 1f);

@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
-/// Mini-Game 1: "Tebak Bayangan Artefak".
+/// Mini-Game 1: "Tebak Bayangan Artifak".
 /// Inherits from BaseGame.
 /// All UI references, buttons, panels, and silhouette material are assigned via the Inspector or auto-resolved.
 /// </summary>
@@ -37,7 +37,7 @@ public class Game1GuessName : BaseGame
     [Tooltip("Prefab for option choice buttons to instantiate inside guessList.")]
     public GameObject optionButtonPrefab;
 
-    [Tooltip("'Periksa Jawaban' Check Button.")]
+    [Tooltip("'Semak Jawapan' Check Button.")]
     public Button checkAnswerButton;
 
     [Header("Answer Panel UI (Assign in Inspector)")]

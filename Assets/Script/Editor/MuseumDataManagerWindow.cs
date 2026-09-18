@@ -199,7 +199,7 @@ public class MuseumDataManagerWindow : EditorWindow
         {
             roomId = $"room_{count}",
             roomName = $"Galeri {count}",
-            roomSubtitle = $"Pameran Artefak Galeri {count}"
+            roomSubtitle = $"Pameran Artifak Galeri {count}"
         };
         AddNewArtifactToRoom(r);
         roomDrafts.Add(r);
@@ -211,11 +211,11 @@ public class MuseumDataManagerWindow : EditorWindow
         ArtifactDraft art = new ArtifactDraft
         {
             artifactId = $"artifact_{room.roomId}_{artCount}",
-            artifactName = $"Artefak {artCount}",
+            artifactName = $"Artifak {artCount}",
             timePeriod = "Abad ke-19",
             location = "Malaysia",
             material = "Batu / Kayu",
-            description = $"Keterangan ringkas bagi Artefak {artCount}."
+            description = $"Keterangan ringkas bagi Artifak {artCount}."
         };
         room.artifacts.Add(art);
     }

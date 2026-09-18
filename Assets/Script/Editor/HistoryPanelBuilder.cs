@@ -61,7 +61,7 @@ public class HistoryPanelBuilder : Editor
         titleRect.anchoredPosition = new Vector2(25f, 10f);
         titleRect.sizeDelta = new Vector2(140f, 26f);
         TextMeshProUGUI titleTxt = titleObj.AddComponent<TextMeshProUGUI>();
-        titleTxt.text = "Artefak";
+        titleTxt.text = "Artifak";
         titleTxt.fontSize = 20;
         titleTxt.fontStyle = FontStyles.Bold;
         titleTxt.color = Color.white;
@@ -308,7 +308,7 @@ public class HistoryPanelBuilder : Editor
         achRect.anchoredPosition = new Vector2(0f, 72f);
         achRect.sizeDelta = new Vector2(210f, 24f);
         TextMeshProUGUI achTxt = acHeadObj.AddComponent<TextMeshProUGUI>();
-        achTxt.text = "ℹ Tentang Artefak Ini";
+        achTxt.text = "ℹ Tentang Artifak Ini";
         achTxt.fontSize = 15;
         achTxt.fontStyle = FontStyles.Bold;
         achTxt.color = Color.white;

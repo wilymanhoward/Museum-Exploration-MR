@@ -179,7 +179,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Terokai
+  m_text: Penerokaan
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -7322,7 +7322,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Senarai Ruang
+  m_text: Ruangan di Muzium
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -10772,12 +10772,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e19a10f49a87e8a489522a60e79bba38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  stepTitle: 'Langkah 2: Cubit & Tahan untuk Putar'
-  instructionText: 'CUBIT dan TAHAN artifak, kemudian gerakkan tangan anda untuk
-    memutarkannya. Terus putar sehingga bar penuh!
+  stepTitle: 'Langkah 2 : PICIT dan TAHAN artifak untuk digerakkan.'
+  instructionText: 'PICIT dan TAHAN artifak untuk digerakkan. Terus gerak sehingga
+    bar penuh!
 
     <size=80%><i>PINCH and HOLD
-    the artifact, then move your hand to rotate it. Keep spinning until the bar is
+    the artifact to move it. Keep moving until the bar is
     full!</i></size>'
   narrationClip: {fileID: 8300000, guid: a39bf9f6391cd3245b3468829614373c, type: 3}
   artifactResourcePath: Models/model_artifact_keris
@@ -10831,7 +10831,7 @@ MonoBehaviour:
   introBodyText: Sebelum meneroka muzium, mari kita belajar cara mengawal aplikasi
     ini menggunakan tangan anda. Tutorial ini mengambil masa kurang dari seminit.
   praiseText: Bagus! / Well done!
-  completionText: 'Tutorial selesai! Selamat meneroka muzium.
+  completionText: 'Tutorial selesai! Selamat Meneroka Muzium.
 
     Tutorial complete
     - enjoy exploring the museum!'
@@ -13131,7 +13131,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Pilihan
+  m_text: Pilihan Aktiviti
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -13557,7 +13557,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Periksa Jawapan
+  m_Text: Semak Jawapan
 --- !u!222 &1135885424
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -17296,7 +17296,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: Susunkan Proses Pembuatan Batik
+  m_text: Proses Pembuatan Batik
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
