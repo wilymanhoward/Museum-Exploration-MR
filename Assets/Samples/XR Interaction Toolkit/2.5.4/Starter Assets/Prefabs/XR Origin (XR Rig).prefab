@@ -53,7 +53,7 @@ MonoBehaviour:
   m_ManipulationInteractionGroup: {fileID: 942810691211101373}
   m_DirectInteractor: {fileID: 2434299456458490401}
   m_RayInteractor: {fileID: 285389467476424711}
-  m_TeleportInteractor: {fileID: 1319746312}
+  m_TeleportInteractor: {fileID: 0}
   m_TeleportModeActivate: {fileID: 1263111715868034790, guid: c348712bda248c246b8c49b3db54643f,
     type: 3}
   m_TeleportModeCancel: {fileID: 737890489006591557, guid: c348712bda248c246b8c49b3db54643f,
@@ -402,7 +402,7 @@ MonoBehaviour:
   m_ManipulationInteractionGroup: {fileID: 6678509202150728127}
   m_DirectInteractor: {fileID: 6045481230268494804}
   m_RayInteractor: {fileID: 19064736505062540}
-  m_TeleportInteractor: {fileID: 2449787133337329425}
+  m_TeleportInteractor: {fileID: 0}
   m_TeleportModeActivate: {fileID: -8061240218431744966, guid: c348712bda248c246b8c49b3db54643f,
     type: 3}
   m_TeleportModeCancel: {fileID: 2307464322626738743, guid: c348712bda248c246b8c49b3db54643f,
@@ -981,7 +981,7 @@ MonoBehaviour:
   m_MoveSpeed: 1
   m_EnableStrafe: 1
   m_EnableFly: 0
-  m_UseGravity: 1
+  m_UseGravity: 0
   m_GravityApplicationMode: 0
   m_ForwardSource: {fileID: 1767192434}
   m_LeftHandMoveAction:
@@ -1513,7 +1513,7 @@ MonoBehaviour:
   m_EnableFreeXMovement: 1
   m_EnableFreeYMovement: 0
   m_EnableFreeZMovement: 1
-  m_UseGravity: 1
+  m_UseGravity: 0
   m_GravityApplicationMode: 0
   m_ControllerTransform: {fileID: 202364688}
   m_EnableMoveWhileSelecting: 0
@@ -1547,7 +1547,7 @@ MonoBehaviour:
   m_EnableFreeXMovement: 1
   m_EnableFreeYMovement: 0
   m_EnableFreeZMovement: 1
-  m_UseGravity: 1
+  m_UseGravity: 0
   m_GravityApplicationMode: 0
   m_ControllerTransform: {fileID: 1670256625}
   m_EnableMoveWhileSelecting: 0
@@ -1581,7 +1581,7 @@ MonoBehaviour:
   m_EnableFreeXMovement: 1
   m_EnableFreeYMovement: 0
   m_EnableFreeZMovement: 1
-  m_UseGravity: 1
+  m_UseGravity: 0
   m_GravityApplicationMode: 0
   m_LeftGrabMoveProvider: {fileID: 2032798983271290625}
   m_RightGrabMoveProvider: {fileID: 4083252680172266230}

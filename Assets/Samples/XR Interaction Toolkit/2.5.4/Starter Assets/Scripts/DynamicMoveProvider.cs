@@ -97,10 +97,19 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
         Pose m_LeftMovementPose = Pose.identity;
         Pose m_RightMovementPose = Pose.identity;
 
+        /// <summary>
+        /// Global gate for continuous locomotion. Kept false while watching intro video / in main menu,
+        /// and enabled once exploration starts.
+        /// </summary>
+        public static bool LocomotionEnabled { get; set; } = false;
+
         /// <inheritdoc />
         protected override void Awake()
         {
             base.Awake();
+
+            // Mixed Reality floor lock: disable gravity completely so the camera rig never plummets through the floor!
+            useGravity = false;
 
             m_CombinedTransform = new GameObject("[Dynamic Move Provider] Combined Forward Source").transform;
             m_CombinedTransform.SetParent(transform, false);
@@ -113,6 +122,10 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
         /// <inheritdoc />
         protected override Vector3 ComputeDesiredMove(Vector2 input)
         {
+            // Do not move if locomotion is disabled
+            if (!LocomotionEnabled)
+                return Vector3.zero;
+
             // Don't need to do anything if the total input is zero.
             // This is the same check as the base method.
             if (input == Vector2.zero)
@@ -184,6 +197,14 @@ namespace UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets
             m_CombinedTransform.SetPositionAndRotation(combinedPosition, combinedRotation);
 
             return base.ComputeDesiredMove(input);
+        }
+
+        /// <inheritdoc />
+        protected override void MoveRig(Vector3 translationInWorldSpace)
+        {
+            // Mixed Reality floor lock: never allow gravity or vertical drift to sink the player rig through the physical floor!
+            translationInWorldSpace.y = 0f;
+            base.MoveRig(translationInWorldSpace);
         }
     }
 }

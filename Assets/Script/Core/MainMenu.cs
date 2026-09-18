@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Samples.StarterAssets;
 using UnityEngine.Video;
 
 public class MainMenu : MonoBehaviour
@@ -47,6 +48,7 @@ public class MainMenu : MonoBehaviour
     {
         if (Instance == null) Instance = this;
         IsExplorationStarted = false;
+        DynamicMoveProvider.LocomotionEnabled = false;
     }
 
     void Start()
@@ -430,6 +432,7 @@ public class MainMenu : MonoBehaviour
     {
         Debug.Log("Museum Exploration: Starting gameplay!");
         IsExplorationStarted = true;
+        DynamicMoveProvider.LocomotionEnabled = true;
 
         if (QRCodeScanner.Instance != null)
         {

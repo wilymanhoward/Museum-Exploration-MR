@@ -772,6 +772,7 @@ public class WristWatch : MonoBehaviour
 
         UpdateAnchorPose();
         UpdateThumbsUpGestureDetection();
+        CheckControllerMenuButton();
 
         // Stabilization: while the left hand is untracked and player reaches in to click,
         // hold the last solid pose so the button doesn't jump around. Otherwise, use live anchor pose.
@@ -1181,7 +1182,41 @@ public class WristWatch : MonoBehaviour
     }
 
     /// <summary>
-    /// Checks for a Left Hand Thumbs-Up gesture every frame.
+    /// Checks for controller Menu button (or Y button) press on Meta Quest Touch controllers
+    /// to toggle the WristWatch Options Panel directly when holding controllers.
+    /// </summary>
+    private void CheckControllerMenuButton()
+    {
+        if (!MainMenu.IsExplorationStarted || forceHidden) return;
+
+        UnityEngine.XR.InputDevice leftControllerDevice = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(UnityEngine.XR.XRNode.LeftHand);
+        if (leftControllerDevice.isValid)
+        {
+            if (leftControllerDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.menuButton, out bool menuPressed) && menuPressed)
+            {
+                ToggleOptionsPanel();
+                return;
+            }
+            if (leftControllerDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.secondaryButton, out bool yPressed) && yPressed)
+            {
+                ToggleOptionsPanel();
+                return;
+            }
+        }
+
+        UnityEngine.XR.InputDevice rightControllerDevice = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(UnityEngine.XR.XRNode.RightHand);
+        if (rightControllerDevice.isValid)
+        {
+            if (rightControllerDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.menuButton, out bool rMenuPressed) && rMenuPressed)
+            {
+                ToggleOptionsPanel();
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Evaluates left hand joints in real time to detect a Thumbs-Up gesture.
     /// When held for thumbsUpHoldDuration, triggers OpenOptionsPanel() or ToggleOptionsPanel().
     /// Also supports pressing 'T' in the Unity Editor for desktop simulation.
     /// </summary>

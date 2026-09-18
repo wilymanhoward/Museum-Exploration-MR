@@ -2,13 +2,8 @@ using System.IO;
 using UnityEngine;
 using UnityEditor;
 
-[InitializeOnLoad]
 public static class TudungSajiSetupEditor
 {
-    static TudungSajiSetupEditor()
-    {
-        EditorApplication.delayCall += CheckAndSetup;
-    }
 
     [MenuItem("Tools/Museum/Setup Tudung Saji Model")]
     public static void ManualSetup()
