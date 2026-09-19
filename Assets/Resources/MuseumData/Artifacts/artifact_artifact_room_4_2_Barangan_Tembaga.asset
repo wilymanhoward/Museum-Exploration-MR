@@ -46,6 +46,4 @@ MonoBehaviour:
   modelPrefab: {fileID: 0}
   narrationClip: {fileID: 8300000, guid: 9cd9e97f0de98954c8256518d637d05b, type: 3}
   instrumentClip: {fileID: 0}
-  images:
-  - sprite: {fileID: 21300000, guid: e670055d214d4495bbfcf49a179c8ae7, type: 3}
-    title: Proses Membuat Barang-Barang Tembaga Menggunakan Acuan Kayu
+  images: []

@@ -222,32 +222,36 @@ public class Artifact : MonoBehaviour
             dragger.ResetUserMoved();
         }
 
-        if (trackedPlayer == null && Camera.main != null)
+        if (trackedPlayer == null)
         {
-            trackedPlayer = Camera.main.transform;
+            trackedPlayer = WallPlacementHelper.ResolveCameraTransform();
         }
 
-        if (trackedPlayer != null)
+        Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
+            trackedPlayer,
+            0,
+            0.60f,
+            out bool isWallMounted
+        );
+
+        Transform targetTransform = (transform.parent != null && transform.parent.name.StartsWith("ArtifactDetailPanelCanvas"))
+            ? transform.parent
+            : transform;
+
+        targetTransform.position = placementPose.position;
+        targetTransform.rotation = placementPose.rotation;
+
+        if (targetTransform != transform)
         {
-            Vector3 forwardDir = Vector3.ProjectOnPlane(trackedPlayer.forward, Vector3.up).normalized;
-            if (forwardDir == Vector3.zero) forwardDir = Vector3.forward;
+            transform.localPosition = Vector3.zero;
+            transform.localRotation = Quaternion.identity;
+        }
 
-            // Spawn exactly 1.0 meter in front of the user's camera
-            transform.position = trackedPlayer.position + forwardDir * 1.0f;
-
-            Vector3 directionToPlayer = trackedPlayer.position - transform.position;
-            directionToPlayer.y = 0;
-            if (directionToPlayer != Vector3.zero)
-            {
-                Quaternion lookRot = Quaternion.LookRotation(-directionToPlayer, Vector3.up);
-                transform.rotation = Quaternion.Euler(0f, lookRot.eulerAngles.y, 0f);
-            }
+        if (dragger != null)
+        {
+            dragger.SetSnappedToWall(isWallMounted);
         }
     }
-
-
-
-
 
     /// <summary>
     /// Configures the panel with data, references, and callback events.
@@ -258,13 +262,30 @@ public class Artifact : MonoBehaviour
         onCloseCallback = onClose;
         if (playerTransform != null) trackedPlayer = playerTransform;
 
-        PositionInFrontOfUser();
+        if (qrPose.position != Vector3.zero || qrPose.rotation != Quaternion.identity)
+        {
+            Transform targetTransform = (transform.parent != null && transform.parent.name.StartsWith("ArtifactDetailPanelCanvas"))
+                ? transform.parent
+                : transform;
+            targetTransform.position = qrPose.position;
+            targetTransform.rotation = qrPose.rotation;
+            if (targetTransform != transform)
+            {
+                transform.localPosition = Vector3.zero;
+                transform.localRotation = Quaternion.identity;
+            }
+        }
+        else
+        {
+            PositionInFrontOfUser();
+        }
+
         EnsureGrabbablePanel();
 
         Canvas canvas = GetComponent<Canvas>();
         if (canvas != null && canvas.worldCamera == null)
         {
-            canvas.worldCamera = Camera.main;
+            canvas.worldCamera = WallPlacementHelper.ResolveCamera(Camera.main);
         }
 
         // Populate Text Fields
@@ -283,10 +304,6 @@ public class Artifact : MonoBehaviour
             bottomTitleText.fontSizeMin = 12f;
             bottomTitleText.fontSizeMax = 20f;
             bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
-        }
-        // Populate Description with scroll view
-        PopulateDescription(data);
-
         // Populate Details (Tempoh Masa, Lokasi, Dimensi, Material)
         PopulateDetails(data);
 
@@ -295,6 +312,9 @@ public class Artifact : MonoBehaviour
         // Reset image gallery index & show photo
         currentImageIndex = 0;
         UpdateImageUI();
+
+        // Populate Description after UpdateImageUI so it wraps to the newly calculated card width!
+        PopulateDescription(data);
 
         // Show the photo (2D) view by default so the picture is visible. The 2D panel that holds
         // the image (DisplayImage) starts inactive, and Setup - unlike ShowArtifact - never switched
@@ -386,11 +406,16 @@ public class Artifact : MonoBehaviour
             // Only show the 3D View button if this artifact actually has a 3D model prefab!
             threeDViewButton.gameObject.SetActive(hasModel);
         }
+        if (threeDViewButtonXR != null)
+        {
+            threeDViewButtonXR.gameObject.SetActive(hasModel);
+        }
 
         if (noModelTextObj != null)
         {
-            // Only show the "no 3D model available" text if there is no 3D model prefab!
-            noModelTextObj.SetActive(!hasModel);
+            bool hasImages = HasValidImages(artifactData);
+            // Only show the "no 3D model available" text if there are images and user clicked into 3D view
+            noModelTextObj.SetActive(!hasModel && hasImages && !currentViewIs2D);
         }
     }
 
@@ -791,10 +816,281 @@ public class Artifact : MonoBehaviour
         UpdateImageUI();
     }
 
-    #region Image Gallery Functions
+    #region Dynamic Panel Layout & Image Gallery Functions
+    private GameObject cachedDisplayFrame;
+    private GameObject cachedTopNavRow;
+    private GameObject cachedBottomTitleRow;
+    private GameObject cachedDecLine;
+    private RectTransform cachedDetailCardRect;
+    private RectTransform cachedTentangCardRect;
+    private Vector2 origDetailAnchorMin = new Vector2(0.55f, 0.48f);
+    private Vector2 origDetailAnchorMax = new Vector2(0.95f, 0.86f);
+    private Vector2 origTentangAnchorMin = new Vector2(0.55f, 0.05f);
+    private Vector2 origTentangAnchorMax = new Vector2(0.95f, 0.45f);
+    private bool origCardAnchorsCached = false;
+
+    public bool HasValidImages(ArtifactData data)
+    {
+        if (data == null || data.images == null || data.images.Length == 0)
+            return false;
+
+        for (int i = 0; i < data.images.Length; i++)
+        {
+            if (data.images[i] != null && data.images[i].sprite != null)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Sprite GetCurrentImageSprite()
+    {
+        if (artifactData == null || artifactData.images == null || artifactData.images.Length == 0)
+            return null;
+
+        if (currentImageIndex >= 0 && currentImageIndex < artifactData.images.Length)
+        {
+            if (artifactData.images[currentImageIndex] != null && artifactData.images[currentImageIndex].sprite != null)
+            {
+                return artifactData.images[currentImageIndex].sprite;
+            }
+        }
+
+        for (int i = 0; i < artifactData.images.Length; i++)
+        {
+            if (artifactData.images[i] != null && artifactData.images[i].sprite != null)
+            {
+                currentImageIndex = i;
+                return artifactData.images[i].sprite;
+            }
+        }
+
+        return null;
+    }
+
+    private void CacheLayoutReferences()
+    {
+        if (cachedDisplayFrame == null)
+        {
+            if (displayImage != null && displayImage.transform.parent != null && displayImage.transform.parent != transform)
+            {
+                cachedDisplayFrame = displayImage.transform.parent.gameObject;
+            }
+            else
+            {
+                foreach (Transform t in GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name == "DisplayFrame" || t.name == "PhotoFrame" || t.name == "ImageFrame")
+                    {
+                        cachedDisplayFrame = t.gameObject;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (cachedTopNavRow == null)
+        {
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "TopNavRow" || t.name == "ImageNavRow" || t.name == "PhotoNavRow")
+                {
+                    cachedTopNavRow = t.gameObject;
+                    break;
+                }
+            }
+        }
+
+        if (cachedBottomTitleRow == null)
+        {
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "BottomTitleRow" || t.name == "ArtifactTitleRow")
+                {
+                    cachedBottomTitleRow = t.gameObject;
+                    break;
+                }
+            }
+        }
+
+        if (cachedDecLine == null)
+        {
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "DecLine")
+                {
+                    cachedDecLine = t.gameObject;
+                    break;
+                }
+            }
+        }
+
+        if (cachedDetailCardRect == null)
+        {
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "DetailArtefakCard" || t.name == "DetailArtifakCard" || t.name == "ButiranArtifakCard")
+                {
+                    cachedDetailCardRect = t.GetComponent<RectTransform>();
+                    break;
+                }
+            }
+        }
+
+        if (cachedTentangCardRect == null)
+        {
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "TentangArtefakCard" || t.name == "TentangArtifakCard")
+                {
+                    cachedTentangCardRect = t.GetComponent<RectTransform>();
+                    break;
+                }
+            }
+        }
+
+        if (imagesButton == null)
+        {
+            Transform btnT = transform.Find("ImagesButton");
+            if (btnT == null)
+            {
+                foreach (Transform t in GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name == "ImagesButton" || t.name == "ImageButton" || t.name == "FotoButton" || t.name == "2DViewButton" || t.name == "View2D")
+                    {
+                        btnT = t;
+                        break;
+                    }
+                }
+            }
+            if (btnT != null)
+            {
+                imagesButton = btnT.GetComponent<Button>();
+                if (imagesButton == null) imagesButton = btnT.gameObject.AddComponent<Button>();
+                imagesButtonXR = btnT.GetComponent<XRButtonSelection>();
+
+                imagesButton.onClick.AddListener(() => SetViewMode(true));
+                if (imagesButtonXR != null)
+                {
+                    imagesButtonXR.onClick.AddListener(() => SetViewMode(true));
+                }
+            }
+        }
+
+        if (!origCardAnchorsCached)
+        {
+            if (cachedDetailCardRect != null)
+            {
+                origDetailAnchorMin = cachedDetailCardRect.anchorMin;
+                origDetailAnchorMax = cachedDetailCardRect.anchorMax;
+            }
+            if (cachedTentangCardRect != null)
+            {
+                origTentangAnchorMin = cachedTentangCardRect.anchorMin;
+                origTentangAnchorMax = cachedTentangCardRect.anchorMax;
+            }
+            origCardAnchorsCached = (cachedDetailCardRect != null && cachedTentangCardRect != null);
+        }
+    }
+
+    private void UpdatePanelLayoutForImageAvailability(bool hasImage)
+    {
+        CacheLayoutReferences();
+
+        // 1. Unparent ObjectSpawner from DisplayFrame if needed, so hiding the photo slot frame
+        // never disables 3D model spawning on artifacts that do have 3D models.
+        if (objectSpawner != null && cachedDisplayFrame != null && objectSpawner.IsChildOf(cachedDisplayFrame.transform))
+        {
+            objectSpawner.SetParent(transform, true);
+        }
+
+        // 2. Hide or show the photo slot frame
+        if (cachedDisplayFrame != null)
+        {
+            cachedDisplayFrame.SetActive(hasImage);
+        }
+        if (twoDViewPanel != null)
+        {
+            twoDViewPanel.SetActive(hasImage);
+        }
+
+        // 3. Hide or show photo gallery navigation (pagination arrows)
+        if (cachedTopNavRow != null)
+        {
+            bool hasMultiple = hasImage && artifactData != null && artifactData.images != null && artifactData.images.Length > 1;
+            cachedTopNavRow.SetActive(hasMultiple);
+        }
+
+        // 4. Hide or show image toggle button
+        if (imagesButton != null)
+        {
+            imagesButton.gameObject.SetActive(hasImage);
+        }
+        if (imagesButtonXR != null)
+        {
+            imagesButtonXR.gameObject.SetActive(hasImage);
+        }
+
+        // 5. Hide or show bottom decorative title row and line under the photo frame
+        if (cachedBottomTitleRow != null)
+        {
+            cachedBottomTitleRow.SetActive(hasImage);
+        }
+        if (cachedDecLine != null)
+        {
+            cachedDecLine.SetActive(hasImage);
+        }
+
+        // 6. Dynamic Card Layout:
+        // When hasImage is true -> standard layout (cards stacked on right).
+        // When hasImage is false (e.g. Barangan Tembaga) -> cards expand into 2 balanced columns across full panel!
+        if (hasImage)
+        {
+            if (cachedDetailCardRect != null)
+            {
+                cachedDetailCardRect.anchorMin = origDetailAnchorMin;
+                cachedDetailCardRect.anchorMax = origDetailAnchorMax;
+                cachedDetailCardRect.offsetMin = Vector2.zero;
+                cachedDetailCardRect.offsetMax = Vector2.zero;
+            }
+            if (cachedTentangCardRect != null)
+            {
+                cachedTentangCardRect.anchorMin = origTentangAnchorMin;
+                cachedTentangCardRect.anchorMax = origTentangAnchorMax;
+                cachedTentangCardRect.offsetMin = Vector2.zero;
+                cachedTentangCardRect.offsetMax = Vector2.zero;
+            }
+        }
+        else
+        {
+            // No photo slot: distribute Butiran Artifak (Left) and Tentang Artifak (Right)
+            if (cachedDetailCardRect != null)
+            {
+                cachedDetailCardRect.anchorMin = new Vector2(0.05f, 0.05f);
+                cachedDetailCardRect.anchorMax = new Vector2(0.48f, 0.86f);
+                cachedDetailCardRect.offsetMin = Vector2.zero;
+                cachedDetailCardRect.offsetMax = Vector2.zero;
+            }
+            if (cachedTentangCardRect != null)
+            {
+                cachedTentangCardRect.anchorMin = new Vector2(0.52f, 0.05f);
+                cachedTentangCardRect.anchorMax = new Vector2(0.95f, 0.86f);
+                cachedTentangCardRect.offsetMin = Vector2.zero;
+                cachedTentangCardRect.offsetMax = Vector2.zero;
+            }
+        }
+
+        // 7. Force layout rebuild for description scrollview to adapt to new container width
+        if (cachedTentangCardRect != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(cachedTentangCardRect);
+        }
+    }
+
     public void ShowNextImage()
     {
-        if (artifactData == null || artifactData.images == null || artifactData.images.Length == 0) return;
+        if (artifactData == null || artifactData.images == null || artifactData.images.Length <= 1) return;
 
         currentImageIndex++;
         if (currentImageIndex >= artifactData.images.Length)
@@ -806,7 +1102,7 @@ public class Artifact : MonoBehaviour
 
     public void ShowPreviousImage()
     {
-        if (artifactData == null || artifactData.images == null || artifactData.images.Length == 0) return;
+        if (artifactData == null || artifactData.images == null || artifactData.images.Length <= 1) return;
 
         currentImageIndex--;
         if (currentImageIndex < 0)
@@ -820,37 +1116,20 @@ public class Artifact : MonoBehaviour
     {
         if (artifactData == null) return;
 
-        // Treat a null sprite as "no image" too, so we never show a blank image box next to text.
-        bool hasImage = artifactData.images != null
-                        && artifactData.images.Length > 0
-                        && currentImageIndex >= 0 && currentImageIndex < artifactData.images.Length
-                        && artifactData.images[currentImageIndex].sprite != null;
+        bool hasImage = HasValidImages(artifactData);
+
+        // Configure panel layout based on photo availability
+        UpdatePanelLayoutForImageAvailability(hasImage);
 
         if (hasImage)
         {
+            Sprite currentSprite = GetCurrentImageSprite();
             if (displayImage != null)
             {
                 displayImage.gameObject.SetActive(true);
-                displayImage.sprite = artifactData.images[currentImageIndex].sprite;
+                displayImage.sprite = currentSprite;
                 displayImage.preserveAspect = true;
                 displayImage.color = Color.white;
-            }
-            if (noImagesText != null)
-            {
-                noImagesText.gameObject.SetActive(false);
-            }
-
-            // Belt-and-suspenders: hide ANY "no images" text in the panel, not just the wired one.
-            // On a cloned panel the serialized noImagesText can differ from the visible placeholder,
-            // which left "No Images Available" showing on top of a valid photo.
-            foreach (TextMeshProUGUI tmp in GetComponentsInChildren<TextMeshProUGUI>(true))
-            {
-                if (tmp == null || tmp == noImagesText) continue;
-                string t = (tmp.text ?? string.Empty).ToLower();
-                if (t.Contains("no image") || t.Contains("tidak ada gambar"))
-                {
-                    tmp.gameObject.SetActive(false);
-                }
             }
         }
         else
@@ -859,10 +1138,24 @@ public class Artifact : MonoBehaviour
             {
                 displayImage.gameObject.SetActive(false);
             }
-            if (noImagesText != null)
+        }
+
+        // CRITICAL: NEVER show "Artifak ini tiada gambar" or "Tiada Gambar Tersedia"
+        if (noImagesText != null)
+        {
+            noImagesText.text = string.Empty;
+            noImagesText.gameObject.SetActive(false);
+        }
+
+        // Suppress ANY placeholder "no images" text in the hierarchy
+        foreach (TMP_Text tmp in GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (tmp == null) continue;
+            string t = (tmp.text ?? string.Empty).ToLower();
+            if (t.Contains("tiada gambar") || t.Contains("tidak ada gambar") || t.Contains("no image") || t.Contains("artifak ini tiada") || t.Contains("tiada foto"))
             {
-                noImagesText.gameObject.SetActive(true);
-                noImagesText.text = "Artifak ini tiada gambar";
+                tmp.text = string.Empty;
+                tmp.gameObject.SetActive(false);
             }
         }
     }
@@ -903,7 +1196,6 @@ public class Artifact : MonoBehaviour
             bottomTitleText.fontSizeMax = 20f;
             bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
         }
-        PopulateDescription(data);
 
         // Populate Details (Tempoh Masa, Lokasi, Dimensi, Material)
         PopulateDetails(data);
@@ -913,6 +1205,9 @@ public class Artifact : MonoBehaviour
         // Reset image gallery index
         currentImageIndex = 0;
         UpdateImageUI();
+
+        // Populate Description after UpdateImageUI so it wraps to the newly calculated card width!
+        PopulateDescription(data);
 
         // Clean up previous models inside the ObjectSpawner
         ClearSpawnedModel();
@@ -958,9 +1253,10 @@ public class Artifact : MonoBehaviour
 
     private void SetViewMode(bool show2D)
     {
+        bool hasImages = HasValidImages(artifactData);
         if (twoDViewPanel != null)
         {
-            twoDViewPanel.SetActive(show2D);
+            twoDViewPanel.SetActive(show2D && hasImages);
         }
         if (threeDViewPanel != null)
         {
