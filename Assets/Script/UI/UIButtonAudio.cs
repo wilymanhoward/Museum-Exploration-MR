@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
-public class UIButtonAudio : MonoBehaviour, IPointerDownHandler, IPointerClickHandler, ISubmitHandler
+public class UIButtonAudio : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerDownHandler, IPointerClickHandler, ISubmitHandler
 {
     private Button button;
     private Selectable selectable;
@@ -50,12 +50,7 @@ public class UIButtonAudio : MonoBehaviour, IPointerDownHandler, IPointerClickHa
 
     private void OnEnable()
     {
-        CacheComponents();
-        if (button != null)
-        {
-            button.onClick.RemoveListener(OnButtonClick);
-            button.onClick.AddListener(OnButtonClick);
-        }
+        AttachButtonClickListener();
     }
 
     private void OnDisable()
@@ -74,6 +69,23 @@ public class UIButtonAudio : MonoBehaviour, IPointerDownHandler, IPointerClickHa
             button.onClick.RemoveListener(OnButtonClick);
             button.onClick.AddListener(OnButtonClick);
         }
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (!IsInteractable()) return;
+
+        if (IsWristWatchButton())
+        {
+            if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
+            if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
+        }
+
+        XRButtonHaptics.TriggerHover(eventData, gameObject);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
     }
 
     public void OnPointerDown(PointerEventData eventData)
@@ -95,6 +107,7 @@ public class UIButtonAudio : MonoBehaviour, IPointerDownHandler, IPointerClickHa
 
         lastPointerDownTime = Time.unscaledTime;
         ButtonClickAudio.PlayClickSound();
+        XRButtonHaptics.TriggerClick(eventData, gameObject);
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -120,6 +133,7 @@ public class UIButtonAudio : MonoBehaviour, IPointerDownHandler, IPointerClickHa
 
         lastPointerDownTime = Time.unscaledTime;
         ButtonClickAudio.PlayClickSound();
+        XRButtonHaptics.TriggerClick(eventData, gameObject);
     }
 
     public void OnSubmit(BaseEventData eventData)
@@ -134,6 +148,7 @@ public class UIButtonAudio : MonoBehaviour, IPointerDownHandler, IPointerClickHa
 
         lastPointerDownTime = Time.unscaledTime;
         ButtonClickAudio.PlayClickSound();
+        XRButtonHaptics.TriggerClick(eventData as PointerEventData, gameObject);
     }
 
     private void OnButtonClick()
@@ -159,5 +174,6 @@ public class UIButtonAudio : MonoBehaviour, IPointerDownHandler, IPointerClickHa
 
         lastPointerDownTime = Time.unscaledTime;
         ButtonClickAudio.PlayClickSound();
+        XRButtonHaptics.TriggerClick(null, gameObject);
     }
 }

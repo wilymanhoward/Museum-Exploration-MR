@@ -130,43 +130,12 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Visible length of the hand-ray line, in meters (~5 inches). This clamps ONLY the
-    /// rendered line: XRI computes the render points after hit processing, so the raycast,
-    /// hover, clicking and the HandRayReticle cursor dot all still work at full range -
-    /// the player sees a short stub at the hand plus the dot on whatever they point at.
-    /// </summary>
-    private const float HandRayVisibleLength = 0.12f;
-
-    /// <summary>
-    /// App-wide hand-ray polish, styled after the Meta Quest home rays:
-    ///  - The rendered line is PHYSICALLY clamped to a short stub near the hand via
-    ///    overrideInteractorLineLength. XRI applies this clamp to the render points
-    ///    after hit processing, so the raycast, hover, clicking and the reticle all
-    ///    still reach panels at any distance. (Physical length is used because the
-    ///    line material ignores gradient alpha, so fade-based approaches render as a
-    ///    full-length beam.)
-    ///  - A Quest-style cursor dot (HandRayReticle) at the exact point the ray hits a
-    ///    panel/button/object, so the player always sees precisely where they point.
-    ///    The line visual positions, orients and toggles the dot from the raycast hit,
-    ///    independent of the rendered line length.
-    ///  Teleport/gaze rays are left untouched - they need their full visuals.
+    /// Configures all rays across the app: removes all visible lines (zero lines)
+    /// and ensures the Quest-style white circle cursor is active on canvases pointed at.
     /// </summary>
     private static void ConfigureHandRayVisuals()
     {
-        foreach (XRInteractorLineVisual line in FindObjectsOfType<XRInteractorLineVisual>(true))
-        {
-            string objName = line.gameObject.name.ToLower();
-            if (objName.Contains("teleport") || objName.Contains("gaze")) continue;
-
-            line.autoAdjustLineLength = false;
-            line.overrideInteractorLineLength = true;
-            line.lineLength = HandRayVisibleLength;
-
-            if (line.reticle == null)
-            {
-                line.reticle = HandRayReticle.Create();
-            }
-        }
+        HandRayReticle.SetupAllRayInteractors();
     }
 
     private void Update()

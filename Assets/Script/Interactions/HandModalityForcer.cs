@@ -23,8 +23,11 @@ public class HandModalityForcer : MonoBehaviour
     public GameObject rightHand;
 
     [Header("Modality Configuration")]
-    [Tooltip("Delay in seconds before falling back to hands when controllers go idle/untracked, preventing rapid flickering.")]
-    public float switchDebounceDuration = 0.30f;
+    [Tooltip("Grace period in seconds when optical hands are temporarily lost (e.g. edge of vision) before falling back to controllers.")]
+    public float handLostGracePeriod = 0.25f;
+
+    [Tooltip("Minimum time controllers must remain resting/idle before allowing optical hands to take over.")]
+    public float controllerIdleDelay = 0.20f;
 
     [Tooltip("Allow automatic modality switching between controllers and hand tracking.")]
     public bool autoDetectModality = true;
@@ -58,6 +61,12 @@ public class HandModalityForcer : MonoBehaviour
     private static List<XRHandSubsystem> s_Subsystems = new List<XRHandSubsystem>();
 
     private float lastControllerActiveTime = -10f;
+    private float lastHandTrackedTime = -10f;
+    private GameObject leftVisualInstance;
+    private GameObject rightVisualInstance;
+
+    private Vector3 lastLeftPos;
+    private Vector3 lastRightPos;
 
     private void Awake()
     {
@@ -80,12 +89,38 @@ public class HandModalityForcer : MonoBehaviour
     {
         FindHandSubsystem();
         EvaluateModality(true);
+
+        if (leftController != null && leftVisualInstance == null)
+        {
+            var t = leftController.transform.Find("MetaQuestTouchPlus_Left_Visual");
+            if (t != null) leftVisualInstance = t.gameObject;
+        }
+        if (rightController != null && rightVisualInstance == null)
+        {
+            var t = rightController.transform.Find("MetaQuestTouchPlus_Right_Visual");
+            if (t != null) rightVisualInstance = t.gameObject;
+        }
     }
 
     private void Update()
     {
         if (!autoDetectModality) return;
         EvaluateModality(false);
+    }
+
+    private void LateUpdate()
+    {
+        if (CurrentModality == Modality.Controllers)
+        {
+            if (leftVisualInstance != null && leftController != null)
+            {
+                UpdateControllerVisualPose(leftVisualInstance, true, leftController);
+            }
+            if (rightVisualInstance != null && rightController != null)
+            {
+                UpdateControllerVisualPose(rightVisualInstance, false, rightController);
+            }
+        }
     }
 
     private void FindHandSubsystem()
@@ -106,33 +141,49 @@ public class HandModalityForcer : MonoBehaviour
 
     private void EvaluateModality(bool forceImmediate)
     {
-        bool controllersActive = CheckControllersActive();
-        if (controllersActive)
+        bool controllerButtonsInUse = CheckControllerButtonsInUse();
+        bool controllerMoving = CheckControllersMoving();
+        bool controllerInUse = controllerButtonsInUse || (!CheckHandsActive() && controllerMoving);
+
+        if (controllerButtonsInUse || controllerMoving)
         {
             lastControllerActiveTime = Time.unscaledTime;
         }
 
-        bool recentControllerActivity = (Time.unscaledTime - lastControllerActiveTime) <= switchDebounceDuration;
+        bool handsTracked = CheckHandsActive();
+        if (handsTracked)
+        {
+            lastHandTrackedTime = Time.unscaledTime;
+        }
 
-        Modality target;
-        if (controllersActive || recentControllerActivity)
+        bool controllersTracked = CheckControllersTracked();
+
+        Modality target = CurrentModality;
+
+        // Priority 1: User actively presses or touches controller buttons/triggers/thumbsticks -> instant Controllers mode
+        if (controllerButtonsInUse)
         {
             target = Modality.Controllers;
         }
+        // Priority 2: Optical hands detected by headset cameras and user isn't pressing controller buttons -> instant Hands mode
+        else if (handsTracked)
+        {
+            target = Modality.Hands;
+        }
+        // Priority 3: Optical hands not tracked, but controllers are held/moving or tracked
+        else if (controllerInUse || controllersTracked)
+        {
+            bool handRecentlyTracked = (Time.unscaledTime - lastHandTrackedTime) < handLostGracePeriod;
+            if (!handRecentlyTracked)
+            {
+                target = Modality.Controllers;
+            }
+        }
+        // Priority 4: Neither is tracked, retain current modality (or default to Hands if uninitialized)
         else
         {
-            // If controllers are not active, check optical hands
-            FindHandSubsystem();
-            bool handsTracked = CheckHandsActive();
-            if (handsTracked)
-            {
+            if (CurrentModality == Modality.None)
                 target = Modality.Hands;
-            }
-            else
-            {
-                // Fallback: if neither is explicitly reporting, retain current or default to hands
-                target = CurrentModality != Modality.None ? CurrentModality : Modality.Hands;
-            }
         }
 
         if (target != CurrentModality || forceImmediate)
@@ -141,44 +192,113 @@ public class HandModalityForcer : MonoBehaviour
         }
     }
 
-    private bool CheckControllersActive()
+    private bool CheckControllerInUse()
+    {
+        return CheckControllerButtonsInUse() || CheckControllersMoving();
+    }
+
+    private bool CheckControllerButtonsInUse()
     {
         InputDevice leftDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
         InputDevice rightDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
 
-        bool leftIsController = leftDevice.isValid && (leftDevice.characteristics & InputDeviceCharacteristics.Controller) != 0;
-        bool rightIsController = rightDevice.isValid && (rightDevice.characteristics & InputDeviceCharacteristics.Controller) != 0;
+        return CheckDeviceInput(leftDevice) || CheckDeviceInput(rightDevice);
+    }
 
-        bool leftTracked = false;
-        if (leftIsController)
+    private bool CheckControllersMoving()
+    {
+        InputDevice leftDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+        InputDevice rightDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+
+        return CheckDeviceMoving(leftDevice, ref lastLeftPos) || CheckDeviceMoving(rightDevice, ref lastRightPos);
+    }
+
+    private bool CheckDeviceInput(InputDevice device)
+    {
+        if (!device.isValid) return false;
+        if ((device.characteristics & InputDeviceCharacteristics.Controller) == 0) return false;
+
+        // Digital Buttons
+        if (device.TryGetFeatureValue(CommonUsages.primaryButton, out bool pb) && pb) return true;
+        if (device.TryGetFeatureValue(CommonUsages.secondaryButton, out bool sb) && sb) return true;
+        if (device.TryGetFeatureValue(CommonUsages.triggerButton, out bool tb) && tb) return true;
+        if (device.TryGetFeatureValue(CommonUsages.gripButton, out bool gb) && gb) return true;
+        if (device.TryGetFeatureValue(CommonUsages.menuButton, out bool mb) && mb) return true;
+        if (device.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out bool stickClick) && stickClick) return true;
+        if (device.TryGetFeatureValue(CommonUsages.secondary2DAxisClick, out bool secClick) && secClick) return true;
+
+        // Analog Triggers & Grips (> 0.08f threshold)
+        if (device.TryGetFeatureValue(CommonUsages.trigger, out float trig) && trig > 0.08f) return true;
+        if (device.TryGetFeatureValue(CommonUsages.grip, out float grip) && grip > 0.08f) return true;
+
+        // Thumbstick Movement (> 0.04f sqrMagnitude)
+        if (device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis) && axis.sqrMagnitude > 0.04f) return true;
+        if (device.TryGetFeatureValue(CommonUsages.secondary2DAxis, out Vector2 secAxis) && secAxis.sqrMagnitude > 0.04f) return true;
+
+        // Capacitive Touch (resting thumb/fingers on buttons, thumbstick, or trigger)
+        if (device.TryGetFeatureValue(CommonUsages.primaryTouch, out bool pt) && pt) return true;
+        if (device.TryGetFeatureValue(CommonUsages.secondaryTouch, out bool st) && st) return true;
+        if (device.TryGetFeatureValue(CommonUsages.primary2DAxisTouch, out bool axisTouch) && axisTouch) return true;
+
+        return false;
+    }
+
+    private bool CheckDeviceMoving(InputDevice device, ref Vector3 lastPos)
+    {
+        if (!device.isValid) return false;
+        if ((device.characteristics & InputDeviceCharacteristics.Controller) == 0) return false;
+
+        if (device.TryGetFeatureValue(CommonUsages.deviceVelocity, out Vector3 vel))
         {
-            if (leftDevice.TryGetFeatureValue(CommonUsages.isTracked, out bool lt))
-                leftTracked = lt;
-            else
-                leftTracked = true;
+            if (vel.sqrMagnitude > 0.04f) // ~20 cm/s intentional movement (filters sensor drift)
+                return true;
         }
 
-        bool rightTracked = false;
-        if (rightIsController)
+        if (device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 currentPos))
         {
-            if (rightDevice.TryGetFeatureValue(CommonUsages.isTracked, out bool rt))
-                rightTracked = rt;
-            else
-                rightTracked = true;
+            if (lastPos == Vector3.zero)
+            {
+                lastPos = currentPos;
+                return false;
+            }
+            float dist = Vector3.Distance(currentPos, lastPos);
+            lastPos = currentPos;
+            if (dist > 0.015f) // moved > 15mm in a single frame
+                return true;
         }
 
-        // Check button or thumbstick inputs as immediate waking signals
-        if (leftIsController && (CheckDeviceButtonPressed(leftDevice) || CheckDeviceStickMoved(leftDevice)))
-            return true;
+        return false;
+    }
 
-        if (rightIsController && (CheckDeviceButtonPressed(rightDevice) || CheckDeviceStickMoved(rightDevice)))
-            return true;
+    private bool CheckControllersTracked()
+    {
+        InputDevice leftDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
+        InputDevice rightDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
 
-        return leftTracked || rightTracked;
+        return IsDeviceTracked(leftDevice) || IsDeviceTracked(rightDevice);
+    }
+
+    private bool IsDeviceTracked(InputDevice device)
+    {
+        if (!device.isValid) return false;
+        if ((device.characteristics & InputDeviceCharacteristics.Controller) == 0) return false;
+
+        if (device.TryGetFeatureValue(CommonUsages.isTracked, out bool isTracked))
+        {
+            return isTracked;
+        }
+
+        if (device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 pos))
+        {
+            return pos != Vector3.zero;
+        }
+
+        return false;
     }
 
     private bool CheckHandsActive()
     {
+        FindHandSubsystem();
         if (handSubsystem != null && handSubsystem.running)
         {
             if (handSubsystem.leftHand.isTracked || handSubsystem.rightHand.isTracked)
@@ -188,34 +308,18 @@ public class HandModalityForcer : MonoBehaviour
         // Also check if any hand tracking device is connected via InputDevices
         InputDevice leftHandDevice = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
         if (leftHandDevice.isValid && (leftHandDevice.characteristics & InputDeviceCharacteristics.HandTracking) != 0)
-            return true;
+        {
+            if (leftHandDevice.TryGetFeatureValue(CommonUsages.isTracked, out bool lt) && lt)
+                return true;
+        }
 
         InputDevice rightHandDevice = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
         if (rightHandDevice.isValid && (rightHandDevice.characteristics & InputDeviceCharacteristics.HandTracking) != 0)
-            return true;
-
-        return false;
-    }
-
-    private bool CheckDeviceButtonPressed(InputDevice device)
-    {
-        if (!device.isValid) return false;
-        if (device.TryGetFeatureValue(CommonUsages.primaryButton, out bool pb) && pb) return true;
-        if (device.TryGetFeatureValue(CommonUsages.secondaryButton, out bool sb) && sb) return true;
-        if (device.TryGetFeatureValue(CommonUsages.triggerButton, out bool tb) && tb) return true;
-        if (device.TryGetFeatureValue(CommonUsages.gripButton, out bool gb) && gb) return true;
-        if (device.TryGetFeatureValue(CommonUsages.menuButton, out bool mb) && mb) return true;
-        if (device.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out bool stickClick) && stickClick) return true;
-        return false;
-    }
-
-    private bool CheckDeviceStickMoved(InputDevice device)
-    {
-        if (!device.isValid) return false;
-        if (device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 axis))
         {
-            if (axis.sqrMagnitude > 0.04f) return true;
+            if (rightHandDevice.TryGetFeatureValue(CommonUsages.isTracked, out bool rt) && rt)
+                return true;
         }
+
         return false;
     }
 
@@ -235,15 +339,20 @@ public class HandModalityForcer : MonoBehaviour
             if (leftHand != null && leftHand.activeSelf) leftHand.SetActive(false);
             if (rightHand != null && rightHand.activeSelf) rightHand.SetActive(false);
 
-            // 3. Ensure controller ray line visuals and interactors are enabled and styled as sleek straight rays, and Quest 3 models are displayed
+            // 3. Configure controller interactors, Quest 3 3D models, and white circle cursor
             ConfigureControllerInteractors(leftController, true);
             ConfigureControllerInteractors(rightController, false);
+
+            if (leftVisualInstance != null) leftVisualInstance.SetActive(true);
+            if (rightVisualInstance != null) rightVisualInstance.SetActive(true);
+
+            HandRayReticle.SetupAllRayInteractors();
         }
         else if (modality == Modality.Hands)
         {
             if (debugLogging) Debug.Log("[HandModalityForcer] Switched to HANDS mode.");
 
-            // 1. Activate optical hands
+            // 1. Activate optical hands (FIXED: !rightHand.activeSelf so right hand activates!)
             if (leftHand != null && !leftHand.activeSelf) leftHand.SetActive(true);
             if (rightHand != null && !rightHand.activeSelf) rightHand.SetActive(true);
 
@@ -252,20 +361,14 @@ public class HandModalityForcer : MonoBehaviour
             if (rightController != null && rightController.activeSelf) rightController.SetActive(false);
 
             // Hide Quest 3 controller visuals
-            if (leftController != null)
-            {
-                Transform v = leftController.transform.Find("MetaQuestTouchPlus_Left_Visual");
-                if (v != null) v.gameObject.SetActive(false);
-            }
-            if (rightController != null)
-            {
-                Transform v = rightController.transform.Find("MetaQuestTouchPlus_Right_Visual");
-                if (v != null) v.gameObject.SetActive(false);
-            }
+            if (leftVisualInstance != null) leftVisualInstance.SetActive(false);
+            if (rightVisualInstance != null) rightVisualInstance.SetActive(false);
 
             // 3. Deduplicate hand rays: ensure only 1 ray visual is active per hand
             DeduplicateHandRays(leftHand);
             DeduplicateHandRays(rightHand);
+
+            HandRayReticle.SetupAllRayInteractors();
         }
     }
 
@@ -273,7 +376,19 @@ public class HandModalityForcer : MonoBehaviour
     {
         if (controllerObj == null) return;
 
-        // 1. COMPLETELY DISABLE any Teleport Interactors to eliminate the curving red line!
+        // 1. Prevent ActionBasedController from instantiating any generic white controller model
+        var abc = controllerObj.GetComponent<ActionBasedController>();
+        if (abc != null)
+        {
+            abc.modelPrefab = null;
+            if (abc.model != null && !abc.model.name.Contains("MetaQuestTouchPlus"))
+            {
+                Destroy(abc.model.gameObject);
+                abc.model = null;
+            }
+        }
+
+        // 2. COMPLETELY DISABLE any Teleport Interactors to eliminate curving red line
         foreach (Transform t in controllerObj.GetComponentsInChildren<Transform>(true))
         {
             if (t != null && t.name.Contains("Teleport"))
@@ -288,7 +403,7 @@ public class HandModalityForcer : MonoBehaviour
             }
         }
 
-        // 2. Enable and style ONLY the straight UI / Interaction Ray
+        // 3. Enable straight UI / Interaction Ray (raycast only, no visual line)
         var rayInteractors = controllerObj.GetComponentsInChildren<XRRayInteractor>(true);
         foreach (var ray in rayInteractors)
         {
@@ -296,67 +411,83 @@ public class HandModalityForcer : MonoBehaviour
             {
                 if (!ray.gameObject.activeSelf) ray.gameObject.SetActive(true);
                 ray.enabled = true;
-                ray.lineType = XRRayInteractor.LineType.StraightLine; // Force straight line, never curving!
-                ray.maxRaycastDistance = MainMenu.IsExplorationStarted ? 2.5f : 10f;
+                ray.enableUIInteraction = true;
+                ray.lineType = XRRayInteractor.LineType.StraightLine;
+                ray.maxRaycastDistance = MainMenu.IsExplorationStarted ? 6f : 10f;
             }
         }
 
-        // Clean modern pointer gradient: soft white fading to subtle translucent ice-blue
-        Gradient straightRayGradient = new Gradient();
-        straightRayGradient.SetKeys(
-            new GradientColorKey[] {
-                new GradientColorKey(new Color(0.92f, 0.95f, 1.0f), 0.0f),
-                new GradientColorKey(new Color(0.80f, 0.90f, 1.0f), 1.0f)
-            },
-            new GradientAlphaKey[] {
-                new GradientAlphaKey(0.85f, 0.0f),
-                new GradientAlphaKey(0.15f, 1.0f)
-            }
-        );
-
+        // 4. Permanently DISABLE all Line Visuals and Line Renderers (Zero lines!)
         var lineVisuals = controllerObj.GetComponentsInChildren<XRInteractorLineVisual>(true);
         foreach (var visual in lineVisuals)
         {
-            if (visual != null && !visual.name.Contains("Teleport"))
-            {
-                visual.enabled = true;
-                visual.lineWidth = 0.005f; // Sleek 5mm thin laser pointer
-                visual.validColorGradient = straightRayGradient;
-                visual.invalidColorGradient = straightRayGradient; // NO RED!
-                visual.lineLength = 10f;
+            if (visual != null) visual.enabled = false;
+        }
 
-                var lr = visual.GetComponent<LineRenderer>();
-                if (lr != null)
-                {
-                    lr.enabled = true;
-                    lr.startWidth = 0.005f;
-                    lr.endWidth = 0.005f;
-                    lr.colorGradient = straightRayGradient;
-                }
+        var lineRenderers = controllerObj.GetComponentsInChildren<LineRenderer>(true);
+        foreach (var lr in lineRenderers)
+        {
+            if (lr != null)
+            {
+                lr.enabled = false;
+                lr.widthMultiplier = 0f;
+                lr.startWidth = 0f;
+                lr.endWidth = 0f;
+                if (lr.positionCount > 0) lr.positionCount = 0;
             }
         }
 
-        // 3. Ensure authentic Meta Quest 3 Touch Plus controller 3D model
+        // Attach HandRayReticle (white circle cursor on canvas) to active ray interactors
+        foreach (var ray in rayInteractors)
+        {
+            if (ray != null && !ray.name.Contains("Teleport"))
+            {
+                var reticle = ray.GetComponent<HandRayReticle>();
+                if (reticle == null)
+                {
+                    reticle = ray.gameObject.AddComponent<HandRayReticle>();
+                }
+                reticle.SuppressLineRenderer();
+            }
+        }
+
+        // 5. Ensure authentic Meta Quest 3 Touch Plus controller 3D model
         EnsureQuest3ControllerVisual(controllerObj, isLeft);
     }
 
     /// <summary>
     /// Ensures the authentic dark graphite Meta Quest 3 Touch Plus controller model is attached,
-    /// sized to real-world 1:1 scale (0.01f), and hides any legacy white generic openxr meshes or Vive trackpads.
+    /// sized to real-world 1:1 scale (0.01f), eliminates any generic white starter controllers,
+    /// and pre-positions the visual to track physical controller grip pose.
     /// </summary>
     private void EnsureQuest3ControllerVisual(GameObject controllerObj, bool isLeft)
     {
         if (controllerObj == null) return;
 
-        // 1. Check if authentic Quest 3 model is already attached
+        // 1. Hide and destroy all legacy generic white starter controller meshes, Vive trackpads, etc.
+        foreach (Transform child in controllerObj.GetComponentsInChildren<Transform>(true))
+        {
+            if (child == null || child == controllerObj.transform) continue;
+            if (child.name.StartsWith("MetaQuestTouchPlus")) continue;
+
+            string n = child.name;
+            if (n.Contains("XR Controller") || n.Contains("TouchPad") || n.Contains("XRController") ||
+                n.Contains("Controller_Base") || n.Contains("Button_") || n.Contains("ThumbStick") ||
+                n.Contains("Trigger") || n.Contains("Bumper"))
+            {
+                child.gameObject.SetActive(false);
+                Destroy(child.gameObject);
+            }
+        }
+
+        // 2. Check if authentic Quest 3 model is already attached
         string visualName = isLeft ? "MetaQuestTouchPlus_Left_Visual" : "MetaQuestTouchPlus_Right_Visual";
         Transform existing = controllerObj.transform.Find(visualName);
+        GameObject visualInstance = null;
+
         if (existing != null)
         {
-            existing.localPosition = controllerVisualPositionOffset;
-            existing.localRotation = Quaternion.Euler(controllerVisualRotationOffset);
-            existing.localScale = controllerVisualScale;
-            existing.gameObject.SetActive(true);
+            visualInstance = existing.gameObject;
         }
         else
         {
@@ -365,78 +496,118 @@ public class HandModalityForcer : MonoBehaviour
             GameObject prefab = Resources.Load<GameObject>(resPath);
             if (prefab != null)
             {
-                GameObject inst = Instantiate(prefab, controllerObj.transform);
-                inst.name = visualName;
-                inst.transform.localPosition = controllerVisualPositionOffset;
-                inst.transform.localRotation = Quaternion.Euler(controllerVisualRotationOffset);
-                inst.transform.localScale = controllerVisualScale;
-                inst.SetActive(true);
+                visualInstance = Instantiate(prefab, controllerObj.transform);
+                visualInstance.name = visualName;
             }
         }
 
-        // 2. Hide all legacy generic Vive trackpads, white controller parts, and old controller meshes
-        foreach (Transform child in controllerObj.GetComponentsInChildren<Transform>(true))
+        if (visualInstance != null)
         {
-            if (child == null || child == controllerObj.transform) continue;
-            if (child.name.StartsWith("MetaQuestTouchPlus")) continue;
+            visualInstance.transform.localScale = controllerVisualScale;
+            visualInstance.SetActive(CurrentModality == Modality.Controllers && controllerObj.activeInHierarchy);
 
-            string n = child.name;
-            if (n.StartsWith("XR Controller") || n.Contains("TouchPad") || n.Contains("XRController_") ||
-                n.Contains("Controller_Base") || n.Contains("Button_") || n.Contains("ThumbStick") ||
-                n.Contains("Trigger") || n.Contains("Bumper"))
-            {
-                child.gameObject.SetActive(false);
-            }
-        }
-
-        // 3. Ensure only the authentic Quest 3 renderers are enabled under the controller
-        foreach (var r in controllerObj.GetComponentsInChildren<Renderer>(true))
-        {
-            if (r == null) continue;
-            if (r.transform.name.StartsWith("MetaQuestTouchPlus") || (r.transform.parent != null && r.transform.parent.name.StartsWith("MetaQuestTouchPlus")))
-            {
-                r.enabled = true;
-            }
+            if (isLeft)
+                leftVisualInstance = visualInstance;
             else
+                rightVisualInstance = visualInstance;
+
+            // Ensure ONLY the authentic Quest 3 renderers are enabled under the controller
+            foreach (var r in controllerObj.GetComponentsInChildren<Renderer>(true))
             {
-                r.enabled = false;
+                if (r == null) continue;
+                r.enabled = r.transform.IsChildOf(visualInstance.transform);
             }
+
+            // Immediately set initial pose
+            UpdateControllerVisualPose(visualInstance, isLeft, controllerObj);
         }
     }
 
     /// <summary>
-    /// Ensures only 1 primary hand ray line visual is active under the hand hierarchy,
-    /// turning off any duplicate or secondary ray lines.
+    /// Synchronizes the 3D controller visual with the physical controller's Grip Pose.
+    /// On Meta Quest 3 hardware, CommonUsages.devicePosition and deviceRotation represent
+    /// the real physical grip pose in tracking space (Camera Offset).
+    /// </summary>
+    private void UpdateControllerVisualPose(GameObject visualObj, bool isLeft, GameObject controllerObj)
+    {
+        if (visualObj == null || controllerObj == null) return;
+
+        if (!controllerObj.activeInHierarchy || CurrentModality != Modality.Controllers)
+        {
+            if (visualObj.activeSelf) visualObj.SetActive(false);
+            return;
+        }
+
+        XRNode node = isLeft ? XRNode.LeftHand : XRNode.RightHand;
+        InputDevice device = InputDevices.GetDeviceAtXRNode(node);
+
+        // Check if device is tracked
+        bool isTracked = true;
+        if (device.isValid && device.TryGetFeatureValue(CommonUsages.isTracked, out bool trackedState))
+        {
+            isTracked = trackedState;
+        }
+
+        if (!isTracked)
+        {
+            if (visualObj.activeSelf) visualObj.SetActive(false);
+            return;
+        }
+
+        if (!visualObj.activeSelf) visualObj.SetActive(true);
+
+        // Parented directly under controllerObj (which tracks the physical controller grip anchor).
+        // Align visual directly with controller anchor with optional Inspector fine-tuning offsets.
+        visualObj.transform.localPosition = controllerVisualPositionOffset;
+        visualObj.transform.localRotation = Quaternion.Euler(controllerVisualRotationOffset);
+        visualObj.transform.localScale = controllerVisualScale;
+    }
+
+    /// <summary>
+    /// Disables all line visuals and line renderers on the hand hierarchy (Zero lines!),
+    /// and ensures HandRayReticle (white circle cursor on canvas) is active on the hand ray.
     /// </summary>
     private void DeduplicateHandRays(GameObject handObj)
     {
         if (handObj == null) return;
 
+        // 1. Permanently disable ALL line visuals
         var lineVisuals = handObj.GetComponentsInChildren<XRInteractorLineVisual>(true);
-        if (lineVisuals != null && lineVisuals.Length > 1)
+        foreach (var visual in lineVisuals)
         {
-            // Keep the first primary ray visual active, disable all duplicate secondary ray lines!
-            for (int i = 1; i < lineVisuals.Length; i++)
+            if (visual != null) visual.enabled = false;
+        }
+
+        // 2. Permanently disable ALL line renderers
+        var lineRenderers = handObj.GetComponentsInChildren<LineRenderer>(true);
+        foreach (var lr in lineRenderers)
+        {
+            if (lr != null)
             {
-                if (lineVisuals[i] != null)
-                {
-                    lineVisuals[i].enabled = false;
-                    var lr = lineVisuals[i].GetComponent<LineRenderer>();
-                    if (lr != null) lr.enabled = false;
-                }
+                lr.enabled = false;
+                lr.widthMultiplier = 0f;
+                lr.startWidth = 0f;
+                lr.endWidth = 0f;
+                if (lr.positionCount > 0) lr.positionCount = 0;
             }
         }
 
-        var lineRenderers = handObj.GetComponentsInChildren<LineRenderer>(true);
-        if (lineRenderers != null && lineRenderers.Length > 1)
+        // 3. Ensure HandRayReticle is attached to the hand's ray interactor
+        var rayInteractors = handObj.GetComponentsInChildren<XRRayInteractor>(true);
+        foreach (var ray in rayInteractors)
         {
-            LineRenderer primary = (lineVisuals != null && lineVisuals.Length > 0) ? lineVisuals[0].GetComponent<LineRenderer>() : lineRenderers[0];
-            for (int i = 0; i < lineRenderers.Length; i++)
+            if (ray != null && !ray.name.Contains("Teleport"))
             {
-                if (lineRenderers[i] != null && lineRenderers[i] != primary)
+                if (!ray.gameObject.activeSelf) ray.gameObject.SetActive(true);
+                ray.enabled = true;
+                ray.enableUIInteraction = true;
+                ray.lineType = XRRayInteractor.LineType.StraightLine;
+                var reticle = ray.GetComponent<HandRayReticle>();
+                if (reticle == null)
                 {
-                    lineRenderers[i].enabled = false;
+                    reticle = ray.gameObject.AddComponent<HandRayReticle>();
                 }
+                reticle.SuppressLineRenderer();
             }
         }
     }

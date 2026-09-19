@@ -143,10 +143,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         targetScale = originalScale * hoverScaleMultiplier;
         targetColor = hoverColor;
         
-        if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
-        {
-            controllerInteractor.xrController.SendHapticImpulse(0.2f, 0.05f);
-        }
+        XRButtonHaptics.TriggerHover(args.interactorObject, gameObject);
     }
 
     protected override void OnHoverExited(HoverExitEventArgs args)
@@ -174,10 +171,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         Debug.Log($"Button Selected/Pressed: {gameObject.name}");
         InvokeClickOnce();
 
-        if (args.interactorObject is XRBaseControllerInteractor controllerInteractor)
-        {
-            controllerInteractor.xrController.SendHapticImpulse(0.5f, 0.1f);
-        }
+        XRButtonHaptics.TriggerClick(args.interactorObject, gameObject);
     }
 
     #region UI Pointer Handlers (For Graphic Raycasting / Pinching)
@@ -190,6 +184,8 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         }
         targetScale = originalScale * hoverScaleMultiplier;
         targetColor = hoverColor;
+
+        XRButtonHaptics.TriggerHover(eventData, gameObject);
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -212,6 +208,8 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         }
         Debug.Log($"Button UI Clicked/Pressed: {gameObject.name}");
         InvokeClickOnce();
+
+        XRButtonHaptics.TriggerClick(eventData, gameObject);
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -223,6 +221,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         }
         // If PointerDown or OnSelectEntered already handled this pinch/click, InvokeClickOnce debounces it cleanly
         InvokeClickOnce();
+        XRButtonHaptics.TriggerClick(eventData, gameObject);
     }
     #endregion
 }

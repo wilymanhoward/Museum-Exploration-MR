@@ -173,6 +173,23 @@ public class WristWatch : MonoBehaviour
 
         if (optionsPanelObj != null)
         {
+            Vector3 worldScale = optionsPanelObj.transform.lossyScale;
+            if (worldScale == Vector3.zero || worldScale.x < 0.0001f)
+            {
+                worldScale = new Vector3(0.0007f, 0.0007f, 0.0007f);
+            }
+
+            if (optionsPanelObj.transform.parent != null)
+            {
+                optionsPanelObj.transform.SetParent(null, true);
+            }
+            optionsPanelObj.transform.localScale = worldScale;
+
+            if (optionsPanelObj.GetComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>() == null)
+            {
+                optionsPanelObj.AddComponent<UnityEngine.XR.Interaction.Toolkit.UI.TrackedDeviceGraphicRaycaster>();
+            }
+
             optionsPanelObj.SetActive(false);
             UnityEngine.UI.Image panelBg = optionsPanelObj.GetComponent<UnityEngine.UI.Image>();
             if (panelBg == null) panelBg = optionsPanelObj.transform.Find("Background")?.GetComponent<UnityEngine.UI.Image>();
@@ -567,26 +584,40 @@ public class WristWatch : MonoBehaviour
 
         if (leftControllerCandidate == null)
         {
-            foreach (Transform t in FindObjectsOfType<Transform>(true))
+            if (HandModalityForcer.Instance != null && HandModalityForcer.Instance.leftController != null)
             {
-                string n = t.name;
-                if ((n == "Left Controller" || n == "LeftHand Controller") && HasAncestorNamed(t, "Camera Offset"))
+                leftControllerCandidate = HandModalityForcer.Instance.leftController.transform;
+            }
+            else
+            {
+                foreach (Transform t in FindObjectsOfType<Transform>(true))
                 {
-                    leftControllerCandidate = t;
-                    break;
+                    string n = t.name;
+                    if (n == "Left Controller" || n == "LeftHand Controller" || n.Contains("Left Controller"))
+                    {
+                        leftControllerCandidate = t;
+                        break;
+                    }
                 }
             }
         }
 
         if (leftHandCandidate == null)
         {
-            foreach (Transform t in FindObjectsOfType<Transform>(true))
+            if (HandModalityForcer.Instance != null && HandModalityForcer.Instance.leftHand != null)
             {
-                string n = t.name;
-                if ((n == "Left Hand" || n == "LeftHand") && HasAncestorNamed(t, "Camera Offset"))
+                leftHandCandidate = HandModalityForcer.Instance.leftHand.transform;
+            }
+            else
+            {
+                foreach (Transform t in FindObjectsOfType<Transform>(true))
                 {
-                    leftHandCandidate = t;
-                    break;
+                    string n = t.name;
+                    if (n == "Left Hand" || n == "LeftHand")
+                    {
+                        leftHandCandidate = t;
+                        break;
+                    }
                 }
             }
         }
@@ -641,16 +672,41 @@ public class WristWatch : MonoBehaviour
     }
 
     /// <summary>
-    /// Computes this frame's left-wrist anchor pose. Priority: the live tracked wrist joint
-    /// (the pose that actually follows the hand), then the Inspector-assigned transform, then
-    /// the active Left Hand object in the hierarchy, and finally the pose-driven controller.
+    /// Computes this frame's left-wrist anchor pose. Priority: the active Left Controller
+    /// (when holding controllers), then the live tracked wrist joint (optical hand tracking),
+    /// then the Inspector-assigned transform, then the active Left Hand object in hierarchy.
     /// </summary>
     private void UpdateAnchorPose()
     {
         hasAnchorPose = false;
         leftHandSolidlyTracked = false;
 
-        // 1. Prefer the native XRHandSubsystem left wrist joint or palm joint.
+        // 1. Controller Mode: If holding controllers, the Left Controller is the definitive anchor!
+        bool isControllerActive = (HandModalityForcer.Instance != null && HandModalityForcer.IsControllerMode)
+            || (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy);
+
+        if (isControllerActive)
+        {
+            if (leftControllerCandidate == null && HandModalityForcer.Instance != null && HandModalityForcer.Instance.leftController != null)
+            {
+                leftControllerCandidate = HandModalityForcer.Instance.leftController.transform;
+            }
+
+            if (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy)
+            {
+                anchorPos = leftControllerCandidate.position;
+                anchorRot = leftControllerCandidate.rotation;
+                hasAnchorPose = true;
+                leftHandSolidlyTracked = true;
+
+                hasLastGoodAnchor = true;
+                lastGoodAnchorPos = anchorPos;
+                lastGoodAnchorRot = anchorRot;
+                return;
+            }
+        }
+
+        // 2. Optical Hand Tracking: Prefer the native XRHandSubsystem left wrist joint or palm joint.
         FindHandSubsystem();
         if (handSubsystem != null && handSubsystem.running && handSubsystem.leftHand.isTracked)
         {
@@ -682,8 +738,8 @@ public class WristWatch : MonoBehaviour
             }
         }
 
-        // 2. Inspector-assigned anchor (if active)
-        if (leftHandAnchor != null && GetPoseFromCandidate(leftHandAnchor, out anchorPos, out anchorRot))
+        // 3. Inspector-assigned anchor (if active)
+        if (leftHandAnchor != null && leftHandAnchor.gameObject.activeInHierarchy && GetPoseFromCandidate(leftHandAnchor, out anchorPos, out anchorRot))
         {
             hasAnchorPose = true;
             hasLastGoodAnchor = true;
@@ -692,8 +748,8 @@ public class WristWatch : MonoBehaviour
             return;
         }
 
-        // 3. Active left hand object found in hierarchy
-        if (leftHandCandidate != null && GetPoseFromCandidate(leftHandCandidate, out anchorPos, out anchorRot))
+        // 4. Active left hand object found in hierarchy
+        if (leftHandCandidate != null && leftHandCandidate.gameObject.activeInHierarchy && GetPoseFromCandidate(leftHandCandidate, out anchorPos, out anchorRot))
         {
             hasAnchorPose = true;
             hasLastGoodAnchor = true;
@@ -702,9 +758,11 @@ public class WristWatch : MonoBehaviour
             return;
         }
 
-        // 4. Fallback to active left controller object found in hierarchy
-        if (leftControllerCandidate != null && GetPoseFromCandidate(leftControllerCandidate, out anchorPos, out anchorRot))
+        // 5. Fallback to active left controller object found in hierarchy
+        if (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy)
         {
+            anchorPos = leftControllerCandidate.position;
+            anchorRot = leftControllerCandidate.rotation;
             hasAnchorPose = true;
             hasLastGoodAnchor = true;
             lastGoodAnchorPos = anchorPos;
@@ -712,7 +770,7 @@ public class WristWatch : MonoBehaviour
             return;
         }
 
-        // 5. Fallback search for any active left hand or left ray transform in the scene
+        // 6. Fallback search for any active left hand or left ray transform in the scene
         foreach (var t in FindObjectsOfType<Transform>(true))
         {
             if (t == null || !t.gameObject.activeInHierarchy || t == transform) continue;
@@ -785,7 +843,7 @@ public class WristWatch : MonoBehaviour
 
         Transform playerCam = Camera.main != null ? Camera.main.transform : null;
 
-        // 1. Keep Watch Button attached to Left Wrist smoothly
+        // 1. Keep Watch Button attached to Left Wrist / Controller smoothly
         if (wristWatchButtonObj != null)
         {
             if (!wristWatchButtonObj.activeSelf) wristWatchButtonObj.SetActive(true);
@@ -809,8 +867,31 @@ public class WristWatch : MonoBehaviour
             {
                 if (hasAnchorPose)
                 {
-                    Vector3 targetWatchPos = AnchorTransformPoint(watchOffset);
-                    wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * 15f);
+                    Vector3 targetWatchPos;
+                    bool isController = (HandModalityForcer.Instance != null && HandModalityForcer.IsControllerMode)
+                        || (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy);
+
+                    if (isController && leftControllerCandidate != null)
+                    {
+                        // On Meta Quest Touch Plus controller:
+                        // Place button 8cm directly above the controller tracking anchor
+                        targetWatchPos = leftControllerCandidate.position + Vector3.up * 0.08f;
+                    }
+                    else
+                    {
+                        targetWatchPos = AnchorTransformPoint(watchOffset);
+                    }
+
+                    float dist = Vector3.Distance(wristWatchButtonObj.transform.position, targetWatchPos);
+                    if (dist > 0.35f)
+                    {
+                        wristWatchButtonObj.transform.position = targetWatchPos;
+                    }
+                    else
+                    {
+                        float lerpSpeed = isController ? 35f : 15f;
+                        wristWatchButtonObj.transform.position = Vector3.Lerp(wristWatchButtonObj.transform.position, targetWatchPos, Time.deltaTime * lerpSpeed);
+                    }
 
                     if (lockWatchButtonScale && fixedWatchScale != Vector3.zero)
                     {
@@ -825,7 +906,7 @@ public class WristWatch : MonoBehaviour
                         if (lookDir.sqrMagnitude > 0.0001f)
                         {
                             Quaternion targetRot = Quaternion.LookRotation(-lookDir, Vector3.up);
-                            wristWatchButtonObj.transform.rotation = Quaternion.Slerp(wristWatchButtonObj.transform.rotation, targetRot, Time.deltaTime * 25f);
+                            wristWatchButtonObj.transform.rotation = Quaternion.Slerp(wristWatchButtonObj.transform.rotation, targetRot, Time.deltaTime * 30f);
                         }
                     }
                 }
@@ -902,6 +983,26 @@ public class WristWatch : MonoBehaviour
         pos = Vector3.zero;
         rot = Quaternion.identity;
 
+        // 1. Controller Mode: Prioritize live Left Controller pose
+        bool isControllerActive = (HandModalityForcer.Instance != null && HandModalityForcer.IsControllerMode)
+            || (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy);
+
+        if (isControllerActive)
+        {
+            if (leftControllerCandidate == null && HandModalityForcer.Instance != null && HandModalityForcer.Instance.leftController != null)
+            {
+                leftControllerCandidate = HandModalityForcer.Instance.leftController.transform;
+            }
+
+            if (leftControllerCandidate != null && leftControllerCandidate.gameObject.activeInHierarchy)
+            {
+                pos = leftControllerCandidate.position;
+                rot = leftControllerCandidate.rotation;
+                return true;
+            }
+        }
+
+        // 2. Optical Hand Tracking
         FindHandSubsystem();
         if (handSubsystem != null && handSubsystem.running && handSubsystem.leftHand.isTracked)
         {
@@ -1144,9 +1245,38 @@ public class WristWatch : MonoBehaviour
                 GameObject roomPanelObj = GameObject.Find("RoomPanel");
                 if (roomPanelObj != null && roomPanelObj.activeSelf) roomPanelObj.SetActive(false);
 
-                if (hasAnchorPose)
+                // Position the options panel immediately in front/above the wrist or controller facing the user
+                Transform cam = Camera.main != null ? Camera.main.transform : null;
+                Vector3 targetPos;
+                if (TryGetLeftWristPose(out Vector3 wristPos, out Quaternion wristRot))
                 {
-                    optionsPanelObj.transform.position = AnchorTransformPoint(panelOffset);
+                    targetPos = wristPos + panelOffset;
+                }
+                else if (hasAnchorPose)
+                {
+                    targetPos = AnchorTransformPoint(panelOffset);
+                }
+                else if (cam != null)
+                {
+                    Vector3 fwd = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+                    if (fwd == Vector3.zero) fwd = Vector3.forward;
+                    targetPos = cam.position + fwd * 0.55f - Vector3.up * 0.1f;
+                }
+                else
+                {
+                    targetPos = optionsPanelObj.transform.position;
+                }
+
+                optionsPanelObj.transform.position = targetPos;
+
+                if (cam != null)
+                {
+                    Vector3 lookDir = cam.position - optionsPanelObj.transform.position;
+                    lookDir.y = 0;
+                    if (lookDir.sqrMagnitude > 0.0001f)
+                    {
+                        optionsPanelObj.transform.rotation = Quaternion.LookRotation(-lookDir, Vector3.up);
+                    }
                 }
 
                 UIAnimationHelper.FadeIn(optionsPanelObj, 0.20f, true);
@@ -1181,27 +1311,65 @@ public class WristWatch : MonoBehaviour
         Debug.Log("WristWatch: Options Panel Closed.");
     }
 
+    private bool lastMenuPressed = false;
+    private bool lastYPressed = false;
+
     /// <summary>
     /// Checks for controller Menu button (or Y button) press on Meta Quest Touch controllers
     /// to toggle the WristWatch Options Panel directly when holding controllers.
+    /// Also supports pressing 'M' or 'O' in the Unity Editor for desktop simulation.
     /// </summary>
     private void CheckControllerMenuButton()
     {
         if (!MainMenu.IsExplorationStarted || forceHidden) return;
 
+#if UNITY_EDITOR
+        bool editorToggle = false;
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && (Keyboard.current.mKey.wasPressedThisFrame || Keyboard.current.oKey.wasPressedThisFrame))
+        {
+            editorToggle = true;
+        }
+#elif ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKeyDown(KeyCode.M) || Input.GetKeyDown(KeyCode.O))
+        {
+            editorToggle = true;
+        }
+#endif
+        if (editorToggle)
+        {
+            Debug.Log("<color=cyan>WristWatch: [Editor Simulation] Menu toggled via 'M' key!</color>");
+            ToggleOptionsPanel();
+            return;
+        }
+#endif
+
         UnityEngine.XR.InputDevice leftControllerDevice = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(UnityEngine.XR.XRNode.LeftHand);
         if (leftControllerDevice.isValid)
         {
-            if (leftControllerDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.menuButton, out bool menuPressed) && menuPressed)
+            bool menuDown = leftControllerDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.menuButton, out bool menuVal) && menuVal;
+            bool yDown = leftControllerDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.secondaryButton, out bool yVal) && yVal;
+
+            if (menuDown && !lastMenuPressed)
             {
+                lastMenuPressed = true;
                 ToggleOptionsPanel();
                 return;
             }
-            if (leftControllerDevice.TryGetFeatureValue(UnityEngine.XR.CommonUsages.secondaryButton, out bool yPressed) && yPressed)
+            lastMenuPressed = menuDown;
+
+            if (yDown && !lastYPressed)
             {
+                lastYPressed = true;
                 ToggleOptionsPanel();
                 return;
             }
+            lastYPressed = yDown;
+        }
+        else
+        {
+            lastMenuPressed = false;
+            lastYPressed = false;
         }
 
         UnityEngine.XR.InputDevice rightControllerDevice = UnityEngine.XR.InputDevices.GetDeviceAtXRNode(UnityEngine.XR.XRNode.RightHand);
@@ -1441,9 +1609,9 @@ public class WristWatch : MonoBehaviour
         foreach (UnityEngine.UI.Graphic g in graphics)
         {
             if (g == null) continue;
-            if (optionsPanelObj != null && g.transform.IsChildOf(optionsPanelObj.transform)) continue;
-            if (roomHudCanvas != null && g.transform.IsChildOf(roomHudCanvas.transform)) continue;
-            if (gamesPanel != null && g.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (optionsPanelObj != null && (g.gameObject == optionsPanelObj || g.transform.IsChildOf(optionsPanelObj.transform))) continue;
+            if (roomHudCanvas != null && (g.gameObject == roomHudCanvas || g.transform.IsChildOf(roomHudCanvas.transform))) continue;
+            if (gamesPanel != null && (g.gameObject == gamesPanel || g.transform.IsChildOf(gamesPanel.transform))) continue;
             if (g.name.Contains("ArtifactDetail") || g.name.Contains("HistoryPanel")) continue;
 
             g.enabled = visible;
@@ -1455,9 +1623,9 @@ public class WristWatch : MonoBehaviour
         foreach (Renderer r in renderers)
         {
             if (r == null) continue;
-            if (optionsPanelObj != null && r.transform.IsChildOf(optionsPanelObj.transform)) continue;
-            if (roomHudCanvas != null && r.transform.IsChildOf(roomHudCanvas.transform)) continue;
-            if (gamesPanel != null && r.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (optionsPanelObj != null && (r.gameObject == optionsPanelObj || r.transform.IsChildOf(optionsPanelObj.transform))) continue;
+            if (roomHudCanvas != null && (r.gameObject == roomHudCanvas || r.transform.IsChildOf(roomHudCanvas.transform))) continue;
+            if (gamesPanel != null && (r.gameObject == gamesPanel || r.transform.IsChildOf(gamesPanel.transform))) continue;
             if (r.name.Contains("ArtifactDetail") || r.name.Contains("HistoryPanel")) continue;
 
             r.enabled = visible;
@@ -1468,9 +1636,9 @@ public class WristWatch : MonoBehaviour
         foreach (UnityEngine.UI.Button b in buttons)
         {
             if (b == null) continue;
-            if (optionsPanelObj != null && b.transform.IsChildOf(optionsPanelObj.transform)) continue;
-            if (roomHudCanvas != null && b.transform.IsChildOf(roomHudCanvas.transform)) continue;
-            if (gamesPanel != null && b.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (optionsPanelObj != null && (b.gameObject == optionsPanelObj || b.transform.IsChildOf(optionsPanelObj.transform))) continue;
+            if (roomHudCanvas != null && (b.gameObject == roomHudCanvas || b.transform.IsChildOf(roomHudCanvas.transform))) continue;
+            if (gamesPanel != null && (b.gameObject == gamesPanel || b.transform.IsChildOf(gamesPanel.transform))) continue;
             if (b.name.Contains("ArtifactDetail") || b.name.Contains("HistoryPanel")) continue;
 
             b.enabled = visible;
@@ -1481,9 +1649,9 @@ public class WristWatch : MonoBehaviour
         foreach (XRButtonSelection xr in xrButtons)
         {
             if (xr == null) continue;
-            if (optionsPanelObj != null && xr.transform.IsChildOf(optionsPanelObj.transform)) continue;
-            if (roomHudCanvas != null && xr.transform.IsChildOf(roomHudCanvas.transform)) continue;
-            if (gamesPanel != null && xr.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (optionsPanelObj != null && (xr.gameObject == optionsPanelObj || xr.transform.IsChildOf(optionsPanelObj.transform))) continue;
+            if (roomHudCanvas != null && (xr.gameObject == roomHudCanvas || xr.transform.IsChildOf(roomHudCanvas.transform))) continue;
+            if (gamesPanel != null && (xr.gameObject == gamesPanel || xr.transform.IsChildOf(gamesPanel.transform))) continue;
             if (xr.name.Contains("ArtifactDetail") || xr.name.Contains("HistoryPanel")) continue;
 
             xr.enabled = visible;
@@ -1493,9 +1661,9 @@ public class WristWatch : MonoBehaviour
         foreach (var xrInt in xrInteractables)
         {
             if (xrInt == null) continue;
-            if (optionsPanelObj != null && xrInt.transform.IsChildOf(optionsPanelObj.transform)) continue;
-            if (roomHudCanvas != null && xrInt.transform.IsChildOf(roomHudCanvas.transform)) continue;
-            if (gamesPanel != null && xrInt.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (optionsPanelObj != null && (xrInt.gameObject == optionsPanelObj || xrInt.transform.IsChildOf(optionsPanelObj.transform))) continue;
+            if (roomHudCanvas != null && (xrInt.gameObject == roomHudCanvas || xrInt.transform.IsChildOf(roomHudCanvas.transform))) continue;
+            if (gamesPanel != null && (xrInt.gameObject == gamesPanel || xrInt.transform.IsChildOf(gamesPanel.transform))) continue;
             if (xrInt.name.Contains("ArtifactDetail") || xrInt.name.Contains("HistoryPanel")) continue;
 
             xrInt.enabled = visible;
@@ -1505,9 +1673,9 @@ public class WristWatch : MonoBehaviour
         foreach (Collider c in colliders)
         {
             if (c == null) continue;
-            if (optionsPanelObj != null && c.transform.IsChildOf(optionsPanelObj.transform)) continue;
-            if (roomHudCanvas != null && c.transform.IsChildOf(roomHudCanvas.transform)) continue;
-            if (gamesPanel != null && c.transform.IsChildOf(gamesPanel.transform)) continue;
+            if (optionsPanelObj != null && (c.gameObject == optionsPanelObj || c.transform.IsChildOf(optionsPanelObj.transform))) continue;
+            if (roomHudCanvas != null && (c.gameObject == roomHudCanvas || c.transform.IsChildOf(roomHudCanvas.transform))) continue;
+            if (gamesPanel != null && (c.gameObject == gamesPanel || c.transform.IsChildOf(gamesPanel.transform))) continue;
             if (c.name.Contains("ArtifactDetail") || c.name.Contains("HistoryPanel")) continue;
 
             c.enabled = visible;

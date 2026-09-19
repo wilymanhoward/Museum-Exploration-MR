@@ -127,6 +127,8 @@ public class ButtonClickAudio : MonoBehaviour
         {
             audioSource.PlayOneShot(clickClip);
         }
+
+        XRButtonHaptics.TriggerClick();
     }
 
     public void AttachListenersToAllButtons()
