@@ -231,7 +231,8 @@ public class Artifact : MonoBehaviour
             trackedPlayer,
             0,
             0.60f,
-            out bool isWallMounted
+            out bool isWallMounted,
+            preferFloating: true
         );
 
         Transform targetTransform = (transform.parent != null && transform.parent.name.StartsWith("ArtifactDetailPanelCanvas"))
@@ -262,7 +263,7 @@ public class Artifact : MonoBehaviour
         onCloseCallback = onClose;
         if (playerTransform != null) trackedPlayer = playerTransform;
 
-        if (qrPose.position != Vector3.zero || qrPose.rotation != Quaternion.identity)
+        if (ArtifactManager.IsValidPose(qrPose))
         {
             Transform targetTransform = (transform.parent != null && transform.parent.name.StartsWith("ArtifactDetailPanelCanvas"))
                 ? transform.parent
@@ -1238,6 +1239,14 @@ public class Artifact : MonoBehaviour
     /// </summary>
     public void ShowArtifact(ArtifactData data, Room previousPanel)
     {
+        // If ArtifactManager is available and this is the scene template (not an already-spawned canvas),
+        // delegate to ArtifactManager so it spawns a full standalone world-space panel in front of the player.
+        if (ArtifactManager.Instance != null && (transform.parent == null || !transform.parent.name.StartsWith("ArtifactDetailPanelCanvas")))
+        {
+            ArtifactManager.Instance.SpawnArtifactDetailPanel(data);
+            return;
+        }
+
         previousRoomPanel = previousPanel;
         gameObject.SetActive(true);
 
@@ -1247,6 +1256,7 @@ public class Artifact : MonoBehaviour
         }
 
         UpdateDetails(data);
+        PositionInFrontOfUser();
 
         // Default to 2D view
         SetViewMode(true);

@@ -2,7 +2,40 @@ using UnityEngine;
 
 public class ArtifactManager : MonoBehaviour
 {
-    public static ArtifactManager Instance { get; private set; }
+    private static ArtifactManager _instance;
+    public static ArtifactManager Instance
+    {
+        get
+        {
+            if (_instance == null)
+            {
+                _instance = FindObjectOfType<ArtifactManager>();
+                if (_instance == null)
+                {
+                    GameObject go = new GameObject("ArtifactManager");
+                    _instance = go.AddComponent<ArtifactManager>();
+                }
+            }
+            _instance.EnsureInitialized();
+            return _instance;
+        }
+        private set => _instance = value;
+    }
+
+    /// <summary>
+    /// Checks whether a Pose represents a valid, non-default world-space transform.
+    /// In C#, default(Pose) has position == 0 and rotation == (0,0,0,0) with sqrMagnitude == 0.
+    /// A valid rotation must have sqrMagnitude close to 1.0f.
+    /// </summary>
+    public static bool IsValidPose(Pose pose)
+    {
+        if (pose.position == Vector3.zero) return false;
+        float sqrMag = pose.rotation.x * pose.rotation.x +
+                       pose.rotation.y * pose.rotation.y +
+                       pose.rotation.z * pose.rotation.z +
+                       pose.rotation.w * pose.rotation.w;
+        return sqrMag > 0.5f && sqrMag < 1.5f;
+    }
 
     [Header("Player Tracking")]
     [Tooltip("Reference to the player's camera or headset transform.")]
@@ -27,25 +60,16 @@ public class ArtifactManager : MonoBehaviour
     private GameObject activePanelInstance;
     private readonly System.Collections.Generic.List<GameObject> activePanelInstances = new System.Collections.Generic.List<GameObject>();
     private readonly System.Collections.Generic.HashSet<string> scannedArtifactIds = new System.Collections.Generic.HashSet<string>();
+    private bool isInitialized = false;
 
-    private void Awake()
+    public void EnsureInitialized()
     {
-        if (Instance == null)
-        {
-            Instance = this;
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
-    }
+        if (isInitialized) return;
 
-    private void Start()
-    {
         // Fallback for player transform
-        if (playerTransform == null && Camera.main != null)
+        if (playerTransform == null)
         {
-            playerTransform = Camera.main.transform;
+            playerTransform = WallPlacementHelper.ResolveCameraTransform();
         }
 
         // Automatic scene lookup for persistent references (even if inactive)
@@ -88,9 +112,31 @@ public class ArtifactManager : MonoBehaviour
                 }
             }
 
-            // Hide the canvas initially
+            // Hide the canvas template initially
             artifactUiCanvas.SetActive(false);
         }
+
+        isInitialized = true;
+    }
+
+    private void Awake()
+    {
+        if (_instance == null)
+        {
+            _instance = this;
+        }
+        else if (_instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        EnsureInitialized();
+    }
+
+    private void Start()
+    {
+        EnsureInitialized();
 
         // Register for QR Scanner events
         QRCodeScanner.OnQRCodeScanned += HandleQRCodeScanned;
@@ -136,6 +182,8 @@ public class ArtifactManager : MonoBehaviour
     {
         if (artifact == null) return null;
 
+        EnsureInitialized();
+
         if (!string.IsNullOrEmpty(artifact.artifactId))
         {
             scannedArtifactIds.Add(artifact.artifactId.Trim().ToLower());
@@ -154,6 +202,19 @@ public class ArtifactManager : MonoBehaviour
                 panel.SetActive(true);
                 art.gameObject.SetActive(true);
                 art.RefreshView(); // re-apply photo/"no images" state so a reused panel isn't stale
+
+                // Bring it directly in front of the player if reopened
+                if (IsValidPose(customPose))
+                {
+                    Transform targetTransform = (panel.name.StartsWith("ArtifactDetailPanelCanvas")) ? panel.transform : art.transform;
+                    targetTransform.position = customPose.position;
+                    targetTransform.rotation = customPose.rotation;
+                }
+                else
+                {
+                    art.PositionInFrontOfUser();
+                }
+
                 return panel;
             }
         }
@@ -165,33 +226,30 @@ public class ArtifactManager : MonoBehaviour
         // Resolve player transform
         if (playerTransform == null)
         {
-            if (Camera.main != null) playerTransform = Camera.main.transform;
-            else if (FindObjectOfType<Camera>() != null) playerTransform = FindObjectOfType<Camera>().transform;
+            playerTransform = WallPlacementHelper.ResolveCameraTransform();
         }
 
         // Calculate spawn position in world space
         Vector3 spawnPos;
         Quaternion spawnRot;
+        bool isWallMounted = false;
 
-        if (customPose.position != Vector3.zero || customPose.rotation != Quaternion.identity)
+        if (IsValidPose(customPose))
         {
             spawnPos = customPose.position;
             spawnRot = customPose.rotation;
         }
         else
         {
-            // Position 1.0m in front of player, staggered side-by-side if multiple panels are open
-            Vector3 fwd = playerTransform != null ? Vector3.ProjectOnPlane(playerTransform.forward, Vector3.up).normalized : Vector3.forward;
-            if (fwd == Vector3.zero) fwd = Vector3.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, fwd).normalized;
-
-            // Stagger multiple open panels horizontally: 0m, +0.6m, -0.6m, +1.2m, -1.2m
-            int count = activePanelInstances.Count;
-            float sideOffset = (count % 2 == 1) ? ((count + 1) / 2) * 0.6f : -(count / 2) * 0.6f;
-
-            Vector3 basePos = playerTransform != null ? playerTransform.position : Vector3.zero;
-            spawnPos = basePos + fwd * 1.0f + right * sideOffset;
-            spawnRot = Quaternion.LookRotation(-fwd, Vector3.up);
+            Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
+                playerTransform,
+                activePanelInstances.Count,
+                0.60f,
+                out isWallMounted,
+                preferFloating: true // Spawns directly in front of the player at eye level (~0.90m)
+            );
+            spawnPos = placementPose.position;
+            spawnRot = placementPose.rotation;
         }
 
         if (source == null)
@@ -208,7 +266,11 @@ public class ArtifactManager : MonoBehaviour
             newPanelInstance.SetActive(true);
             Canvas c = newPanelInstance.GetComponent<Canvas>();
             c.renderMode = RenderMode.WorldSpace;
-            if (c.worldCamera == null) c.worldCamera = Camera.main;
+            if (c.worldCamera == null) c.worldCamera = WallPlacementHelper.ResolveCamera(Camera.main);
+            if (newPanelInstance.transform.localScale.x <= 0.00001f || newPanelInstance.transform.localScale.x > 0.01f)
+            {
+                newPanelInstance.transform.localScale = Vector3.one * 0.0011f;
+            }
         }
         else
         {
@@ -235,11 +297,17 @@ public class ArtifactManager : MonoBehaviour
             });
         }
 
+        ArtifactPanelDragger dragger = newPanelInstance.GetComponentInChildren<ArtifactPanelDragger>(true);
+        if (dragger != null)
+        {
+            dragger.SetSnappedToWall(isWallMounted);
+        }
+
         activePanelInstances.Add(newPanelInstance);
         selectedArtifact = artifact;
         lastSelectedArtifact = artifact;
 
-        Debug.Log($"ArtifactManager: Spawned detail panel for '{artifact.artifactName}' in world space. Total open panels: {activePanelInstances.Count}");
+        Debug.Log($"ArtifactManager: Spawned detail panel for '{artifact.artifactName}' in world space (Wall: {isWallMounted}, Pos: {spawnPos}). Total open panels: {activePanelInstances.Count}");
         return newPanelInstance;
     }
 
@@ -253,12 +321,12 @@ public class ArtifactManager : MonoBehaviour
         RectTransform srcRT = source.GetComponent<RectTransform>();
         Vector2 size = srcRT != null ? srcRT.sizeDelta : new Vector2(640f, 480f);
         float worldScale = source.transform.lossyScale.x;
-        if (worldScale <= 0.00001f) worldScale = 0.0011f;
+        if (worldScale <= 0.00001f || worldScale > 0.01f) worldScale = 0.0011f;
 
         GameObject wrapper = new GameObject("ArtifactDetailPanelCanvas");
         Canvas canvas = wrapper.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.WorldSpace;
-        canvas.worldCamera = Camera.main;
+        canvas.worldCamera = WallPlacementHelper.ResolveCamera(Camera.main);
         wrapper.AddComponent<UnityEngine.UI.CanvasScaler>();
         wrapper.AddComponent<UnityEngine.UI.GraphicRaycaster>();
         // XR ray/poke UI raycaster so the panel's buttons are clickable with the hands.
@@ -290,10 +358,8 @@ public class ArtifactManager : MonoBehaviour
 
     private Pose CalculateDefaultPose()
     {
-        Transform referenceTransform = playerTransform != null ? playerTransform : (Camera.main != null ? Camera.main.transform : transform);
-        Vector3 pos = referenceTransform.position + referenceTransform.forward * 1.5f;
-        Quaternion rot = Quaternion.LookRotation(referenceTransform.forward, Vector3.up);
-        return new Pose(pos, rot);
+        Transform referenceTransform = WallPlacementHelper.ResolveCameraTransform(playerTransform);
+        return WallPlacementHelper.CalculatePlacementPose(referenceTransform, activePanelInstances.Count, 0.60f, out _, preferFloating: true);
     }
 
     /// <summary>

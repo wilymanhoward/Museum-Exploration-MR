@@ -16,10 +16,10 @@ using Meta.XR.MRUtilityKit;
 /// </summary>
 public static class WallPlacementHelper
 {
-    public const float DefaultMaxGazeDistance = 2.5f;
-    public const float DefaultMaxProximityDistance = 1.8f;
+    public const float DefaultMaxGazeDistance = 1.30f;
+    public const float DefaultMaxProximityDistance = 1.20f;
     public const float DefaultWallOffset = 0.02f;
-    public const float DefaultFloatingDistance = 0.95f;
+    public const float DefaultFloatingDistance = 0.90f;
     public const float DefaultEyeLevelHeight = 1.45f;
 
     private static readonly LabelFilter WallOnlyFilter = new LabelFilter(MRUKAnchor.SceneLabels.WALL_FACE);
@@ -79,6 +79,7 @@ public static class WallPlacementHelper
     /// <param name="panelIndex">Index for staggering multiple open panels side-by-side (0 = center, 1 = right, 2 = left, etc.).</param>
     /// <param name="panelSpacing">Horizontal spacing between adjacent panels in meters.</param>
     /// <param name="isWallMounted">Outputs true if a wall was detected and the panel is mounted on it; false if floating.</param>
+    /// <param name="preferFloating">If true, skips wall search and spawns floating directly in front of the player at arm's length.</param>
     /// <param name="maxGazeDistance">Maximum distance in meters to look for a wall in front of the player.</param>
     /// <param name="maxProximityDistance">Maximum distance in meters to check for wall proximity around the player.</param>
     /// <param name="wallOffset">Gap in meters between wall surface and panel to prevent z-fighting.</param>
@@ -89,6 +90,7 @@ public static class WallPlacementHelper
         int panelIndex,
         float panelSpacing,
         out bool isWallMounted,
+        bool preferFloating = false,
         float maxGazeDistance = DefaultMaxGazeDistance,
         float maxProximityDistance = DefaultMaxProximityDistance,
         float wallOffset = DefaultWallOffset,
@@ -136,55 +138,59 @@ public static class WallPlacementHelper
         Vector3 wallNormal = Vector3.zero;
         bool foundWall = false;
 
-        // 1. Meta MRUK Scene Model Check (Primary)
-        if (MRUK.Instance != null)
+        // Only search for walls if floating in front is not specifically requested
+        if (!preferFloating)
         {
-            MRUKRoom room = MRUK.Instance.GetCurrentRoom();
-            if (room != null)
+            // 1. Meta MRUK Scene Model Check (Primary)
+            if (MRUK.Instance != null)
             {
-                // A) Cast ray straight ahead at eye level in the forward gaze direction
-                Ray gazeRay = new Ray(headPos, forward);
-                if (room.Raycast(gazeRay, maxGazeDistance, WallOnlyFilter, out RaycastHit gazeHit, out MRUKAnchor hitAnchor))
+                MRUKRoom room = MRUK.Instance.GetCurrentRoom();
+                if (room != null)
                 {
-                    wallPoint = gazeHit.point;
-                    wallNormal = gazeHit.normal;
-                    foundWall = true;
-                }
-                // B) Forward-cone proximity check: Only accept walls directly IN FRONT of player
-                else
-                {
-                    float dist = room.TryGetClosestSurfacePosition(headPos, out Vector3 surfacePos, out MRUKAnchor closestAnchor, out Vector3 surfaceNormal, WallOnlyFilter);
-                    if (dist <= maxProximityDistance && closestAnchor != null)
+                    // A) Cast ray straight ahead at eye level in the forward gaze direction
+                    Ray gazeRay = new Ray(headPos, forward);
+                    if (room.Raycast(gazeRay, maxGazeDistance, WallOnlyFilter, out RaycastHit gazeHit, out MRUKAnchor hitAnchor))
                     {
-                        Vector3 dirToSurface = (surfacePos - headPos).normalized;
-                        // ONLY accept walls in a forward cone (<= ~45 degrees, Dot > 0.70f).
-                        // Never snap to walls beside or behind the player!
-                        if (Vector3.Dot(forward, dirToSurface) > 0.70f)
+                        wallPoint = gazeHit.point;
+                        wallNormal = gazeHit.normal;
+                        foundWall = true;
+                    }
+                    // B) Forward-cone proximity check: Only accept walls directly IN FRONT of player
+                    else
+                    {
+                        float dist = room.TryGetClosestSurfacePosition(headPos, out Vector3 surfacePos, out MRUKAnchor closestAnchor, out Vector3 surfaceNormal, WallOnlyFilter);
+                        if (dist <= maxProximityDistance && closestAnchor != null)
                         {
-                            wallPoint = surfacePos;
-                            wallNormal = surfaceNormal;
-                            foundWall = true;
+                            Vector3 dirToSurface = (surfacePos - headPos).normalized;
+                            // ONLY accept walls in a forward cone (<= ~45 degrees, Dot > 0.70f).
+                            // Never snap to walls beside or behind the player!
+                            if (Vector3.Dot(forward, dirToSurface) > 0.70f)
+                            {
+                                wallPoint = surfacePos;
+                                wallNormal = surfaceNormal;
+                                foundWall = true;
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // 2. Physics Raycast Fallback (for Editor testing or physical scene colliders)
-        if (!foundWall)
-        {
-            Ray physRay = new Ray(headPos, forward);
-            int layerMask = ~LayerMask.GetMask("UI", "Ignore Raycast");
-            if (Physics.Raycast(physRay, out RaycastHit physHit, maxGazeDistance, layerMask, QueryTriggerInteraction.Ignore))
+            // 2. Physics Raycast Fallback (for Editor testing or physical scene colliders)
+            if (!foundWall)
             {
-                // Must be vertical surface and facing toward the player, and not a UI canvas/button
-                if (Mathf.Abs(physHit.normal.y) < 0.35f && Vector3.Dot(physHit.normal, forward) < -0.4f)
+                Ray physRay = new Ray(headPos, forward);
+                int layerMask = ~LayerMask.GetMask("UI", "Ignore Raycast");
+                if (Physics.Raycast(physRay, out RaycastHit physHit, maxGazeDistance, layerMask, QueryTriggerInteraction.Ignore))
                 {
-                    if (physHit.collider.GetComponentInParent<Canvas>() == null)
+                    // Must be vertical surface and facing toward the player, and not a UI canvas/button
+                    if (Mathf.Abs(physHit.normal.y) < 0.35f && Vector3.Dot(physHit.normal, forward) < -0.4f)
                     {
-                        wallPoint = physHit.point;
-                        wallNormal = physHit.normal;
-                        foundWall = true;
+                        if (physHit.collider.GetComponentInParent<Canvas>() == null)
+                        {
+                            wallPoint = physHit.point;
+                            wallNormal = physHit.normal;
+                            foundWall = true;
+                        }
                     }
                 }
             }
@@ -217,14 +223,15 @@ public static class WallPlacementHelper
 
         // 4. Fallback: Eye-Level Floating Pose in Front of Player
         Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+        float targetY = (headPos.y > 0.5f) ? headPos.y - 0.05f : eyeLevelY;
         Vector3 floatPos = headPos + forward * defaultFloatingDistance + right * sideOffset;
-        floatPos.y = eyeLevelY; // Guaranteed eye level >= 1.45m!
+        floatPos.y = targetY; // Guaranteed comfortable eye-level reading height!
 
         // Rotation facing the player
         Quaternion floatRot = Quaternion.LookRotation(forward, Vector3.up);
 
         isWallMounted = false;
-        Debug.Log($"[WallPlacementHelper] Spawning floating panel directly in front of player at eye level (Y={eyeLevelY:F2}m, Dist={defaultFloatingDistance:F2}m).");
+        Debug.Log($"[WallPlacementHelper] Spawning floating panel directly in front of player at eye level (Pos={floatPos}, Dist={defaultFloatingDistance:F2}m).");
         return new Pose(floatPos, floatRot);
     }
 }
