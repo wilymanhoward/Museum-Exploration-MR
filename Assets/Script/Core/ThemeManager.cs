@@ -1079,7 +1079,8 @@ public class ThemeManager : MonoBehaviour
             foreach (TextMeshProUGUI tmp in root.GetComponentsInChildren<TextMeshProUGUI>(true))
             {
                 if (tmp == null || IsInsideThemeSelection(tmp.transform)) continue;
-                if (tmp.gameObject.name == "CardText" || tmp.gameObject.name == "TimerText" || (tmp.transform.parent != null && tmp.transform.parent.name == "TimerBadge")) continue;
+                if (tmp.gameObject.name == "CardText" || tmp.gameObject.name == "TimerText" || tmp.gameObject.name == "BadgeNum" ||
+                    (tmp.transform.parent != null && (tmp.transform.parent.name == "TimerBadge" || tmp.transform.parent.name == "NumberBadge"))) continue;
                 if (originalTextStates.TryGetValue(tmp, out var origText))
                 {
                     tmp.color = origText.color;
@@ -1172,8 +1173,9 @@ public class ThemeManager : MonoBehaviour
                 continue;
             }
 
-            // Skip timer badge and timer icon so they retain rich obsidian and amber gold
-            if (n.Contains("timerbadge") || n.Contains("timericon") || (img.transform.parent != null && img.transform.parent.name == "TimerBadge"))
+            // Skip timer badge, number badge, and timer icon so they retain rich obsidian and amber gold
+            if (n.Contains("timerbadge") || n.Contains("timericon") || n.Contains("numberbadge") ||
+                (img.transform.parent != null && (img.transform.parent.name == "TimerBadge" || img.transform.parent.name == "NumberBadge")))
             {
                 continue;
             }
@@ -1276,9 +1278,10 @@ public class ThemeManager : MonoBehaviour
                     }
                 }
             }
-            // Action buttons (e.g. 10.png, CheckButton, StartButton, ContinueButton, ReturnToMenuButton, MulaiButton)
+            // Action buttons (e.g. 10.png, CheckButton, StartButton, ContinueButton, ReturnToMenuButton, MulaiButton, ActionPill)
             else if (sprName == "10" || n.Contains("checkbutton") || n.Contains("startbutton") ||
-                     n.Contains("continuebutton") || n.Contains("returntomenu") || n.Contains("mulaibutton"))
+                     n.Contains("continuebutton") || n.Contains("returntomenu") || n.Contains("mulaibutton") ||
+                     n.Contains("actionpill") || n.Contains("playbutton"))
             {
                 img.sprite = activeBtnSprite;
                 img.type = Image.Type.Sliced;
@@ -1359,7 +1362,8 @@ public class ThemeManager : MonoBehaviour
         foreach (TextMeshProUGUI tmp in texts)
         {
             if (tmp == null || IsInsideThemeSelection(tmp.transform) || IsIntroVideoPanel(tmp.transform)) continue;
-            if (tmp.gameObject.name == "CardText" || tmp.gameObject.name == "TimerText" || (tmp.transform.parent != null && tmp.transform.parent.name == "TimerBadge")) continue;
+            if (tmp.gameObject.name == "CardText" || tmp.gameObject.name == "TimerText" || tmp.gameObject.name == "BadgeNum" ||
+                (tmp.transform.parent != null && (tmp.transform.parent.name == "TimerBadge" || tmp.transform.parent.name == "NumberBadge"))) continue;
             string n = tmp.gameObject.name.ToLower();
 
             CacheOriginalText(tmp);
@@ -1402,7 +1406,10 @@ public class ThemeManager : MonoBehaviour
                 if (tmp.transform.parent != null &&
                     (tmp.transform.parent.name.ToLower().Contains("skipnarration") ||
                      tmp.transform.parent.name.ToLower().Contains("next") ||
-                     tmp.transform.parent.name.ToLower().Contains("lanjut")))
+                     tmp.transform.parent.name.ToLower().Contains("lanjut") ||
+                     tmp.transform.parent.name.ToLower().Contains("startbutton") ||
+                     tmp.transform.parent.name.ToLower().Contains("actionpill") ||
+                     tmp.transform.parent.name.ToLower().Contains("playbutton")))
                 {
                     tmp.color = new Color(0.12f, 0.14f, 0.10f, 1f); // Dark contrast icon on light button
                 }
@@ -1410,6 +1417,14 @@ public class ThemeManager : MonoBehaviour
                 {
                     tmp.color = lightControlBtnIcon;
                 }
+            }
+            // Action button labels (e.g. PillLabel, StartButton text)
+            else if (n.Contains("pilllabel") || (tmp.transform.parent != null &&
+                     (tmp.transform.parent.name.ToLower().Contains("startbutton") ||
+                      tmp.transform.parent.name.ToLower().Contains("actionpill") ||
+                      tmp.transform.parent.name.ToLower().Contains("playbutton"))))
+            {
+                tmp.color = new Color(0.12f, 0.14f, 0.10f, 1f); // Dark contrast text on active button
             }
             // Field values & body descriptions
             else

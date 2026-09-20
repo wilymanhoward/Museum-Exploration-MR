@@ -25,7 +25,127 @@ public class MiniGameListPanel : MonoBehaviour
 
     private readonly List<GameObject> spawnedRows = new List<GameObject>();
     private TMP_FontAsset cachedFont;
-    private Sprite buttonSprite;
+    private static Sprite cachedCardSprite;
+    private static Sprite cachedBadgeSprite;
+    private static Sprite cachedPillSprite;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Procedural Pure White 9-Sliced Sprites (Crisp, Anti-Aliased, Zero Distortion)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static Sprite GetOrCreateCardSprite()
+    {
+        if (cachedCardSprite != null) return cachedCardSprite;
+
+        int size = 64;
+        float cornerRadius = 12f; // Modern sleek 12px rounded rectangle corners
+        float halfSize = size / 2f;
+        float innerHalf = halfSize - cornerRadius;
+
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float px = Mathf.Abs((x + 0.5f) - halfSize);
+                float py = Mathf.Abs((y + 0.5f) - halfSize);
+
+                float dx = Mathf.Max(px - innerHalf, 0f);
+                float dy = Mathf.Max(py - innerHalf, 0f);
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                float alpha = Mathf.Clamp01(cornerRadius - dist + 0.5f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        Vector4 border = new Vector4(16, 16, 16, 16);
+        cachedCardSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        cachedCardSprite.name = "Procedural_CardSprite";
+        return cachedCardSprite;
+    }
+
+    private static Sprite GetOrCreateBadgeSprite()
+    {
+        if (cachedBadgeSprite != null) return cachedBadgeSprite;
+
+        int size = 64;
+        float cornerRadius = 16f; // Soft rounded square badge
+        float halfSize = size / 2f;
+        float innerHalf = halfSize - cornerRadius;
+
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color[] pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float px = Mathf.Abs((x + 0.5f) - halfSize);
+                float py = Mathf.Abs((y + 0.5f) - halfSize);
+
+                float dx = Mathf.Max(px - innerHalf, 0f);
+                float dy = Mathf.Max(py - innerHalf, 0f);
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                float alpha = Mathf.Clamp01(cornerRadius - dist + 0.5f);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        Vector4 border = new Vector4(18, 18, 18, 18);
+        cachedBadgeSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        cachedBadgeSprite.name = "Procedural_BadgeSprite";
+        return cachedBadgeSprite;
+    }
+
+    private static Sprite GetOrCreatePillSprite()
+    {
+        if (cachedPillSprite != null) return cachedPillSprite;
+
+        int width = 64;
+        int height = 32;
+        float radius = 15f; // Sleek capsule pill
+        float halfH = height / 2f;
+        float leftCenter = 16f;
+        float rightCenter = 48f;
+
+        Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+
+        Color[] pixels = new Color[width * height];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float cx = Mathf.Clamp(x + 0.5f, leftCenter, rightCenter);
+                float cy = halfH;
+                float dx = (x + 0.5f) - cx;
+                float dy = (y + 0.5f) - cy;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float alpha = Mathf.Clamp01(radius - dist + 0.5f);
+                pixels[y * width + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+        tex.SetPixels(pixels);
+        tex.Apply();
+
+        Vector4 border = new Vector4(16, 8, 16, 8);
+        cachedPillSprite = Sprite.Create(tex, new Rect(0, 0, width, height), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        cachedPillSprite.name = "Procedural_PillSprite";
+        return cachedPillSprite;
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unity
@@ -78,11 +198,9 @@ public class MiniGameListPanel : MonoBehaviour
             if (tComp != null && tComp.font != null) cachedFont = tComp.font;
         }
 
-        // Cache button sprite from gameRowPrefab or existing images
-        if (buttonSprite == null && gameRowPrefab != null)
+        if (cachedFont == null)
         {
-            Image pImg = gameRowPrefab.GetComponent<Image>();
-            if (pImg != null && pImg.sprite != null) buttonSprite = pImg.sprite;
+            cachedFont = Resources.Load<TMP_FontAsset>("Fonts/Cardo-Regular SDF");
         }
 
         var games = MiniGameMenuPanel.Instance != null ? MiniGameMenuPanel.Instance.games : null;
@@ -111,14 +229,6 @@ public class MiniGameListPanel : MonoBehaviour
 
             GameObject card = CreateGameCard(capturedIndex, entry);
             card.SetActive(true);
-
-            // Wire click: select this game, return to menu panel
-            WireButton(card, () =>
-            {
-                MiniGameMenuPanel.Instance?.SelectGame(capturedIndex);
-                MiniGames.Instance?.ShowMenuPanel();
-                Debug.Log($"MiniGameListPanel: Selected '{games[capturedIndex].gameName}'.");
-            });
 
             spawnedRows.Add(card);
         }
@@ -328,14 +438,11 @@ public class MiniGameListPanel : MonoBehaviour
         le.preferredHeight = 62f;
         le.flexibleWidth = 1f;
 
-        // Background Image
+        // Background Image with procedural anti-aliased 12px rounded corners
         Image bg = row.AddComponent<Image>();
-        if (buttonSprite != null)
-        {
-            bg.sprite = buttonSprite;
-            bg.type = Image.Type.Sliced;
-        }
-        bg.color = new Color(0.12f, 0.14f, 0.18f, 0.88f); // Deep obsidian slate
+        bg.sprite = GetOrCreateCardSprite();
+        bg.type = Image.Type.Sliced;
+        bg.color = new Color(0.12f, 0.14f, 0.19f, 0.88f); // Deep obsidian slate glass
 
         // Subtle museum gold card outline
         Outline outline = row.AddComponent<Outline>();
@@ -345,8 +452,8 @@ public class MiniGameListPanel : MonoBehaviour
         // Interactive Button with rich color states
         Button btn = row.AddComponent<Button>();
         ColorBlock cb = btn.colors;
-        cb.normalColor = new Color(0.12f, 0.14f, 0.18f, 0.88f);
-        cb.highlightedColor = new Color(0.20f, 0.24f, 0.32f, 0.98f);
+        cb.normalColor = new Color(0.12f, 0.14f, 0.19f, 0.88f);
+        cb.highlightedColor = new Color(0.18f, 0.22f, 0.30f, 0.96f);
         cb.pressedColor = new Color(0.09f, 0.11f, 0.14f, 1f);
         cb.selectedColor = new Color(0.18f, 0.22f, 0.30f, 0.95f);
         cb.colorMultiplier = 1f;
@@ -364,6 +471,16 @@ public class MiniGameListPanel : MonoBehaviour
         // Audio & Haptics
         row.AddComponent<UIButtonAudio>();
 
+        // Wire click action: selecting this game and returning to menu
+        int capturedIndex = index;
+        UnityEngine.Events.UnityAction selectAction = () =>
+        {
+            MiniGameMenuPanel.Instance?.SelectGame(capturedIndex);
+            MiniGames.Instance?.ShowMenuPanel();
+            Debug.Log($"MiniGameListPanel: Selected '{entry.gameName}'.");
+        };
+        WireButton(row, selectAction);
+
         // ── 1. Left Number Badge ("01", "02") ──
         GameObject badgeObj = new GameObject("NumberBadge");
         badgeObj.transform.SetParent(row.transform, false);
@@ -371,14 +488,15 @@ public class MiniGameListPanel : MonoBehaviour
         RectTransform badgeRt = badgeObj.AddComponent<RectTransform>();
         badgeRt.anchorMin = badgeRt.anchorMax = badgeRt.pivot = new Vector2(0f, 0.5f);
         badgeRt.anchoredPosition = new Vector2(12f, 0f);
-        badgeRt.sizeDelta = new Vector2(36f, 36f);
+        badgeRt.sizeDelta = new Vector2(34f, 34f);
 
         Image badgeImg = badgeObj.AddComponent<Image>();
-        if (buttonSprite != null) { badgeImg.sprite = buttonSprite; badgeImg.type = Image.Type.Sliced; }
-        badgeImg.color = new Color(0.85f, 0.72f, 0.38f, 0.22f); // Golden amber translucent badge
+        badgeImg.sprite = GetOrCreateBadgeSprite();
+        badgeImg.type = Image.Type.Sliced;
+        badgeImg.color = new Color(0.88f, 0.72f, 0.35f, 0.18f); // Golden amber translucent badge
 
         Outline badgeOutline = badgeObj.AddComponent<Outline>();
-        badgeOutline.effectColor = new Color(0.85f, 0.72f, 0.38f, 0.45f);
+        badgeOutline.effectColor = new Color(0.88f, 0.72f, 0.35f, 0.45f);
         badgeOutline.effectDistance = new Vector2(1f, -1f);
 
         GameObject badgeTextObj = new GameObject("BadgeNum");
@@ -392,7 +510,7 @@ public class MiniGameListPanel : MonoBehaviour
         TMP_Text badgeText = badgeTextObj.AddComponent<TextMeshProUGUI>();
         if (cachedFont != null) badgeText.font = cachedFont;
         badgeText.text = (index + 1).ToString("D2");
-        badgeText.fontSize = 15f;
+        badgeText.fontSize = 14f;
         badgeText.fontStyle = FontStyles.Bold;
         badgeText.alignment = TextAlignmentOptions.Center;
         badgeText.color = new Color(0.96f, 0.86f, 0.55f, 1f); // Warm gold
@@ -406,7 +524,7 @@ public class MiniGameListPanel : MonoBehaviour
         infoRt.anchorMin = Vector2.zero;
         infoRt.anchorMax = Vector2.one;
         infoRt.offsetMin = new Vector2(56f, 5f);
-        infoRt.offsetMax = new Vector2(-74f, -5f);
+        infoRt.offsetMax = new Vector2(-94f, -5f);
 
         // Title
         GameObject titleObj = new GameObject("TitleText");
@@ -447,19 +565,48 @@ public class MiniGameListPanel : MonoBehaviour
         subTxt.raycastTarget = false;
 
         // ── 3. Right Action Pill ("Main ▶") ──
-        GameObject pillObj = new GameObject("ActionPill");
+        GameObject pillObj = new GameObject("StartButton");
         pillObj.transform.SetParent(row.transform, false);
 
         RectTransform pillRt = pillObj.AddComponent<RectTransform>();
         pillRt.anchorMin = pillRt.anchorMax = pillRt.pivot = new Vector2(1f, 0.5f);
-        pillRt.anchoredPosition = new Vector2(-10f, 0f);
-        pillRt.sizeDelta = new Vector2(58f, 30f);
+        pillRt.anchoredPosition = new Vector2(-12f, 0f);
+        pillRt.sizeDelta = new Vector2(74f, 32f);
 
         Image pillImg = pillObj.AddComponent<Image>();
-        if (buttonSprite != null) { pillImg.sprite = buttonSprite; pillImg.type = Image.Type.Sliced; }
-        pillImg.color = new Color(0.85f, 0.70f, 0.35f, 0.95f); // Rich gold
-        pillImg.raycastTarget = false;
+        pillImg.sprite = GetOrCreatePillSprite();
+        pillImg.type = Image.Type.Sliced;
+        pillImg.color = new Color(0.88f, 0.72f, 0.32f, 0.98f); // Radiant Museum Gold (#E0B852 / #D4AF37)
+        pillImg.raycastTarget = true;
 
+        Outline pillOutline = pillObj.AddComponent<Outline>();
+        pillOutline.effectColor = new Color(1f, 0.92f, 0.65f, 0.80f); // Luminous gold border rim
+        pillOutline.effectDistance = new Vector2(1f, -1f);
+
+        // Interactive Button on the action pill itself
+        Button pillBtn = pillObj.AddComponent<Button>();
+        ColorBlock pillCb = pillBtn.colors;
+        pillCb.normalColor = new Color(0.88f, 0.72f, 0.32f, 0.98f);
+        pillCb.highlightedColor = new Color(1f, 0.85f, 0.45f, 1f);
+        pillCb.pressedColor = new Color(0.72f, 0.56f, 0.20f, 1f);
+        pillCb.selectedColor = pillCb.normalColor;
+        pillCb.colorMultiplier = 1f;
+        pillCb.fadeDuration = 0.1f;
+        pillBtn.colors = pillCb;
+
+        XRButtonSelection pillXr = pillObj.AddComponent<XRButtonSelection>();
+        pillXr.buttonImage = pillImg;
+        pillXr.normalColor = pillCb.normalColor;
+        pillXr.hoverColor = pillCb.highlightedColor;
+        pillXr.hoverScaleMultiplier = 1.05f;
+        pillXr.transitionSpeed = 12f;
+
+        pillObj.AddComponent<UIButtonAudio>();
+
+        // Wire pill click to select this game
+        WireButton(pillObj, selectAction);
+
+        // Child Label
         GameObject pillTextObj = new GameObject("PillLabel");
         pillTextObj.transform.SetParent(pillObj.transform, false);
 
@@ -470,11 +617,11 @@ public class MiniGameListPanel : MonoBehaviour
 
         TMP_Text pillTxt = pillTextObj.AddComponent<TextMeshProUGUI>();
         if (cachedFont != null) pillTxt.font = cachedFont;
-        pillTxt.text = "Main ▶";
+        pillTxt.text = "Main  ▶";
         pillTxt.fontSize = 11.5f;
         pillTxt.fontStyle = FontStyles.Bold;
         pillTxt.alignment = TextAlignmentOptions.Center;
-        pillTxt.color = new Color(0.10f, 0.12f, 0.15f, 1f); // Charcoal text on gold
+        pillTxt.color = new Color(0.08f, 0.10f, 0.13f, 1f); // Deep Charcoal Navy (Maximum contrast on Radiant Gold)
         pillTxt.raycastTarget = false;
 
         return row;
