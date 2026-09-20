@@ -41,6 +41,11 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     public bool IsUserMoved => isUserMoved;
     public bool IsSnappedToWall => isSnappedToWall;
 
+    public void SetSnappedToWall(bool snapped)
+    {
+        isSnappedToWall = snapped;
+    }
+
     public void ResetUserMoved()
     {
         isUserMoved = false;
@@ -211,8 +216,7 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
                 return interactor.transform;
             }
         }
-        if (Camera.main != null) return Camera.main.transform;
-        return null;
+        return WallPlacementHelper.ResolveCameraTransform();
     }
 
     private void StartPinchHold(Transform interactorTransform, GameObject hitObj = null)

@@ -304,6 +304,7 @@ public class Artifact : MonoBehaviour
             bottomTitleText.fontSizeMin = 12f;
             bottomTitleText.fontSizeMax = 20f;
             bottomTitleText.overflowMode = TextOverflowModes.Ellipsis;
+        }
         // Populate Details (Tempoh Masa, Lokasi, Dimensi, Material)
         PopulateDetails(data);
 
@@ -836,7 +837,7 @@ public class Artifact : MonoBehaviour
 
         for (int i = 0; i < data.images.Length; i++)
         {
-            if (data.images[i] != null && data.images[i].sprite != null)
+            if (data.images[i].sprite != null)
             {
                 return true;
             }
@@ -851,7 +852,7 @@ public class Artifact : MonoBehaviour
 
         if (currentImageIndex >= 0 && currentImageIndex < artifactData.images.Length)
         {
-            if (artifactData.images[currentImageIndex] != null && artifactData.images[currentImageIndex].sprite != null)
+            if (artifactData.images[currentImageIndex].sprite != null)
             {
                 return artifactData.images[currentImageIndex].sprite;
             }
@@ -859,7 +860,7 @@ public class Artifact : MonoBehaviour
 
         for (int i = 0; i < artifactData.images.Length; i++)
         {
-            if (artifactData.images[i] != null && artifactData.images[i].sprite != null)
+            if (artifactData.images[i].sprite != null)
             {
                 currentImageIndex = i;
                 return artifactData.images[i].sprite;

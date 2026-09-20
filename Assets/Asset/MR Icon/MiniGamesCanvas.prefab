@@ -12064,7 +12064,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: List Game
+  m_text: Senarai Permainan
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 86d3fb933ea9c7045b7a0cef8be69b34, type: 2}
   m_sharedMaterial: {fileID: 3242257872098545781, guid: 86d3fb933ea9c7045b7a0cef8be69b34,
@@ -12997,7 +12997,7 @@ RectTransform:
   m_AnchorMin: {x: 0.89, y: 0.82}
   m_AnchorMax: {x: 0.95, y: 0.93}
   m_AnchoredPosition: {x: 63.9, y: -139.5}
-  m_SizeDelta: {x: 32.940033, y: 1137.6768}
+  m_SizeDelta: {x: 32.940033, y: 32.940033}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5859515662833928209
 CanvasRenderer:

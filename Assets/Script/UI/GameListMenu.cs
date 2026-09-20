@@ -24,7 +24,7 @@ public class GameListMenu : MonoBehaviour
     [Header("Games shown in the list")]
     public List<GameEntry> games = new List<GameEntry>
     {
-        new GameEntry { gameId = "game_1", displayName = "Teka Bayang Artifak" },
+        new GameEntry { gameId = "game_1", displayName = "Tebak Bayangan Artifak" },
         new GameEntry { gameId = "game_2", displayName = "Susun Langkah & Kisah" },
     };
 
@@ -138,7 +138,7 @@ public class GameListMenu : MonoBehaviour
         Transform closeT = FindDeepChild(panel.transform, "CloseButton");
 
         MakeSingleColumn(listContainer);
-        SetTitle(panel, "List Game");
+        SetTitle(panel, "Senarai Permainan");
         Populate(listContainer, buttonPrefab);
         WireButton(closeT != null ? closeT.gameObject : null, Close);
     }
@@ -340,10 +340,10 @@ public class GameListMenu : MonoBehaviour
             TextMeshProUGUI tmp = t.GetComponent<TextMeshProUGUI>();
             if (tmp != null) { tmp.text = title; return; }
         }
-        // Fallback: the header title still shows the room-list title.
+        // Fallback: the header title still shows the room-list or game-list title.
         foreach (TextMeshProUGUI tmp in panel.GetComponentsInChildren<TextMeshProUGUI>(true))
         {
-            if (!string.IsNullOrEmpty(tmp.text) && tmp.text.Contains("Ruang"))
+            if (!string.IsNullOrEmpty(tmp.text) && (tmp.text.Contains("Ruang") || tmp.text.Contains("Game") || tmp.text.Contains("Permainan")))
             {
                 tmp.text = title;
                 return;
