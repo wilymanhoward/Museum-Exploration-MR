@@ -715,12 +715,29 @@ public class ArtifactManager : MonoBehaviour
             item.AddComponent<UIButtonAudio>();
         }
 
-        UnityEngine.UI.Image thumbImg = item.transform.Find("Thumb")?.GetComponent<UnityEngine.UI.Image>();
+        Transform thumbT = item.transform.Find("Thumb") ?? item.transform.Find("Image");
+        UnityEngine.UI.Image thumbImg = thumbT?.GetComponent<UnityEngine.UI.Image>();
         if (thumbImg != null)
         {
-            if (artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null)
+            Sprite artSprite = (artifact.images != null && artifact.images.Length > 0 && artifact.images[0].sprite != null)
+                ? artifact.images[0].sprite
+                : null;
+
+            if (artSprite == null && !string.IsNullOrEmpty(artifact.artifactId))
             {
-                thumbImg.sprite = artifact.images[0].sprite;
+                foreach (Sprite s in Resources.FindObjectsOfTypeAll<Sprite>())
+                {
+                    if (s != null && s.name.ToLower().Contains(artifact.artifactId.ToLower()))
+                    {
+                        artSprite = s;
+                        break;
+                    }
+                }
+            }
+
+            if (artSprite != null)
+            {
+                thumbImg.sprite = artSprite;
                 thumbImg.preserveAspect = true;
                 thumbImg.color = Color.white;
                 thumbImg.gameObject.SetActive(true);

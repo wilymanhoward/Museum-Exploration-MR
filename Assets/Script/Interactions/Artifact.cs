@@ -1754,6 +1754,7 @@ public class Artifact : MonoBehaviour
         if (values[3] == null) values[3] = cachedDetailCardRect.Find("Value_3")?.GetComponent<TextMeshProUGUI>();
 
         string[] defaultLabelTexts = new string[4] { "Tempoh Masa", "Lokasi", "Dimensi", "Material" };
+        string[] iconSpriteNames = new string[4] { "25", "26", "27", "28" };
 
         float[] rowMinY = new float[4] { 0.67f, 0.48f, 0.29f, 0.04f };
         float[] rowMaxY = new float[4] { 0.85f, 0.65f, 0.46f, 0.27f };
@@ -1770,32 +1771,61 @@ public class Artifact : MonoBehaviour
 
             // (a) Configure Icon
             Transform iconT = icons[i];
+            if (iconT == null)
+            {
+                string targetName = (i == 0) ? "Image" : $"Image ({i})";
+                iconT = cachedDetailCardRect.Find(targetName);
+                if (iconT == null)
+                {
+                    GameObject newIconGo = new GameObject(targetName);
+                    newIconGo.transform.SetParent(cachedDetailCardRect, false);
+                    iconT = newIconGo.transform;
+                    Image newImg = newIconGo.AddComponent<Image>();
+                    foreach (Sprite s in Resources.FindObjectsOfTypeAll<Sprite>())
+                    {
+                        if (s != null && s.name == iconSpriteNames[i])
+                        {
+                            newImg.sprite = s;
+                            break;
+                        }
+                    }
+                }
+                icons[i] = iconT;
+            }
+
             if (iconT != null)
             {
                 iconT.gameObject.SetActive(true);
                 RectTransform irt = iconT as RectTransform;
                 if (irt != null)
                 {
-                    irt.anchorMin = new Vector2(0.04f, rMin);
-                    irt.anchorMax = new Vector2(0.04f, rMax);
-                    if (i == 3)
-                    {
-                        irt.pivot = new Vector2(0f, 0.85f);
-                        irt.anchoredPosition = new Vector2(0f, 0f);
-                    }
-                    else
-                    {
-                        irt.pivot = new Vector2(0f, 0.5f);
-                        irt.anchoredPosition = Vector2.zero;
-                    }
+                    // Point anchor on Y: prevents RectTransform from stretching across row height
+                    float iconAnchorY = (i == 3) ? Mathf.Lerp(rMin, rMax, 0.82f) : (rMin + rMax) * 0.5f;
+                    irt.anchorMin = new Vector2(0.04f, iconAnchorY);
+                    irt.anchorMax = new Vector2(0.04f, iconAnchorY);
+                    irt.pivot = new Vector2(0f, 0.5f);
+                    irt.anchoredPosition = Vector2.zero;
                     irt.sizeDelta = new Vector2(18f, 18f);
                     irt.localScale = Vector3.one;
+                    irt.localRotation = Quaternion.identity;
                 }
                 Image img = iconT.GetComponent<Image>();
                 if (img != null)
                 {
                     img.color = goldIconColor;
                     img.raycastTarget = false;
+                    img.preserveAspect = true;
+                    if (img.sprite == null)
+                    {
+                        foreach (Sprite s in Resources.FindObjectsOfTypeAll<Sprite>())
+                        {
+                            if (s != null && s.name == iconSpriteNames[i])
+                            {
+                                img.sprite = s;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1954,17 +1984,20 @@ public class Artifact : MonoBehaviour
             RectTransform irt = iconT as RectTransform;
             if (irt != null)
             {
-                irt.anchorMin = new Vector2(0.04f, 0.88f);
-                irt.anchorMax = new Vector2(0.04f, 0.98f);
+                irt.anchorMin = new Vector2(0.04f, 0.93f);
+                irt.anchorMax = new Vector2(0.04f, 0.93f);
                 irt.pivot = new Vector2(0f, 0.5f);
                 irt.anchoredPosition = Vector2.zero;
                 irt.sizeDelta = new Vector2(18f, 18f);
+                irt.localScale = Vector3.one;
+                irt.localRotation = Quaternion.identity;
             }
             Image img = iconT.GetComponent<Image>();
             if (img != null)
             {
                 img.color = new Color(0.92f, 0.80f, 0.45f, 0.95f);
                 img.raycastTarget = false;
+                img.preserveAspect = true;
             }
         }
 

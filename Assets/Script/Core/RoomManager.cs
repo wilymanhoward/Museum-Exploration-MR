@@ -554,8 +554,8 @@ public class RoomManager : MonoBehaviour
             itemRect.sizeDelta = new Vector2(itemRect.sizeDelta.x > 0 ? itemRect.sizeDelta.x : 300f, 65f);
         }
 
-        // 2. Thumbnail Image (Thumb)
-        Transform thumbT = item.transform.Find("Thumb");
+        // 2. Thumbnail Image (Thumb / Image)
+        Transform thumbT = item.transform.Find("Thumb") ?? item.transform.Find("Image");
         UnityEngine.UI.Image thumbImg = null;
         if (thumbT == null)
         {
@@ -602,6 +602,13 @@ public class RoomManager : MonoBehaviour
             {
                 thumbImg.gameObject.SetActive(false);
             }
+        }
+
+        // Deactivate any alternate untracked Image child if no photo exists (prevents white square)
+        Transform altImg = item.transform.Find("Image");
+        if (altImg != null && altImg != thumbT && (artifact.images == null || artifact.images.Length == 0))
+        {
+            altImg.gameObject.SetActive(false);
         }
 
         // 3. Resolve & Update Text Components (NumText, NameText, StatusText)

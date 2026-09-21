@@ -227,19 +227,46 @@ public class Room : MonoBehaviour
                     }
                 }
 
-                Image[] images = itemObj.GetComponentsInChildren<Image>(true);
-                foreach (Image img in images)
+                // If artifact does not have a photo (e.g. Barangan Tembaga), completely hide thumbnail so no white square appears
+                Transform thumbT = itemObj.transform.Find("Thumb") ?? itemObj.transform.Find("Image");
+                if (thumbT != null)
                 {
-                    if (img != null && img.gameObject != itemObj && img.gameObject.name.ToLower() != "background")
+                    Image thumbImg = thumbT.GetComponent<Image>();
+                    if (thumbImg != null)
                     {
                         if (artSprite != null)
                         {
-                            img.sprite = artSprite;
-                            img.preserveAspect = true;
-                            img.color = Color.white;
-                            img.gameObject.SetActive(true);
+                            thumbImg.sprite = artSprite;
+                            thumbImg.preserveAspect = true;
+                            thumbImg.color = Color.white;
+                            thumbImg.gameObject.SetActive(true);
                         }
-                        break;
+                        else
+                        {
+                            thumbImg.gameObject.SetActive(false);
+                        }
+                    }
+                }
+                else
+                {
+                    Image[] images = itemObj.GetComponentsInChildren<Image>(true);
+                    foreach (Image img in images)
+                    {
+                        if (img != null && img.gameObject != itemObj && img.gameObject.name.ToLower() != "background" && !img.gameObject.name.ToLower().Contains("icon"))
+                        {
+                            if (artSprite != null)
+                            {
+                                img.sprite = artSprite;
+                                img.preserveAspect = true;
+                                img.color = Color.white;
+                                img.gameObject.SetActive(true);
+                            }
+                            else
+                            {
+                                img.gameObject.SetActive(false);
+                            }
+                            break;
+                        }
                     }
                 }
 
