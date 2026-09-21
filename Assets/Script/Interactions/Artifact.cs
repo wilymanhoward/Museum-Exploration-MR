@@ -1083,10 +1083,18 @@ public class Artifact : MonoBehaviour
             }
         }
 
-        // 7. Force layout rebuild for description scrollview to adapt to new container width
+        // 7. Tidy and align both cards to the new layout mode
+        TidyDetailCard();
+        TidyTentangCard();
+
+        // 8. Force layout rebuild for cards and description scrollview to adapt to new container width
         if (cachedTentangCardRect != null)
         {
             LayoutRebuilder.ForceRebuildLayoutImmediate(cachedTentangCardRect);
+        }
+        if (cachedDetailCardRect != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(cachedDetailCardRect);
         }
     }
 
@@ -1594,56 +1602,436 @@ public class Artifact : MonoBehaviour
     {
         if (data == null) return;
 
+        if (cachedDetailCardRect == null) CacheLayoutReferences();
+        if (cachedDetailCardRect != null)
+        {
+            if (timePeriodText == null) timePeriodText = cachedDetailCardRect.Find("Value_0")?.GetComponent<TextMeshProUGUI>();
+            if (locationText == null) locationText = cachedDetailCardRect.Find("Value_1")?.GetComponent<TextMeshProUGUI>();
+            if (dimensionText == null) dimensionText = cachedDetailCardRect.Find("Value_2")?.GetComponent<TextMeshProUGUI>();
+            if (materialText == null) materialText = cachedDetailCardRect.Find("Value_3")?.GetComponent<TextMeshProUGUI>();
+        }
+
         SetDetailRow(timePeriodText, data.timePeriod);
         SetDetailRow(locationText, data.location);
-        SetDetailRow(dimensionText, (data.height > 0 || data.width > 0 || data.length > 0) ? $"{data.height}cm x {data.width}cm x {data.length}cm" : "-");
+        bool hasDimensions = (data.height > 0 || data.width > 0 || data.length > 0);
+        SetDetailRow(dimensionText, hasDimensions ? $"{data.height}cm x {data.width}cm x {data.length}cm" : "Tiada maklumat");
         SetDetailRow(materialText, data.material);
+
+        TidyDetailCard();
+        TidyTentangCard();
     }
 
     private void SetDetailRow(TextMeshProUGUI tmp, string text)
     {
         if (tmp == null) return;
 
-        tmp.text = string.IsNullOrEmpty(text) ? "-" : text;
+        bool isMissing = string.IsNullOrEmpty(text) || text.Trim() == "-" || text.Trim() == "0cm x 0cm x 0cm";
+        tmp.text = isMissing ? "Tiada maklumat" : text;
         tmp.enableWordWrapping = true;
         tmp.enableAutoSizing = true;
-        tmp.fontSizeMin = 6.5f;
-        tmp.fontSizeMax = 10f;
+        tmp.fontSizeMin = 7.5f;
+        tmp.fontSizeMax = 11.5f;
         tmp.overflowMode = TextOverflowModes.Ellipsis;
         tmp.alignment = TextAlignmentOptions.MidlineRight;
         tmp.raycastTarget = true;
-        tmp.color = new Color(0.92f, 0.92f, 0.92f, 1f);
+        tmp.color = isMissing ? new Color(0.65f, 0.68f, 0.72f, 0.75f) : new Color(0.98f, 0.97f, 0.94f, 1f);
+    }
 
-        RectTransform rt = tmp.rectTransform;
-        if (rt != null)
+    /// <summary>
+    /// Tidies and aligns all icons, labels, values, and dividers in DetailArtefakCard ("Butiran Artifak").
+    /// Deactivates rogue separators and stray icons, aligns 4 distinct rows with gold icons,
+    /// and formats missing or incomplete values with elegant "Tiada maklumat" typography.
+    /// </summary>
+    private void TidyDetailCard()
+    {
+        if (cachedDetailCardRect == null)
         {
-            // Confine value text to the right side of the card so it never overlaps left labels
-            Vector2 min = rt.anchorMin;
-            Vector2 max = rt.anchorMax;
-            min.x = Mathf.Max(min.x, 0.44f);
-            max.x = Mathf.Min(max.x, 0.96f);
-            rt.anchorMin = min;
-            rt.anchorMax = max;
-            rt.offsetMin = new Vector2(0f, rt.offsetMin.y);
-            rt.offsetMax = new Vector2(0f, rt.offsetMax.y);
-            rt.pivot = new Vector2(1f, 0.5f);
+            CacheLayoutReferences();
+        }
+        if (cachedDetailCardRect == null) return;
+
+        // 1. Permanently hide rogue separators and stray decorative icons (like floating lightbulb)
+        Transform tSeparators = cachedDetailCardRect.Find("Separators");
+        if (tSeparators != null) tSeparators.gameObject.SetActive(false);
+
+        Transform tLightbulb = cachedDetailCardRect.Find("Image (4)");
+        if (tLightbulb != null) tLightbulb.gameObject.SetActive(false);
+
+        foreach (Transform child in cachedDetailCardRect)
+        {
+            if (child == null) continue;
+            string n = child.name;
+            if (n == "Separators" || n == "Line" || n == "Separator" || n == "Line (1)" || n == "Line (2)" || n == "Image (4)")
+            {
+                child.gameObject.SetActive(false);
+            }
         }
 
-        // Tidy up sibling label (e.g. "Tempoh Masa", "Lokasi", "Dimensi", "Material")
-        if (tmp.transform.parent != null)
+        // 2. Resolve Card Header ("Butiran Artifak")
+        Transform headerT = cachedDetailCardRect.Find("Header") ?? cachedDetailCardRect.Find("HeaderText");
+        if (headerT == null)
         {
-            foreach (TextMeshProUGUI sib in tmp.transform.parent.GetComponentsInChildren<TextMeshProUGUI>(true))
+            foreach (var t in cachedDetailCardRect.GetComponentsInChildren<TextMeshProUGUI>(true))
             {
-                if (sib != null && sib != tmp && sib != timePeriodText && sib != locationText && sib != dimensionText && sib != materialText)
+                if (t != null && (t.name.ToLower().Contains("header") || t.text.ToLower().Contains("butiran") || t.text.ToLower().Contains("detail")))
                 {
-                    sib.alignment = TextAlignmentOptions.MidlineLeft;
-                    RectTransform srt = sib.rectTransform;
-                    if (srt != null && srt.anchorMax.x > 0.43f)
+                    headerT = t.transform;
+                    break;
+                }
+            }
+        }
+
+        if (headerT != null)
+        {
+            RectTransform hRect = headerT as RectTransform;
+            if (hRect != null)
+            {
+                hRect.anchorMin = new Vector2(0.05f, 0.88f);
+                hRect.anchorMax = new Vector2(0.95f, 0.98f);
+                hRect.offsetMin = Vector2.zero;
+                hRect.offsetMax = Vector2.zero;
+                hRect.pivot = new Vector2(0f, 0.5f);
+            }
+
+            TextMeshProUGUI hTmp = headerT.GetComponent<TextMeshProUGUI>();
+            if (hTmp != null)
+            {
+                hTmp.text = "Butiran Artifak";
+                hTmp.fontStyle = FontStyles.Bold;
+                hTmp.fontSize = 15f;
+                hTmp.color = new Color(0.98f, 0.97f, 0.94f, 1f); // Warm ivory
+                hTmp.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+        }
+
+        // 3. Subtle gold hairline divider under header
+        Transform headerDivT = cachedDetailCardRect.Find("HeaderDividerLine");
+        if (headerDivT == null)
+        {
+            GameObject divGo = new GameObject("HeaderDividerLine");
+            headerDivT = divGo.transform;
+            headerDivT.SetParent(cachedDetailCardRect, false);
+            Image divImg = divGo.AddComponent<Image>();
+            divImg.color = new Color(0.85f, 0.72f, 0.40f, 0.35f); // Subtle museum gold
+            divImg.raycastTarget = false;
+        }
+        if (headerDivT != null)
+        {
+            headerDivT.gameObject.SetActive(true);
+            RectTransform divRect = headerDivT as RectTransform;
+            if (divRect != null)
+            {
+                divRect.anchorMin = new Vector2(0.04f, 0.865f);
+                divRect.anchorMax = new Vector2(0.96f, 0.865f);
+                divRect.pivot = new Vector2(0.5f, 0.5f);
+                divRect.anchoredPosition = Vector2.zero;
+                divRect.sizeDelta = new Vector2(0f, 1.5f);
+            }
+        }
+
+        // 4. Resolve 4 Rows
+        // Row 0: Tempoh Masa (Image, Label_0, Value_0 / timePeriodText)
+        // Row 1: Lokasi      (Image (1), Label_1, Value_1 / locationText)
+        // Row 2: Dimensi     (Image (2), Label_2, Value_2 / dimensionText)
+        // Row 3: Material    (Image (3), Label_3, Value_3 / materialText)
+        Transform[] icons = new Transform[4];
+        Transform[] labels = new Transform[4];
+        TextMeshProUGUI[] values = new TextMeshProUGUI[4] { timePeriodText, locationText, dimensionText, materialText };
+
+        icons[0] = cachedDetailCardRect.Find("Image");
+        icons[1] = cachedDetailCardRect.Find("Image (1)");
+        icons[2] = cachedDetailCardRect.Find("Image (2)");
+        icons[3] = cachedDetailCardRect.Find("Image (3)");
+
+        labels[0] = cachedDetailCardRect.Find("Label_0");
+        labels[1] = cachedDetailCardRect.Find("Label_1");
+        labels[2] = cachedDetailCardRect.Find("Label_2");
+        labels[3] = cachedDetailCardRect.Find("Label_3");
+
+        if (values[0] == null) values[0] = cachedDetailCardRect.Find("Value_0")?.GetComponent<TextMeshProUGUI>();
+        if (values[1] == null) values[1] = cachedDetailCardRect.Find("Value_1")?.GetComponent<TextMeshProUGUI>();
+        if (values[2] == null) values[2] = cachedDetailCardRect.Find("Value_2")?.GetComponent<TextMeshProUGUI>();
+        if (values[3] == null) values[3] = cachedDetailCardRect.Find("Value_3")?.GetComponent<TextMeshProUGUI>();
+
+        string[] defaultLabelTexts = new string[4] { "Tempoh Masa", "Lokasi", "Dimensi", "Material" };
+
+        float[] rowMinY = new float[4] { 0.67f, 0.48f, 0.29f, 0.04f };
+        float[] rowMaxY = new float[4] { 0.85f, 0.65f, 0.46f, 0.27f };
+
+        Color goldIconColor = new Color(0.92f, 0.80f, 0.45f, 0.95f);
+        Color labelColor = new Color(0.88f, 0.82f, 0.70f, 1f);
+        Color valueColor = new Color(0.98f, 0.97f, 0.94f, 1f);
+        Color mutedValueColor = new Color(0.65f, 0.68f, 0.72f, 0.75f);
+
+        for (int i = 0; i < 4; i++)
+        {
+            float rMin = rowMinY[i];
+            float rMax = rowMaxY[i];
+
+            // (a) Configure Icon
+            Transform iconT = icons[i];
+            if (iconT != null)
+            {
+                iconT.gameObject.SetActive(true);
+                RectTransform irt = iconT as RectTransform;
+                if (irt != null)
+                {
+                    irt.anchorMin = new Vector2(0.04f, rMin);
+                    irt.anchorMax = new Vector2(0.04f, rMax);
+                    if (i == 3)
                     {
-                        Vector2 smax = srt.anchorMax;
-                        smax.x = 0.43f;
-                        srt.anchorMax = smax;
+                        irt.pivot = new Vector2(0f, 0.85f);
+                        irt.anchoredPosition = new Vector2(0f, 0f);
                     }
+                    else
+                    {
+                        irt.pivot = new Vector2(0f, 0.5f);
+                        irt.anchoredPosition = Vector2.zero;
+                    }
+                    irt.sizeDelta = new Vector2(18f, 18f);
+                    irt.localScale = Vector3.one;
+                }
+                Image img = iconT.GetComponent<Image>();
+                if (img != null)
+                {
+                    img.color = goldIconColor;
+                    img.raycastTarget = false;
+                }
+            }
+
+            // (b) Configure Label
+            Transform labelT = labels[i];
+            if (labelT != null)
+            {
+                labelT.gameObject.SetActive(true);
+                RectTransform lrt = labelT as RectTransform;
+                if (lrt != null)
+                {
+                    lrt.anchorMin = new Vector2(0.04f, rMin);
+                    lrt.anchorMax = new Vector2(0.40f, rMax);
+                    lrt.pivot = (i == 3) ? new Vector2(0f, 0.85f) : new Vector2(0f, 0.5f);
+                    lrt.offsetMin = new Vector2(26f, 0f);
+                    lrt.offsetMax = Vector2.zero;
+                    lrt.localScale = Vector3.one;
+                }
+                TextMeshProUGUI ltmp = labelT.GetComponent<TextMeshProUGUI>();
+                if (ltmp != null)
+                {
+                    if (string.IsNullOrEmpty(ltmp.text) || ltmp.text == "-" || ltmp.text.StartsWith("Label"))
+                    {
+                        ltmp.text = defaultLabelTexts[i];
+                    }
+                    ltmp.alignment = (i == 3) ? TextAlignmentOptions.TopLeft : TextAlignmentOptions.MidlineLeft;
+                    ltmp.fontStyle = FontStyles.Bold;
+                    ltmp.fontSize = 11.5f;
+                    ltmp.enableAutoSizing = true;
+                    ltmp.fontSizeMin = 8.5f;
+                    ltmp.fontSizeMax = 12f;
+                    ltmp.color = labelColor;
+                }
+            }
+
+            // (c) Configure Value
+            TextMeshProUGUI vtmp = values[i];
+            if (vtmp != null)
+            {
+                vtmp.gameObject.SetActive(true);
+                RectTransform vrt = vtmp.rectTransform;
+                if (vrt != null)
+                {
+                    vrt.anchorMin = new Vector2(0.42f, rMin);
+                    vrt.anchorMax = new Vector2(0.96f, rMax);
+                    vrt.pivot = (i == 3) ? new Vector2(1f, 0.85f) : new Vector2(1f, 0.5f);
+                    vrt.offsetMin = Vector2.zero;
+                    vrt.offsetMax = Vector2.zero;
+                    vrt.localScale = Vector3.one;
+                }
+
+                bool isMissing = string.IsNullOrEmpty(vtmp.text) || vtmp.text.Trim() == "-" || vtmp.text.Trim() == "0cm x 0cm x 0cm";
+                if (isMissing)
+                {
+                    vtmp.text = "Tiada maklumat";
+                    vtmp.color = mutedValueColor;
+                }
+                else
+                {
+                    vtmp.color = valueColor;
+                }
+
+                vtmp.alignment = (i == 3) ? TextAlignmentOptions.TopRight : TextAlignmentOptions.MidlineRight;
+                vtmp.enableWordWrapping = true;
+                vtmp.enableAutoSizing = true;
+                vtmp.fontSizeMin = 7.5f;
+                vtmp.fontSizeMax = 11.5f;
+                vtmp.overflowMode = TextOverflowModes.Ellipsis;
+            }
+
+            // (d) Hairline divider under rows 0, 1, 2
+            if (i < 3)
+            {
+                string divName = $"RowDivider_{i}";
+                Transform rowDivT = cachedDetailCardRect.Find(divName);
+                if (rowDivT == null)
+                {
+                    GameObject rowDivGo = new GameObject(divName);
+                    rowDivT = rowDivGo.transform;
+                    rowDivT.SetParent(cachedDetailCardRect, false);
+                    Image rdImg = rowDivGo.AddComponent<Image>();
+                    rdImg.color = new Color(1f, 1f, 1f, 0.08f);
+                    rdImg.raycastTarget = false;
+                }
+                if (rowDivT != null)
+                {
+                    rowDivT.gameObject.SetActive(true);
+                    RectTransform rdRect = rowDivT as RectTransform;
+                    if (rdRect != null)
+                    {
+                        rdRect.anchorMin = new Vector2(0.04f, rMin - 0.008f);
+                        rdRect.anchorMax = new Vector2(0.96f, rMin - 0.008f);
+                        rdRect.pivot = new Vector2(0.5f, 0.5f);
+                        rdRect.anchoredPosition = Vector2.zero;
+                        rdRect.sizeDelta = new Vector2(0f, 1f);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Tidies and aligns TentangArtefakCard ("Tentang Artifak Ini"),
+    /// adding header styling, clean hairline divider, and refined scrollbar & viewport padding.
+    /// </summary>
+    private void TidyTentangCard()
+    {
+        if (cachedTentangCardRect == null)
+        {
+            CacheLayoutReferences();
+        }
+        if (cachedTentangCardRect == null) return;
+
+        // 1. Resolve Header ("Tentang Artifak Ini")
+        Transform headerT = cachedTentangCardRect.Find("Header") ?? cachedTentangCardRect.Find("HeaderText");
+        if (headerT == null)
+        {
+            foreach (var t in cachedTentangCardRect.GetComponentsInChildren<TextMeshProUGUI>(true))
+            {
+                if (t != null && (t.name.ToLower().Contains("header") || t.text.ToLower().Contains("tentang")))
+                {
+                    headerT = t.transform;
+                    break;
+                }
+            }
+        }
+
+        if (headerT != null)
+        {
+            RectTransform hRect = headerT as RectTransform;
+            if (hRect != null)
+            {
+                hRect.anchorMin = new Vector2(0.05f, 0.88f);
+                hRect.anchorMax = new Vector2(0.95f, 0.98f);
+                hRect.offsetMin = new Vector2(26f, 0f);
+                hRect.offsetMax = Vector2.zero;
+                hRect.pivot = new Vector2(0f, 0.5f);
+            }
+
+            TextMeshProUGUI hTmp = headerT.GetComponent<TextMeshProUGUI>();
+            if (hTmp != null)
+            {
+                hTmp.text = "Tentang Artifak Ini";
+                hTmp.fontStyle = FontStyles.Bold;
+                hTmp.fontSize = 15f;
+                hTmp.color = new Color(0.98f, 0.97f, 0.94f, 1f);
+                hTmp.alignment = TextAlignmentOptions.MidlineLeft;
+            }
+        }
+
+        // Header Info Icon
+        Transform iconT = cachedTentangCardRect.Find("Icon") ?? cachedTentangCardRect.Find("HeaderIcon");
+        if (iconT != null)
+        {
+            iconT.gameObject.SetActive(true);
+            RectTransform irt = iconT as RectTransform;
+            if (irt != null)
+            {
+                irt.anchorMin = new Vector2(0.04f, 0.88f);
+                irt.anchorMax = new Vector2(0.04f, 0.98f);
+                irt.pivot = new Vector2(0f, 0.5f);
+                irt.anchoredPosition = Vector2.zero;
+                irt.sizeDelta = new Vector2(18f, 18f);
+            }
+            Image img = iconT.GetComponent<Image>();
+            if (img != null)
+            {
+                img.color = new Color(0.92f, 0.80f, 0.45f, 0.95f);
+                img.raycastTarget = false;
+            }
+        }
+
+        // 2. Subtle gold hairline divider under header
+        Transform headerDivT = cachedTentangCardRect.Find("HeaderDividerLine");
+        if (headerDivT == null)
+        {
+            GameObject divGo = new GameObject("HeaderDividerLine");
+            headerDivT = divGo.transform;
+            headerDivT.SetParent(cachedTentangCardRect, false);
+            Image divImg = divGo.AddComponent<Image>();
+            divImg.color = new Color(0.85f, 0.72f, 0.40f, 0.35f);
+            divImg.raycastTarget = false;
+        }
+        if (headerDivT != null)
+        {
+            headerDivT.gameObject.SetActive(true);
+            RectTransform divRect = headerDivT as RectTransform;
+            if (divRect != null)
+            {
+                divRect.anchorMin = new Vector2(0.04f, 0.865f);
+                divRect.anchorMax = new Vector2(0.96f, 0.865f);
+                divRect.pivot = new Vector2(0.5f, 0.5f);
+                divRect.anchoredPosition = Vector2.zero;
+                divRect.sizeDelta = new Vector2(0f, 1.5f);
+            }
+        }
+
+        // 3. Ensure ScrollView has clean anchors and padding
+        if (descriptionScrollRect != null)
+        {
+            RectTransform sRect = descriptionScrollRect.transform as RectTransform;
+            if (sRect != null)
+            {
+                sRect.anchorMin = new Vector2(0.03f, 0.03f);
+                sRect.anchorMax = new Vector2(0.97f, 0.84f);
+                sRect.offsetMin = Vector2.zero;
+                sRect.offsetMax = Vector2.zero;
+            }
+
+            if (descriptionScrollRect.viewport != null)
+            {
+                descriptionScrollRect.viewport.offsetMin = new Vector2(4f, 12f);  // 12px bottom padding so text never touches bottom edge!
+                descriptionScrollRect.viewport.offsetMax = new Vector2(-14f, -4f); // 14px right margin for scrollbar
+            }
+
+            if (descriptionScrollRect.verticalScrollbar != null)
+            {
+                Scrollbar sb = descriptionScrollRect.verticalScrollbar;
+                RectTransform sbRect = sb.transform as RectTransform;
+                if (sbRect != null)
+                {
+                    sbRect.anchorMin = new Vector2(1f, 0f);
+                    sbRect.anchorMax = new Vector2(1f, 1f);
+                    sbRect.sizeDelta = new Vector2(4.5f, 0f);
+                    sbRect.anchoredPosition = new Vector2(-2f, 0f);
+                }
+
+                Image trackImg = sb.GetComponent<Image>();
+                if (trackImg != null)
+                {
+                    trackImg.color = new Color(0.10f, 0.12f, 0.16f, 0.40f);
+                }
+
+                if (sb.targetGraphic is Image handleImg)
+                {
+                    handleImg.color = new Color(0.88f, 0.72f, 0.35f, 0.85f); // Museum gold!
                 }
             }
         }
@@ -1663,11 +2051,12 @@ public class Artifact : MonoBehaviour
             descriptionText.enableWordWrapping = true;
             descriptionText.overflowMode = TextOverflowModes.Overflow;
             descriptionText.alignment = TextAlignmentOptions.TopLeft;
-            descriptionText.color = new Color(0.92f, 0.92f, 0.92f, 1f);
+            descriptionText.color = new Color(0.95f, 0.94f, 0.91f, 0.95f);
+            descriptionText.lineSpacing = 6f;
+            descriptionText.fontSize = 12.5f;
             descriptionText.raycastTarget = true;
             descriptionText.maskable = true;
 
-            // Ensure scale and position are clean
             descriptionText.transform.localPosition = Vector3.zero;
             descriptionText.transform.localScale = Vector3.one;
             descriptionText.transform.localRotation = Quaternion.identity;
@@ -1678,7 +2067,6 @@ public class Artifact : MonoBehaviour
             tRect.pivot = new Vector2(0.5f, 1f);
             tRect.anchoredPosition = Vector2.zero;
 
-            // Compute exact height required for full text
             float containerWidth = 270f;
             if (descriptionScrollRect != null && descriptionScrollRect.viewport != null && descriptionScrollRect.viewport.rect.width > 20f)
             {
@@ -1702,6 +2090,8 @@ public class Artifact : MonoBehaviour
                 descriptionScrollRect.verticalNormalizedPosition = 1f; // Reset scroll to top
             }
         }
+
+        TidyTentangCard();
     }
 
     private void NormalizeMalaysianMalayUI()
@@ -1785,7 +2175,7 @@ public class Artifact : MonoBehaviour
         scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
         scrollBg.raycastTarget = true;
 
-        // 2. Viewport (clips overflowing content with Stencil Mask, with 12px right margin for scrollbar track)
+        // 2. Viewport (clips overflowing content with Stencil Mask, with 14px right margin and 12px bottom padding)
         GameObject viewportGo = new GameObject("Viewport");
         RectTransform viewportRect = viewportGo.AddComponent<RectTransform>();
         viewportGo.transform.SetParent(scrollGo.transform, false);
@@ -1795,8 +2185,8 @@ public class Artifact : MonoBehaviour
 
         viewportRect.anchorMin = Vector2.zero;
         viewportRect.anchorMax = Vector2.one;
-        viewportRect.offsetMin = Vector2.zero;
-        viewportRect.offsetMax = new Vector2(-12f, 0f);
+        viewportRect.offsetMin = new Vector2(4f, 12f);
+        viewportRect.offsetMax = new Vector2(-14f, -4f);
 
         Image viewportImg = viewportGo.AddComponent<Image>();
         viewportImg.color = Color.white;
@@ -1909,13 +2299,13 @@ public class Artifact : MonoBehaviour
         sbRect.anchorMin = new Vector2(1f, 0f);
         sbRect.anchorMax = new Vector2(1f, 1f);
         sbRect.pivot = new Vector2(1f, 0.5f);
-        sbRect.anchoredPosition = Vector2.zero;
-        sbRect.sizeDelta = new Vector2(6f, 0f);
+        sbRect.anchoredPosition = new Vector2(-2f, 0f);
+        sbRect.sizeDelta = new Vector2(4.5f, 0f);
 
         Image trackImg = scrollbarGo.AddComponent<Image>();
         trackImg.sprite = roundedRect;
         trackImg.type = Image.Type.Sliced;
-        trackImg.color = new Color(1f, 1f, 1f, 0.15f);
+        trackImg.color = new Color(0.10f, 0.12f, 0.16f, 0.40f); // Translucent dark obsidian groove
         trackImg.raycastTarget = true;
 
         Scrollbar sbComp = scrollbarGo.AddComponent<Scrollbar>();
@@ -1938,7 +2328,7 @@ public class Artifact : MonoBehaviour
         Image handleImg = handleGo.AddComponent<Image>();
         handleImg.sprite = roundedRect;
         handleImg.type = Image.Type.Sliced;
-        handleImg.color = new Color(0.90f, 0.93f, 0.63f, 0.85f);
+        handleImg.color = new Color(0.88f, 0.72f, 0.35f, 0.85f); // Radiant Museum Gold
         handleImg.raycastTarget = true;
 
         sbComp.targetGraphic = handleImg;
