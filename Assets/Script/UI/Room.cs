@@ -175,6 +175,7 @@ public class Room : MonoBehaviour
                 // 1. Update ALL TMP text components, eliminating static template text like "MONA LISA"
                 TextMeshProUGUI[] tmps = itemObj.GetComponentsInChildren<TextMeshProUGUI>(true);
                 bool titleUpdated = false;
+                TextMeshProUGUI activeTitleTmp = null;
                 foreach (TextMeshProUGUI tmp in tmps)
                 {
                     if (tmp == null) continue;
@@ -186,10 +187,11 @@ public class Room : MonoBehaviour
                         tmp.text = formattedText;
                         tmp.gameObject.SetActive(true);
                         titleUpdated = true;
+                        activeTitleTmp = tmp;
                     }
-                    else if (textLower.Contains("mona") || textLower.Contains("lisa"))
+                    else
                     {
-                        // Hide static template text object
+                        // Hide secondary template text objects (e.g. duplicate NameText / Mona Lisa)
                         tmp.gameObject.SetActive(false);
                     }
                 }
@@ -198,6 +200,7 @@ public class Room : MonoBehaviour
                 {
                     tmps[0].text = formattedText;
                     tmps[0].gameObject.SetActive(true);
+                    activeTitleTmp = tmps[0];
                 }
                 else if (tmps.Length == 0)
                 {
@@ -227,6 +230,8 @@ public class Room : MonoBehaviour
                     }
                 }
 
+                bool hasPhoto = (artSprite != null);
+
                 // If artifact does not have a photo (e.g. Barangan Tembaga), completely hide thumbnail so no white square appears
                 Transform thumbT = itemObj.transform.Find("Thumb") ?? itemObj.transform.Find("Image");
                 if (thumbT != null)
@@ -234,7 +239,7 @@ public class Room : MonoBehaviour
                     Image thumbImg = thumbT.GetComponent<Image>();
                     if (thumbImg != null)
                     {
-                        if (artSprite != null)
+                        if (hasPhoto)
                         {
                             thumbImg.sprite = artSprite;
                             thumbImg.preserveAspect = true;
@@ -254,7 +259,7 @@ public class Room : MonoBehaviour
                     {
                         if (img != null && img.gameObject != itemObj && img.gameObject.name.ToLower() != "background" && !img.gameObject.name.ToLower().Contains("icon"))
                         {
-                            if (artSprite != null)
+                            if (hasPhoto)
                             {
                                 img.sprite = artSprite;
                                 img.preserveAspect = true;
@@ -270,7 +275,33 @@ public class Room : MonoBehaviour
                     }
                 }
 
-                // 3. Hook click event
+                // 3. Position and format title text:
+                // When an artifact has no photo (e.g. Barangan Tembaga), shift text forward to 20px to fill the left gap,
+                // and cap right margin at 45px before the chevron icon with auto-sizing so it never collides or overflows.
+                if (activeTitleTmp != null)
+                {
+                    RectTransform textRt = activeTitleTmp.rectTransform;
+                    if (textRt != null)
+                    {
+                        float leftMargin = hasPhoto ? 68f : 20f;
+                        float rightMargin = 45f;
+
+                        textRt.anchorMin = new Vector2(0f, 0f);
+                        textRt.anchorMax = new Vector2(1f, 1f);
+                        textRt.pivot = new Vector2(0f, 0.5f);
+                        textRt.offsetMin = new Vector2(leftMargin, 0f);
+                        textRt.offsetMax = new Vector2(-rightMargin, 0f);
+                    }
+
+                    activeTitleTmp.alignment = TextAlignmentOptions.MidlineLeft;
+                    activeTitleTmp.enableWordWrapping = false;
+                    activeTitleTmp.enableAutoSizing = true;
+                    activeTitleTmp.fontSizeMin = 10f;
+                    activeTitleTmp.fontSizeMax = 15f;
+                    activeTitleTmp.overflowMode = TextOverflowModes.Ellipsis;
+                }
+
+                // 4. Hook click event
                 ArtifactData currentArtifact = artifact;
                 Button btn = itemObj.GetComponent<Button>();
                 if (btn == null) btn = itemObj.GetComponentInChildren<Button>();
