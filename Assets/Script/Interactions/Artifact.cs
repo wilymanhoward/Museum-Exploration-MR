@@ -831,6 +831,20 @@ public class Artifact : MonoBehaviour
     private Vector2 origTentangAnchorMax = new Vector2(0.95f, 0.45f);
     private bool origCardAnchorsCached = false;
 
+    // Multi-photo swipe gallery (identical snapping and interaction model to HistoryPanel)
+    private ScrollRect photoScrollRect;
+    private RectTransform photoContentRect;
+    private PhotoSnapScroller photoSnapScroller;
+    private Transform photoDotsContainer;
+    private readonly System.Collections.Generic.List<Image> photoDotImages = new System.Collections.Generic.List<Image>();
+    private readonly System.Collections.Generic.List<RectTransform> photoDotRects = new System.Collections.Generic.List<RectTransform>();
+    private static readonly Color ActiveDotColor = new Color(0.90f, 0.93f, 0.63f, 1f); // Pale lime yellow accent (#E5EE9C)
+    private static readonly Color InactiveDotColor = new Color(1f, 1f, 1f, 0.35f);
+    private static Sprite cachedCircleSprite;
+    private Button leftArrowBtn;
+    private Button rightArrowBtn;
+    private TextMeshProUGUI imageNavTmp;
+
     public bool HasValidImages(ArtifactData data)
     {
         if (data == null || data.images == null || data.images.Length == 0)
@@ -1098,8 +1112,504 @@ public class Artifact : MonoBehaviour
         }
     }
 
+    #region Swipeable Photo Gallery Functions
+    private void EnsurePhotoScrollView()
+    {
+        if (photoContentRect != null) return;
+
+        CacheLayoutReferences();
+        Transform parentSlot = cachedDisplayFrame != null ? cachedDisplayFrame.transform : (displayImage != null ? displayImage.transform.parent : transform);
+        if (parentSlot == null) return;
+
+        // Check if PhotoScrollView already exists in hierarchy
+        Transform existingScroll = parentSlot.Find("PhotoScrollView");
+        if (existingScroll != null)
+        {
+            photoScrollRect = existingScroll.GetComponent<ScrollRect>();
+            Transform viewport = existingScroll.Find("Viewport");
+            if (viewport != null)
+            {
+                Transform content = viewport.Find("Content");
+                if (content != null) photoContentRect = content.GetComponent<RectTransform>();
+            }
+            photoSnapScroller = existingScroll.GetComponent<PhotoSnapScroller>();
+            if (photoSnapScroller != null)
+            {
+                photoSnapScroller.scrollRect = photoScrollRect;
+                photoSnapScroller.onPageChanged = OnPhotoPageChanged;
+            }
+            EnsurePhotoDotsContainer();
+            return;
+        }
+
+        // Clean any stray 3D colliders inside photo slot so TrackedDeviceGraphicRaycaster can hit UI
+        Collider[] photoColliders = parentSlot.GetComponentsInChildren<Collider>(true);
+        foreach (var col in photoColliders)
+        {
+            if (col.gameObject != gameObject && col.transform.IsChildOf(parentSlot))
+            {
+                Destroy(col);
+            }
+        }
+
+        // 1. Root ScrollView container
+        GameObject scrollGo = new GameObject("PhotoScrollView", typeof(RectTransform), typeof(CanvasGroup), typeof(Image), typeof(ScrollRect), typeof(PhotoSnapScroller));
+        RectTransform scrollRootRect = scrollGo.GetComponent<RectTransform>();
+        scrollGo.transform.SetParent(parentSlot, false);
+        scrollRootRect.anchorMin = new Vector2(0.02f, 0.02f);
+        scrollRootRect.anchorMax = new Vector2(0.98f, 0.98f);
+        scrollRootRect.anchoredPosition = Vector2.zero;
+        scrollRootRect.sizeDelta = Vector2.zero;
+        scrollRootRect.pivot = new Vector2(0.5f, 0.5f);
+
+        Image scrollBg = scrollGo.GetComponent<Image>();
+        scrollBg.color = new Color(1f, 1f, 1f, 0.001f);
+        scrollBg.raycastTarget = true;
+
+        // 2. Viewport - full height with RectMask2D clipping
+        GameObject viewportGo = new GameObject("Viewport", typeof(RectTransform), typeof(RectMask2D), typeof(Image));
+        RectTransform viewportRect = viewportGo.GetComponent<RectTransform>();
+        viewportGo.transform.SetParent(scrollGo.transform, false);
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.offsetMin = Vector2.zero;
+        viewportRect.offsetMax = Vector2.zero;
+        Image viewportImg = viewportGo.GetComponent<Image>();
+        viewportImg.color = new Color(1f, 1f, 1f, 0.001f);
+        viewportImg.raycastTarget = true;
+
+        // 3. Content - horizontal layout
+        GameObject contentGo = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+        photoContentRect = contentGo.GetComponent<RectTransform>();
+        contentGo.transform.SetParent(viewportGo.transform, false);
+        photoContentRect.anchorMin = new Vector2(0f, 0f);
+        photoContentRect.anchorMax = new Vector2(0f, 1f);
+        photoContentRect.pivot = new Vector2(0f, 0.5f);
+        photoContentRect.anchoredPosition = Vector2.zero;
+        photoContentRect.sizeDelta = Vector2.zero;
+
+        HorizontalLayoutGroup hlg = contentGo.GetComponent<HorizontalLayoutGroup>();
+        hlg.spacing = 0f;
+        hlg.childAlignment = TextAnchor.MiddleCenter;
+        hlg.childControlWidth = false;
+        hlg.childControlHeight = true;
+        hlg.childForceExpandWidth = false;
+        hlg.childForceExpandHeight = true;
+        hlg.padding = new RectOffset(0, 0, 0, 0);
+
+        ContentSizeFitter csf = contentGo.GetComponent<ContentSizeFitter>();
+        csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        csf.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        // 4. ScrollRect - horizontal only with snappy deceleration
+        photoScrollRect = scrollGo.GetComponent<ScrollRect>();
+        photoScrollRect.content = photoContentRect;
+        photoScrollRect.viewport = viewportRect;
+        photoScrollRect.horizontal = true;
+        photoScrollRect.vertical = false;
+        photoScrollRect.movementType = ScrollRect.MovementType.Elastic;
+        photoScrollRect.elasticity = 0.1f;
+        photoScrollRect.inertia = true;
+        photoScrollRect.decelerationRate = 0.135f;
+        photoScrollRect.scrollSensitivity = 25f;
+
+        // 5. Page Snap Controller
+        photoSnapScroller = scrollGo.GetComponent<PhotoSnapScroller>();
+        photoSnapScroller.scrollRect = photoScrollRect;
+        photoSnapScroller.onPageChanged = OnPhotoPageChanged;
+
+        // 6. Build pagination dots container
+        EnsurePhotoDotsContainer();
+    }
+
+    private void PopulatePhotoScrollView(ArtifactData data)
+    {
+        EnsurePhotoScrollView();
+        if (photoContentRect == null) return;
+
+        bool hasImages = HasValidImages(data);
+        if (!hasImages)
+        {
+            if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(false);
+            if (photoDotsContainer != null) photoDotsContainer.gameObject.SetActive(false);
+            if (cachedTopNavRow != null) cachedTopNavRow.SetActive(false);
+            return;
+        }
+
+        if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(true);
+
+        // Hide static displayImage so it doesn't show behind or clash with the scrollview
+        if (displayImage != null)
+        {
+            displayImage.gameObject.SetActive(false);
+        }
+
+        // Clear existing photo cards
+        for (int i = photoContentRect.childCount - 1; i >= 0; i--)
+        {
+            Destroy(photoContentRect.GetChild(i).gameObject);
+        }
+
+        Canvas.ForceUpdateCanvases();
+        RectTransform viewportRect = photoScrollRect != null ? photoScrollRect.viewport : null;
+        float viewportWidth = 280f;
+        if (viewportRect != null && viewportRect.rect.width > 50f)
+        {
+            viewportWidth = viewportRect.rect.width;
+        }
+        else if (cachedDisplayFrame != null && cachedDisplayFrame.GetComponent<RectTransform>() != null)
+        {
+            float fw = cachedDisplayFrame.GetComponent<RectTransform>().rect.width;
+            if (fw > 50f) viewportWidth = fw;
+        }
+
+        int validCount = 0;
+        foreach (var artImg in data.images)
+        {
+            if (artImg.sprite == null) continue;
+            validCount++;
+
+            Sprite s = artImg.sprite;
+            GameObject cardGo = new GameObject("PhotoPage_" + validCount, typeof(RectTransform), typeof(LayoutElement));
+            cardGo.transform.SetParent(photoContentRect, false);
+
+            RectTransform cardRect = cardGo.GetComponent<RectTransform>();
+            cardRect.anchorMin = new Vector2(0f, 0f);
+            cardRect.anchorMax = new Vector2(0f, 1f);
+            cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.sizeDelta = new Vector2(viewportWidth, 0f);
+
+            LayoutElement le = cardGo.GetComponent<LayoutElement>();
+            le.preferredWidth = viewportWidth;
+            le.flexibleHeight = 1f;
+
+            // Full-mode photo image container
+            GameObject imgGo = new GameObject("Photo", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(AspectRatioFitter));
+            imgGo.transform.SetParent(cardGo.transform, false);
+            RectTransform imgRt = imgGo.GetComponent<RectTransform>();
+            imgRt.anchorMin = Vector2.zero;
+            imgRt.anchorMax = Vector2.one;
+            imgRt.pivot = new Vector2(0.5f, 0.5f);
+            imgRt.offsetMin = Vector2.zero;
+            imgRt.offsetMax = Vector2.zero;
+
+            Image imgComp = imgGo.GetComponent<Image>();
+            imgComp.sprite = s;
+            imgComp.color = Color.white;
+            imgComp.preserveAspect = true;
+            imgComp.raycastTarget = true;
+
+            AspectRatioFitter fitter = imgGo.GetComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            if (s.rect.height > 0f)
+            {
+                fitter.aspectRatio = (float)s.rect.width / (float)s.rect.height;
+            }
+        }
+
+        if (photoSnapScroller != null)
+        {
+            photoSnapScroller.totalPages = Mathf.Max(1, validCount);
+            photoSnapScroller.currentPage = 0;
+            photoSnapScroller.onPageChanged = OnPhotoPageChanged;
+        }
+
+        BuildPaginationDots(validCount);
+        HookTopNavRowButtons(validCount);
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(photoContentRect);
+
+        if (photoScrollRect != null)
+        {
+            photoScrollRect.horizontalNormalizedPosition = 0f;
+        }
+
+        UpdateNavInfo(0, validCount);
+    }
+
+    private void EnsurePhotoDotsContainer()
+    {
+        if (photoDotsContainer != null && photoDotsContainer.gameObject != null) return;
+
+        Transform parent = photoScrollRect != null ? photoScrollRect.transform : (cachedDisplayFrame != null ? cachedDisplayFrame.transform : transform);
+        GameObject dotsGo = new GameObject("PhotoPaginationDots", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+        photoDotsContainer = dotsGo.transform;
+        dotsGo.transform.SetParent(parent, false);
+
+        RectTransform dotsRt = dotsGo.GetComponent<RectTransform>();
+        dotsRt.anchorMin = new Vector2(0.5f, 0f);
+        dotsRt.anchorMax = new Vector2(0.5f, 0f);
+        dotsRt.pivot = new Vector2(0.5f, 0f);
+        dotsRt.anchoredPosition = new Vector2(0f, 10f); // Floating 10px above the bottom of photo area
+
+        HorizontalLayoutGroup dotsHlg = dotsGo.GetComponent<HorizontalLayoutGroup>();
+        dotsHlg.spacing = 8f;
+        dotsHlg.childAlignment = TextAnchor.MiddleCenter;
+        dotsHlg.childControlWidth = false;
+        dotsHlg.childControlHeight = false;
+        dotsHlg.childForceExpandWidth = false;
+        dotsHlg.childForceExpandHeight = false;
+        dotsHlg.padding = new RectOffset(6, 6, 4, 4);
+
+        ContentSizeFitter csf = dotsGo.GetComponent<ContentSizeFitter>();
+        csf.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+    }
+
+    private void BuildPaginationDots(int totalPages)
+    {
+        EnsurePhotoDotsContainer();
+        if (photoDotsContainer == null) return;
+
+        for (int i = photoDotsContainer.childCount - 1; i >= 0; i--)
+        {
+            GameObject child = photoDotsContainer.GetChild(i).gameObject;
+            child.SetActive(false);
+            Destroy(child);
+        }
+        photoDotImages.Clear();
+        photoDotRects.Clear();
+
+        if (totalPages <= 1)
+        {
+            photoDotsContainer.gameObject.SetActive(false);
+            return;
+        }
+
+        photoDotsContainer.gameObject.SetActive(true);
+        photoDotsContainer.SetAsLastSibling();
+
+        Sprite circleSprite = GetOrCreateCircleSprite();
+
+        for (int i = 0; i < totalPages; i++)
+        {
+            int pageIndex = i;
+            GameObject dotGo = new GameObject("Dot_" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            dotGo.transform.SetParent(photoDotsContainer, false);
+
+            RectTransform dotRt = dotGo.GetComponent<RectTransform>();
+            bool isActive = (i == 0);
+            float dotSize = isActive ? 14f : 10f;
+            dotRt.sizeDelta = new Vector2(dotSize, dotSize);
+
+            Image dotImg = dotGo.GetComponent<Image>();
+            dotImg.sprite = circleSprite;
+            dotImg.type = Image.Type.Simple;
+            dotImg.preserveAspect = true;
+            dotImg.color = isActive ? ActiveDotColor : InactiveDotColor;
+            dotImg.raycastTarget = true;
+            dotImg.raycastPadding = new Vector4(-6f, -6f, -6f, -6f);
+
+            Outline outline = dotGo.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.60f);
+            outline.effectDistance = new Vector2(1f, -1f);
+
+            LayoutElement le = dotGo.AddComponent<LayoutElement>();
+            le.preferredWidth = dotSize;
+            le.preferredHeight = dotSize;
+
+            Button btn = dotGo.GetComponent<Button>();
+            btn.targetGraphic = dotImg;
+            btn.transition = Selectable.Transition.None;
+            btn.onClick.AddListener(() =>
+            {
+                ButtonClickAudio.PlayClickSound();
+                if (photoSnapScroller != null)
+                {
+                    photoSnapScroller.GoToPage(pageIndex);
+                }
+            });
+
+            dotGo.AddComponent<UIButtonAudio>();
+
+            photoDotImages.Add(dotImg);
+            photoDotRects.Add(dotRt);
+        }
+
+        UpdatePaginationDots(0);
+    }
+
+    public void UpdatePaginationDots(int activeIndex)
+    {
+        for (int i = 0; i < photoDotImages.Count; i++)
+        {
+            if (photoDotImages[i] == null) continue;
+
+            bool isActive = (i == activeIndex);
+            photoDotImages[i].color = isActive ? ActiveDotColor : InactiveDotColor;
+
+            float dotSize = isActive ? 14f : 10f;
+
+            if (photoDotRects != null && i < photoDotRects.Count && photoDotRects[i] != null)
+            {
+                photoDotRects[i].sizeDelta = new Vector2(dotSize, dotSize);
+            }
+
+            if (photoDotImages[i].transform is RectTransform rt)
+            {
+                LayoutElement le = rt.GetComponent<LayoutElement>();
+                if (le != null)
+                {
+                    le.preferredWidth = dotSize;
+                    le.preferredHeight = dotSize;
+                }
+            }
+        }
+
+        if (photoDotsContainer != null && photoDotsContainer is RectTransform containerRt)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(containerRt);
+        }
+    }
+
+    private static Sprite GetOrCreateCircleSprite()
+    {
+        if (cachedCircleSprite != null) return cachedCircleSprite;
+
+        int size = 64;
+        float radius = 30f;
+        float center = size / 2f;
+
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color32[] cols = new Color32[size * size];
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), new Vector2(center, center));
+                float alpha = Mathf.Clamp01((radius - dist) + 0.5f);
+                byte a = (byte)(alpha * 255f);
+                cols[y * size + x] = new Color32(255, 255, 255, a);
+            }
+        }
+
+        tex.SetPixels32(cols);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        tex.Apply();
+
+        cachedCircleSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+        return cachedCircleSprite;
+    }
+
+    private void HookTopNavRowButtons(int totalPages)
+    {
+        if (cachedTopNavRow == null) return;
+
+        bool hasMultiple = totalPages > 1;
+        cachedTopNavRow.SetActive(hasMultiple);
+        if (!hasMultiple) return;
+
+        if (leftArrowBtn == null)
+        {
+            Transform leftT = cachedTopNavRow.transform.Find("LeftArrow");
+            if (leftT != null)
+            {
+                leftArrowBtn = leftT.GetComponent<Button>();
+                if (leftArrowBtn == null) leftArrowBtn = leftT.gameObject.AddComponent<Button>();
+                leftArrowBtn.onClick.RemoveAllListeners();
+                leftArrowBtn.onClick.AddListener(() =>
+                {
+                    ButtonClickAudio.PlayClickSound();
+                    if (photoSnapScroller != null) photoSnapScroller.GoToPreviousPage();
+                    else ShowPreviousImage();
+                });
+
+                XRButtonSelection xrBtn = leftT.GetComponent<XRButtonSelection>();
+                if (xrBtn != null)
+                {
+                    xrBtn.onClick.RemoveAllListeners();
+                    xrBtn.onClick.AddListener(() =>
+                    {
+                        ButtonClickAudio.PlayClickSound();
+                        if (photoSnapScroller != null) photoSnapScroller.GoToPreviousPage();
+                        else ShowPreviousImage();
+                    });
+                }
+            }
+        }
+
+        if (rightArrowBtn == null)
+        {
+            Transform rightT = cachedTopNavRow.transform.Find("RightArrow");
+            if (rightT != null)
+            {
+                rightArrowBtn = rightT.GetComponent<Button>();
+                if (rightArrowBtn == null) rightArrowBtn = rightT.gameObject.AddComponent<Button>();
+                rightArrowBtn.onClick.RemoveAllListeners();
+                rightArrowBtn.onClick.AddListener(() =>
+                {
+                    ButtonClickAudio.PlayClickSound();
+                    if (photoSnapScroller != null) photoSnapScroller.GoToNextPage();
+                    else ShowNextImage();
+                });
+
+                XRButtonSelection xrBtn = rightT.GetComponent<XRButtonSelection>();
+                if (xrBtn != null)
+                {
+                    xrBtn.onClick.RemoveAllListeners();
+                    xrBtn.onClick.AddListener(() =>
+                    {
+                        ButtonClickAudio.PlayClickSound();
+                        if (photoSnapScroller != null) photoSnapScroller.GoToNextPage();
+                        else ShowNextImage();
+                    });
+                }
+            }
+        }
+
+        if (imageNavTmp == null)
+        {
+            Transform navTextT = cachedTopNavRow.transform.Find("ImageNavText");
+            if (navTextT != null)
+            {
+                imageNavTmp = navTextT.GetComponent<TextMeshProUGUI>();
+            }
+        }
+    }
+
+    private void OnPhotoPageChanged(int newPage)
+    {
+        currentImageIndex = newPage;
+        UpdatePaginationDots(newPage);
+        int total = (photoSnapScroller != null) ? photoSnapScroller.totalPages : 1;
+        UpdateNavInfo(newPage, total);
+    }
+
+    private void UpdateNavInfo(int pageIndex, int totalPages)
+    {
+        if (imageNavTmp != null)
+        {
+            imageNavTmp.text = $"{pageIndex + 1} / {totalPages}";
+        }
+
+        if (artifactData != null && artifactData.images != null && pageIndex >= 0 && pageIndex < artifactData.images.Length)
+        {
+            string caption = artifactData.images[pageIndex].title;
+            if (bottomTitleText != null)
+            {
+                if (!string.IsNullOrEmpty(caption))
+                {
+                    bottomTitleText.text = $"Artifak:\n\"{artifactData.artifactName}\"\n<size=11><color=#E5EE9C>{caption}</color></size>";
+                }
+                else
+                {
+                    bottomTitleText.text = $"Artifak:\n\"{artifactData.artifactName}\"";
+                }
+            }
+        }
+    }
+    #endregion
+
     public void ShowNextImage()
     {
+        if (photoSnapScroller != null && photoSnapScroller.totalPages > 1)
+        {
+            photoSnapScroller.GoToNextPage();
+            return;
+        }
+
         if (artifactData == null || artifactData.images == null || artifactData.images.Length <= 1) return;
 
         currentImageIndex++;
@@ -1112,6 +1622,12 @@ public class Artifact : MonoBehaviour
 
     public void ShowPreviousImage()
     {
+        if (photoSnapScroller != null && photoSnapScroller.totalPages > 1)
+        {
+            photoSnapScroller.GoToPreviousPage();
+            return;
+        }
+
         if (artifactData == null || artifactData.images == null || artifactData.images.Length <= 1) return;
 
         currentImageIndex--;
@@ -1131,7 +1647,11 @@ public class Artifact : MonoBehaviour
         // Configure panel layout based on photo availability
         UpdatePanelLayoutForImageAvailability(hasImage);
 
-        if (hasImage)
+        // Populate and synchronize swipeable photo gallery
+        PopulatePhotoScrollView(artifactData);
+
+        // Fallback for single static image if needed
+        if (hasImage && (photoScrollRect == null || !photoScrollRect.gameObject.activeSelf))
         {
             Sprite currentSprite = GetCurrentImageSprite();
             if (displayImage != null)
@@ -1142,12 +1662,9 @@ public class Artifact : MonoBehaviour
                 displayImage.color = Color.white;
             }
         }
-        else
+        else if (!hasImage && displayImage != null)
         {
-            if (displayImage != null)
-            {
-                displayImage.gameObject.SetActive(false);
-            }
+            displayImage.gameObject.SetActive(false);
         }
 
         // CRITICAL: NEVER show "Artifak ini tiada gambar" or "Tiada Gambar Tersedia"
@@ -1299,6 +1816,9 @@ public class Artifact : MonoBehaviour
         else
         {
             if (displayImage != null) displayImage.gameObject.SetActive(false);
+            if (photoScrollRect != null) photoScrollRect.gameObject.SetActive(false);
+            if (photoDotsContainer != null) photoDotsContainer.gameObject.SetActive(false);
+            if (cachedTopNavRow != null) cachedTopNavRow.SetActive(false);
             if (noImagesText != null) noImagesText.gameObject.SetActive(false);
         }
 
@@ -1614,7 +2134,24 @@ public class Artifact : MonoBehaviour
         SetDetailRow(timePeriodText, data.timePeriod);
         SetDetailRow(locationText, data.location);
         bool hasDimensions = (data.height > 0 || data.width > 0 || data.length > 0);
-        SetDetailRow(dimensionText, hasDimensions ? $"{data.height}cm x {data.width}cm x {data.length}cm" : "Tiada maklumat");
+        string dimStr;
+        if (hasDimensions)
+        {
+            // For large artifacts measured in meters (e.g. ships, architectural pieces)
+            if (data.length > 0 && (data.length >= 10f || Mathf.Abs(data.length - Mathf.Round(data.length)) > 0.01f || Mathf.Abs(data.width - Mathf.Round(data.width)) > 0.01f))
+            {
+                dimStr = $"{data.length:0.##}m (P) x {data.width:0.##}m (L) x {data.height:0.##}m (D)";
+            }
+            else
+            {
+                dimStr = $"{data.height}cm x {data.width}cm x {data.length}cm";
+            }
+        }
+        else
+        {
+            dimStr = "Tiada maklumat";
+        }
+        SetDetailRow(dimensionText, dimStr);
         SetDetailRow(materialText, data.material);
 
         TidyDetailCard();

@@ -611,9 +611,9 @@ public class HistoryPanel : MonoBehaviour
             canvas.renderMode = RenderMode.WorldSpace;
             canvas.sortingOrder = 0;
         }
-        if (canvas.worldCamera == null && Camera.main != null)
+        if (canvas.worldCamera == null)
         {
-            canvas.worldCamera = Camera.main;
+            canvas.worldCamera = WallPlacementHelper.ResolveCamera(Camera.main);
         }
         if (GetComponent<GraphicRaycaster>() == null)
         {
@@ -2406,18 +2406,31 @@ public class HistoryPanel : MonoBehaviour
         ArtifactPanelDragger dragger = GetComponent<ArtifactPanelDragger>();
         if (dragger != null) dragger.ResetUserMoved();
 
-        Transform cam = Camera.main != null ? Camera.main.transform : null;
-        if (cam == null) return;
+        Transform cam = WallPlacementHelper.ResolveCameraTransform();
 
-        Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
-        if (forward == Vector3.zero) forward = Vector3.forward;
+        Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
+            cam,
+            0,
+            0.65f,
+            out bool isWallMounted
+        );
 
-        transform.position = cam.position + forward * 0.7f - Vector3.up * 0.05f;
-        Vector3 toPlayer = cam.position - transform.position;
-        toPlayer.y = 0;
-        if (toPlayer.sqrMagnitude > 0.0001f)
+        Transform targetTransform = (transform.parent != null && transform.parent.name.StartsWith("HistoryDetailPanelCanvas"))
+            ? transform.parent
+            : transform;
+
+        targetTransform.position = placementPose.position;
+        targetTransform.rotation = placementPose.rotation;
+
+        if (targetTransform != transform)
         {
-            transform.rotation = Quaternion.LookRotation(-toPlayer, Vector3.up);
+            transform.localPosition = Vector3.zero;
+            transform.localRotation = Quaternion.identity;
+        }
+
+        if (dragger != null)
+        {
+            dragger.SetSnappedToWall(isWallMounted);
         }
     }
 
@@ -2465,8 +2478,23 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IDragHandler,
     public int totalPages = 1;
     public int currentPage = 0;
     public HistoryPanel historyPanel;
+    public System.Action<int> onPageChanged;
     private Coroutine snapCoroutine;
     private bool isDragging = false;
+
+    public void GoToNextPage()
+    {
+        if (totalPages <= 1) return;
+        int next = (currentPage + 1) % totalPages;
+        GoToPage(next);
+    }
+
+    public void GoToPreviousPage()
+    {
+        if (totalPages <= 1) return;
+        int prev = (currentPage - 1 + totalPages) % totalPages;
+        GoToPage(prev);
+    }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
@@ -2511,6 +2539,7 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IDragHandler,
             {
                 historyPanel.UpdatePaginationDots(currentPage);
             }
+            onPageChanged?.Invoke(currentPage);
         }
     }
 
@@ -2538,6 +2567,7 @@ public class PhotoSnapScroller : MonoBehaviour, IBeginDragHandler, IDragHandler,
         {
             historyPanel.UpdatePaginationDots(currentPage);
         }
+        onPageChanged?.Invoke(currentPage);
 
         float step = (totalPages > 1) ? (1f / (totalPages - 1)) : 0f;
         float targetPos = targetPage * step;

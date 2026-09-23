@@ -17,4 +17,5 @@ MonoBehaviour:
   roomSubtitle: Pameran Artifak Galeri 3
   artifacts:
   - {fileID: 11400000, guid: 6316384c031dacc449ee36a266906a1f, type: 2}
+  - {fileID: 11400000, guid: df51c43b162d4779b5d0dd2ecc06393f, type: 2}
   waypoints: []
