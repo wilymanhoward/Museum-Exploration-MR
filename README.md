@@ -94,7 +94,7 @@ Visitors wearing a Meta Quest headset can walk freely in their physical surround
 
 ### 📱 Physical QR Code System (`QRCodeScanner.cs`)
 - Scan physical QR tags in an exhibition room using Meta Quest cameras.
-- Instantly triggers corresponding room waypoints, artifact models, and mini-games.
+- Instantly switches to the scanned room or opens the scanned artifact's panel.
 - Includes a full Unity Editor simulation mode (`QRCodeScannerDebugger`) for rapid testing without wearing a headset.
 
 ---
@@ -205,7 +205,7 @@ Assets/
 └── Script/
     ├── Core/
     │   ├── ArtifactManager.cs   # Global artifact spawning & lifecycle controller
-    │   ├── RoomManager.cs       # Exhibition gallery loading & waypoint system
+    │   ├── RoomManager.cs       # Exhibition gallery loading & room HUD checklist
     │   ├── HistoryManager.cs    # Sejarah panels & multi-panel manager
     │   ├── MainMenu.cs          # Video intro, name entry & passthrough transition
     │   ├── ThemeManager.cs      # Dark/Light theme coordinator

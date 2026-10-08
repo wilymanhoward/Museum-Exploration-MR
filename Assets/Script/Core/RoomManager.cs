@@ -27,13 +27,8 @@ public class RoomManager : MonoBehaviour
     [Tooltip("Text field to show scan feedback (e.g. Scanned Exhibit: Mona Lisa).")]
     public TextMeshProUGUI scanStatusText;
 
-    [Header("Wayfinding & Prefabs")]
-    public WayfindingSystem wayfindingSystem;
-    public GameObject findButton;
-
     // Track active state
     private RoomData currentRoom;
-    private ArtifactData selectedChecklistArtifact;
     private Dictionary<string, bool> scannedArtifacts = new Dictionary<string, bool>();
     private Dictionary<string, GameObject> hudListItems = new Dictionary<string, GameObject>();
     private float statusTextTimer = 0f;
@@ -154,16 +149,6 @@ public class RoomManager : MonoBehaviour
             }
         }
 
-        // 3. Try to locate WayfindingSystem in the scene
-        if (wayfindingSystem == null)
-        {
-            wayfindingSystem = FindObjectOfType<WayfindingSystem>();
-            if (wayfindingSystem != null)
-            {
-                Debug.Log("RoomManager: Automatically located 'WayfindingSystem' in the scene.");
-            }
-        }
-
         // 4. Runtime & Editor auto-healing lookup for missing assets
         if (rowCardMaterial == null)
         {
@@ -239,20 +224,6 @@ public class RoomManager : MonoBehaviour
 
         // Register for QR Scanner events
         QRCodeScanner.OnQRCodeScanned += HandleQRCodeScanned;
-
-        // Wire up the Find Button ("Temukan" button) if found
-        if (findButton != null)
-        {
-            UnityEngine.UI.Button findBtnComponent = findButton.GetComponent<UnityEngine.UI.Button>();
-            if (findBtnComponent == null) findBtnComponent = findButton.GetComponentInChildren<UnityEngine.UI.Button>();
-            if (findBtnComponent != null)
-            {
-                findBtnComponent.onClick.RemoveAllListeners();
-                findBtnComponent.onClick.AddListener(OnFindButtonClicked);
-                if (findBtnComponent.targetGraphic != null) findBtnComponent.targetGraphic.raycastTarget = true;
-                if (findBtnComponent.GetComponent<UIButtonAudio>() == null) findBtnComponent.gameObject.AddComponent<UIButtonAudio>();
-            }
-        }
 
         // Initialize starting room if set
         if (startingRoom != null)
@@ -336,15 +307,10 @@ public class RoomManager : MonoBehaviour
         {
             ChangeRoom(rooms[0]);
         }
-        else if (currentRoom != null)
-        {
-            // Update wayfinding for current room
-            UpdateWayfinding();
-        }
     }
 
     /// <summary>
-    /// Changes the player's active room, updating wayfinding and UI HUD list.
+    /// Changes the player's active room and updates the UI HUD list.
     /// </summary>
     public void ChangeRoom(RoomData newRoom)
     {
@@ -386,9 +352,6 @@ public class RoomManager : MonoBehaviour
 
         // Repopulate HUD checklist
         RebuildArtifactChecklist();
-
-        // Update Floor Navigation Lines
-        UpdateWayfinding();
     }
 
     private void RebuildArtifactChecklist()
@@ -425,16 +388,10 @@ public class RoomManager : MonoBehaviour
             return;
         }
 
-        // Hide findButton initially, show scanStatusText
-        if (findButton != null)
-        {
-            findButton.SetActive(false);
-        }
         if (scanStatusText != null)
         {
             scanStatusText.gameObject.SetActive(true);
         }
-        selectedChecklistArtifact = null;
 
         // Clear existing items
         int clearedCount = 0;
@@ -497,12 +454,8 @@ public class RoomManager : MonoBehaviour
             // Hook up the button click event
             UnityEngine.UI.Button btn = item.GetComponent<UnityEngine.UI.Button>();
             if (btn == null) btn = item.AddComponent<UnityEngine.UI.Button>();
-            
-            ArtifactData currentArtifact = artifact;
+
             btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => {
-                SelectArtifactFromList(currentArtifact);
-            });
             if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
 
             XRButtonSelection selection = item.GetComponent<XRButtonSelection>();
@@ -713,57 +666,6 @@ public class RoomManager : MonoBehaviour
         statusTextComp.fontStyle = FontStyles.Normal;
         statusTextComp.color = isScanned ? visitedGreen : unvisitedGray;
         statusTextComp.alignment = TextAlignmentOptions.Left;
-    }
-
-    public void SelectArtifactFromList(ArtifactData artifact)
-    {
-        selectedChecklistArtifact = artifact;
-        Debug.Log($"Selected artifact from checklist: {artifact.artifactName}");
-
-        // Hide the scanStatusText and show the findButton
-        if (scanStatusText != null)
-        {
-            scanStatusText.gameObject.SetActive(false);
-        }
-        if (findButton != null)
-        {
-            findButton.SetActive(true);
-        }
-    }
-
-    private void OnFindButtonClicked()
-    {
-        if (selectedChecklistArtifact == null)
-        {
-            Debug.LogWarning("No checklist artifact selected to find!");
-            return;
-        }
-
-        Debug.Log($"Find Button pressed! Showing waypoint to: {selectedChecklistArtifact.artifactName}");
-        
-        // Show scan status text again to provide search feedback
-        if (scanStatusText != null)
-        {
-            scanStatusText.gameObject.SetActive(true);
-            SetScanStatus($"Mencari: {selectedChecklistArtifact.artifactName}", new Color(0.1f, 0.75f, 0.2f));
-        }
-
-        // Trigger waypoint rendering (simulated)
-        if (wayfindingSystem != null)
-        {
-            Transform camTransform = Camera.main != null ? Camera.main.transform : transform;
-            Vector3 startPos = camTransform.position;
-            Vector3 endPos = startPos + camTransform.forward * 2.0f;
-            wayfindingSystem.SetPath(new Vector3[] { startPos, endPos });
-        }
-    }
-
-    private void UpdateWayfinding()
-    {
-        if (wayfindingSystem != null && currentRoom != null)
-        {
-            wayfindingSystem.SetPath(currentRoom.waypoints);
-        }
     }
 
     /// <summary>
