@@ -36,6 +36,12 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
     private const float ClickDebounceSeconds = 0.25f;
     private float lastInvokeTime = -10f;
 
+    // Set when a press already fired on pinch-down (OnSelectEntered / OnPointerDown), so the
+    // OnPointerClick that UGUI sends on release doesn't fire it a second time. The time-based
+    // debounce alone missed holds longer than ClickDebounceSeconds, which made toggles like
+    // the narration Play/Pause flip back on release.
+    private bool pressHandled;
+
     private void InvokeClickOnce()
     {
         if (Time.unscaledTime - lastInvokeTime < ClickDebounceSeconds) return;
@@ -170,6 +176,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         
         Debug.Log($"Button Selected/Pressed: {gameObject.name}");
         InvokeClickOnce();
+        pressHandled = true;
 
         XRButtonHaptics.TriggerClick(args.interactorObject, gameObject);
     }
@@ -208,6 +215,7 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
         }
         Debug.Log($"Button UI Clicked/Pressed: {gameObject.name}");
         InvokeClickOnce();
+        pressHandled = true;
 
         XRButtonHaptics.TriggerClick(eventData, gameObject);
     }
@@ -219,7 +227,12 @@ public class XRButtonSelection : XRSimpleInteractable, IPointerEnterHandler, IPo
             if (WristWatch.Instance != null && WristWatch.Instance.IsWatchButtonHidden()) return;
             if (WristWatchFilterUtility.IsLeftHand(null, eventData)) return;
         }
-        // If PointerDown or OnSelectEntered already handled this pinch/click, InvokeClickOnce debounces it cleanly
+        // PointerDown or OnSelectEntered already fired this press - releasing must not fire it again
+        if (pressHandled)
+        {
+            pressHandled = false;
+            return;
+        }
         InvokeClickOnce();
         XRButtonHaptics.TriggerClick(eventData, gameObject);
     }

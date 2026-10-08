@@ -193,14 +193,18 @@ public class Artifact : MonoBehaviour
         }
 
         // Hook audio buttons
-        if (playButton != null) playButton.onClick.AddListener(OnPlayPauseClicked);
-        if (playButtonXR != null) playButtonXR.onClick.AddListener(OnPlayPauseClicked);
+        HookAudioButton(playButton, playButtonXR, OnPlayPauseClicked);
+        HookAudioButton(restartButton, restartButtonXR, RestartNarration);
+        HookAudioButton(playInstrumentButton, playInstrumentButtonXR, PlayInstrumentAudio);
+    }
 
-        if (restartButton != null) restartButton.onClick.AddListener(RestartNarration);
-        if (restartButtonXR != null) restartButtonXR.onClick.AddListener(RestartNarration);
-
-        if (playInstrumentButton != null) playInstrumentButton.onClick.AddListener(PlayInstrumentAudio);
-        if (playInstrumentButtonXR != null) playInstrumentButtonXR.onClick.AddListener(PlayInstrumentAudio);
+    // Hooks ONE click source per button. The XR button fires on pinch-down and the UGUI Button
+    // fires on release, so wiring both made a single pinch toggle Play/Pause twice (paused while
+    // held, resumed on release). Prefer the XR one; the plain Button is the fallback.
+    private static void HookAudioButton(Button button, XRButtonSelection xrButton, UnityEngine.Events.UnityAction action)
+    {
+        if (xrButton != null) xrButton.onClick.AddListener(action);
+        else if (button != null) button.onClick.AddListener(action);
     }
 
     private void OnEnable()
