@@ -24,7 +24,7 @@ MonoBehaviour:
   material: 'Kayu Tradisional (Perahu Jenis Pinis Dogol, Muatan 2500 Pikul)'
   description: "Perahu Besar KEMAJUAN adalah kepunyaan Hajjah Nik Binti Haji Muhammad Kaya dan Haji Long Bin Haji Su (cucu Haji Muhammad Kaya) yang tinggal di Kampung Losong (kini dikenali sebagai Losong Haji Muhammad Kaya). Perahu ini dibina selepas pendudukan Jepun di Tanah Melayu iaitu pada tahun 1946. Dibawah selian tukang penimbal (ketua tukang perahu besar) Hj Muhamad Abdul Hamid dari Kampung Duyung (berasal dari Kampung Losong), pembinaan KEMAJUAN memakan masa selama 8 bulan. Perahu ini adalah jenis Pinis Dogol dan mempunyai ukuran 73 kaki (34.48 m) panjang, 22 kaki (10.39 m) lebar dan 8 kaki 6 inci (4.01 m) kedalaman dengan kadar muatan lebih kurang 2500 pikul.\n\nPelayaran pertama KEMAJUAN menuju Barn Lern di Selatan Siam (Thailand) pada tahun 1947 untuk mengangkut garam, dinakhodai oleh Haji Long sendiri bersama 12 orang awak-awak. Selepas tahun 1952, sehinggalah operasinya terhenti pada tahun 1980, kerana kegiatan pengimportan garam tidak aktif lagi, perahu ini dinakhodai oleh Che Ngah Bin Hitam.\n\nPada Januari 1982, perahu besar KEMAJUAN yang bernombor pendaftaran T.65 ini telah dijual kepada pihak Muzium Negeri Terengganu oleh Haji Abdul Rahman Bin Haji Taib (anak Hajjah Nik) untuk diabadikan di Muzium Maritim, Kompleks Muzium Negeri Terengganu di Bukit Losong sebagai warisan sejarah pelayaran orang-orang Melayu di Terengganu."
   modelPrefab: {fileID: 0}
-  narrationClip: {fileID: 0}
+  narrationClip: {fileID: 8300000, guid: a2ad054685e347c2af2507526f17ef8e, type: 3}
   instrumentClip: {fileID: 0}
   images:
   - sprite: {fileID: 21300000, guid: 643fa6dd8c71460f9901fd74856d1bd4, type: 3}
