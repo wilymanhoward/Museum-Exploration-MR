@@ -29,7 +29,6 @@ public class MainMenu : MonoBehaviour
     private Coroutine currentFadeCoroutine;
 
     [Header("Exploration References")]
-    public GameObject wayfindingSystem;
     public GameObject wristMenuSystem;
 
     [Header("Name Entry")]
@@ -53,8 +52,6 @@ public class MainMenu : MonoBehaviour
 
     void Start()
     {
-        // Ensure the exploration-specific visuals are disabled at startup
-        if (wayfindingSystem != null) wayfindingSystem.SetActive(false);
 
         // Resolve video/panels if null
         if (introVideoPanel == null && mainMenuCanvas != null)
@@ -445,9 +442,6 @@ public class MainMenu : MonoBehaviour
             mainMenuCanvas.SetActive(false);
         }
  
-        // Show standard references if assigned
-        if (wayfindingSystem != null) wayfindingSystem.SetActive(true);
-
         // Find and activate the WristMenuSystem
         if (wristMenuSystem == null)
         {
@@ -467,7 +461,7 @@ public class MainMenu : MonoBehaviour
             Debug.Log("MainMenu: Activated WristMenuSystem.");
         }
 
-        // Tell the Room Manager to start populating and setting up the wayfinding paths
+        // Tell the Room Manager to start populating the room HUD
         if (RoomManager.Instance != null)
         {
             RoomManager.Instance.StartExploration();

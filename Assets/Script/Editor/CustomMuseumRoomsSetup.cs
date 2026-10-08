@@ -29,8 +29,7 @@ public class CustomMuseumRoomsSetup : EditorWindow
             CreateOrUpdateArtifact("artifact_sutera", "Sutera", "Traditional Weaver", "Historical", 
                 "Fine traditional silk fabric known for its smooth texture, elegance, and traditional craftsmanship.")
         };
-        RoomData roomTextile = CreateOrUpdateRoom("room_textile", "Galeri Tekstil", textileArtifacts, 
-            new Vector3[] { new Vector3(0, 0, 0), new Vector3(0, 0, 2) });
+        RoomData roomTextile = CreateOrUpdateRoom("room_textile", "Galeri Tekstil", textileArtifacts);
         allRooms.Add(roomTextile);
 
         // 2. Galeri Seni: Gamelan, Rodat
@@ -42,8 +41,7 @@ public class CustomMuseumRoomsSetup : EditorWindow
             CreateOrUpdateArtifact("artifact_rodat", "Rodat", "Traditional Drummer", "Historical", 
                 "A traditional performing art drum and dance instrument originating from historical cultural exchanges.")
         };
-        RoomData roomArt = CreateOrUpdateRoom("room_art", "Galeri Seni", artArtifacts, 
-            new Vector3[] { new Vector3(0, 0, 0), new Vector3(2, 0, 2) });
+        RoomData roomArt = CreateOrUpdateRoom("room_art", "Galeri Seni", artArtifacts);
         allRooms.Add(roomArt);
 
         // 3. Galeri Kraf: Keris, Menenun
@@ -54,8 +52,7 @@ public class CustomMuseumRoomsSetup : EditorWindow
             CreateOrUpdateArtifact("artifact_menenun", "Menenun", "Traditional Artisan", "Historical", 
                 "A traditional handloom weaving artifact demonstrating historical textile craft techniques.")
         };
-        RoomData roomCraft = CreateOrUpdateRoom("room_craft", "Galeri Kraf", craftArtifacts, 
-            new Vector3[] { new Vector3(0, 0, 0), new Vector3(-2, 0, 2) });
+        RoomData roomCraft = CreateOrUpdateRoom("room_craft", "Galeri Kraf", craftArtifacts);
         allRooms.Add(roomCraft);
 
         // 4. Galeri Sejarah: Asal usul nama terengganu, pertarungan megat panji alam, pemberontakan tani
@@ -68,8 +65,7 @@ public class CustomMuseumRoomsSetup : EditorWindow
             CreateOrUpdateArtifact("artifact_tani", "Pemberontakan Tani", "Historical Chronicler", "1928", 
                 "Exhibits documenting the historical peasant uprising led by Haji Abdul Rahman Limbong against colonial policies.")
         };
-        RoomData roomHistory = CreateOrUpdateRoom("room_history", "Galeri Sejarah", historyArtifacts, 
-            new Vector3[] { new Vector3(0, 0, 0), new Vector3(0, 0, 4) });
+        RoomData roomHistory = CreateOrUpdateRoom("room_history", "Galeri Sejarah", historyArtifacts);
         allRooms.Add(roomHistory);
 
         // 5. Serambi Mandalika: Batu bersurat, Perahu besar
@@ -80,8 +76,7 @@ public class CustomMuseumRoomsSetup : EditorWindow
             CreateOrUpdateArtifact("artifact_perahu", "Perahu Besar", "Traditional Boatbuilder", "Historical", 
                 "A large traditional wooden ship model displaying historic maritime transport and sea-faring heritage.")
         };
-        RoomData roomMandalika = CreateOrUpdateRoom("room_mandalika", "Serambi Mandalika", mandalikaArtifacts, 
-            new Vector3[] { new Vector3(0, 0, 0), new Vector3(3, 0, 0) });
+        RoomData roomMandalika = CreateOrUpdateRoom("room_mandalika", "Serambi Mandalika", mandalikaArtifacts);
         allRooms.Add(roomMandalika);
 
         // 6. Assign to RoomManager in the scene
@@ -176,7 +171,7 @@ public class CustomMuseumRoomsSetup : EditorWindow
         return asset;
     }
 
-    private static RoomData CreateOrUpdateRoom(string id, string name, List<ArtifactData> artifacts, Vector3[] waypoints)
+    private static RoomData CreateOrUpdateRoom(string id, string name, List<ArtifactData> artifacts)
     {
         string filename = id + "_" + name.Replace(" ", "").Replace("&", "And");
         string path = $"Assets/MuseumData/{filename}.asset";
@@ -193,7 +188,6 @@ public class CustomMuseumRoomsSetup : EditorWindow
         asset.roomId = id;
         asset.roomName = name;
         asset.artifacts = artifacts;
-        asset.waypoints = waypoints;
 
         EditorUtility.SetDirty(asset);
         return asset;
