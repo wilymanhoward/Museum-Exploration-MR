@@ -113,10 +113,7 @@ public class QRCodeGeneratorEditor : EditorWindow
             RoomData room = AssetDatabase.LoadAssetAtPath<RoomData>(path);
             if (room != null && !string.IsNullOrEmpty(room.roomId))
             {
-                // Generate Room QR
-                DownloadAndSaveQR(room.roomId, $"Room_{room.roomName.Replace(" ", "_")}_{room.roomId}");
-                generatedCount++;
-
+                // Rooms get no QR code of their own - visitors scan artifacts, history topics and games.
                 // Generate QR for each artifact inside this room
                 foreach (ArtifactData artifact in room.artifacts)
                 {
@@ -146,6 +143,17 @@ public class QRCodeGeneratorEditor : EditorWindow
                     DownloadAndSaveQR(artifact.artifactId, expectedFileName);
                     generatedCount++;
                 }
+            }
+        }
+
+        // Generate History (Sejarah) QR Codes - payload is HistoryData.historyId, routed by QRContentRouter
+        foreach (string guid in AssetDatabase.FindAssets("t:HistoryData", new[] { "Assets/Resources/MuseumData" }))
+        {
+            HistoryData history = AssetDatabase.LoadAssetAtPath<HistoryData>(AssetDatabase.GUIDToAssetPath(guid));
+            if (history != null && !string.IsNullOrEmpty(history.historyId))
+            {
+                DownloadAndSaveQR(history.historyId, $"Sejarah_{history.historyId}");
+                generatedCount++;
             }
         }
 
