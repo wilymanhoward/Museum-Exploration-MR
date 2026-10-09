@@ -137,6 +137,22 @@ public class Game3OrderTimeline : BaseGame
     private Vector3[] bottomBankLocalPositions = new Vector3[5];
     private DraggableTimelineCard[] slotAssignments = new DraggableTimelineCard[5];
 
+    // Two wrong checks on a question reveal the correct order; the Check button then reads
+    // "Seterusnya" and the player presses it to continue.
+    private const int MaxWrongAttempts = 2;
+    private const string RevealMessage = "Ini susunan yang betul";
+    private const string NextButtonLabel = "Seterusnya";
+    private string checkLabelOriginal;
+    private int wrongAttempts = 0;
+    private bool revealingAnswer = false;
+    private string wrongTextOriginal;
+    private Color wrongTextOriginalColor;
+    // Same green as Game 1's "Benar" result.
+    private static readonly Color RevealColor = new Color(0.4f, 0.85f, 0.4f);
+
+    /// <summary>True while the correct order is shown (until "Seterusnya"); cards ignore drags meanwhile.</summary>
+    public bool IsRevealingAnswer => revealingAnswer;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Unity Lifecycle & BaseGame Overrides
     // ─────────────────────────────────────────────────────────────────────────
@@ -201,6 +217,10 @@ public class Game3OrderTimeline : BaseGame
 
     private void LoadQuestion(int questionDataIdx)
     {
+        wrongAttempts = 0;
+        revealingAnswer = false;
+        SetWrongTextMessage(null);
+        SetCheckButtonLabel(null);
         if (wrongText != null) wrongText.SetActive(false);
         if (checkAnswerButton != null) checkAnswerButton.interactable = true;
 
@@ -436,14 +456,19 @@ public class Game3OrderTimeline : BaseGame
         if (checkAnswerButton == null) return;
 
         checkAnswerButton.onClick.RemoveAllListeners();
-        checkAnswerButton.onClick.AddListener(OnCheckAnswerPressed);
         if (checkAnswerButton.targetGraphic != null) checkAnswerButton.targetGraphic.raycastTarget = true;
 
+        // One click source only: the XR button fires on pinch-down and the UGUI Button on release,
+        // so wiring both counted one pinch as two checks (two wrong attempts at once).
         XRButtonSelection xr = checkAnswerButton.GetComponent<XRButtonSelection>();
         if (xr != null)
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(OnCheckAnswerPressed);
+        }
+        else
+        {
+            checkAnswerButton.onClick.AddListener(OnCheckAnswerPressed);
         }
 
         if (checkAnswerButton.GetComponent<UIButtonAudio>() == null)
@@ -573,6 +598,13 @@ public class Game3OrderTimeline : BaseGame
 
     public void OnCheckAnswerPressed()
     {
+        // While the correct order is shown the button reads "Seterusnya": continue.
+        if (revealingAnswer)
+        {
+            revealingAnswer = false;
+            AdvanceToNextQuestion();
+            return;
+        }
         int count = cards.Count;
         if (count == 0) return;
 
@@ -599,27 +631,89 @@ public class Game3OrderTimeline : BaseGame
             Debug.Log($"Game3OrderTimeline: Question {currentRoundIndex + 1}/{shuffledQuestionIndices.Count} CORRECT!");
 
             if (wrongText != null) wrongText.SetActive(false);
-
-            // Advance to next random question in queue or finish game
-            if (currentRoundIndex + 1 < shuffledQuestionIndices.Count)
-            {
-                currentRoundIndex++;
-                LoadQuestion(shuffledQuestionIndices[currentRoundIndex]);
-            }
-            else
-            {
-                Debug.Log("Game3OrderTimeline: All questions completed! Game ending.");
-                FinishGameAndShowLeaderboard("game_3", "Urutkan Timeline Sejarah");
-            }
+            AdvanceToNextQuestion();
         }
         else
         {
             Debug.Log("Game3OrderTimeline: Player guessed WRONG. Displaying wrong text.");
-            if (wrongText != null)
+            wrongAttempts++;
+            if (wrongAttempts >= MaxWrongAttempts)
+            {
+                RevealAnswer();
+            }
+            else if (wrongText != null)
             {
                 wrongText.SetActive(true);
             }
         }
+    }
+
+    private void AdvanceToNextQuestion()
+    {
+        // Advance to next random question in queue or finish game
+        if (currentRoundIndex + 1 < shuffledQuestionIndices.Count)
+        {
+            currentRoundIndex++;
+            LoadQuestion(shuffledQuestionIndices[currentRoundIndex]);
+        }
+        else
+        {
+            Debug.Log("Game3OrderTimeline: All questions completed! Game ending.");
+            FinishGameAndShowLeaderboard("game_3", "Urutkan Timeline Sejarah");
+        }
+    }
+
+    /// <summary>
+    /// Shows the correct order by moving every card into its own slot and turns the Check button
+    /// into "Seterusnya"; pressing it continues to the next question (or the leaderboard).
+    /// </summary>
+    private void RevealAnswer()
+    {
+        revealingAnswer = true;
+        if (checkAnswerButton != null) checkAnswerButton.interactable = true;
+        SetCheckButtonLabel(NextButtonLabel);
+
+        for (int i = 0; i < slotAssignments.Length; i++) slotAssignments[i] = null;
+        foreach (DraggableTimelineCard card in cards)
+        {
+            if (card == null) continue;
+            int slot = card.CorrectStepIndex;
+            if (slot < 0 || slot >= slotLocalPositions.Length) continue;
+            slotAssignments[slot] = card;
+            card.AssignedSlotIndex = slot;
+            card.TargetLocalPosition = slotLocalPositions[slot];
+        }
+
+        SetWrongTextMessage(RevealMessage);
+        if (wrongText != null) wrongText.SetActive(true);
+    }
+
+    /// <summary>Sets the Check button's label; null restores its original wording.</summary>
+    private void SetCheckButtonLabel(string label)
+    {
+        if (checkAnswerButton == null) return;
+        TMP_Text text = checkAnswerButton.GetComponentInChildren<TMP_Text>(true);
+        if (text == null) return;
+        if (checkLabelOriginal == null) checkLabelOriginal = text.text;
+        text.text = label ?? checkLabelOriginal;
+    }
+
+    /// <summary>
+    /// Swaps the wrong-answer label text (shown in green for the revealed answer);
+    /// null restores the original wording and colour.
+    /// </summary>
+    private void SetWrongTextMessage(string message)
+    {
+        if (wrongText == null) return;
+        TMP_Text label = wrongText.GetComponentInChildren<TMP_Text>(true);
+        if (label == null) return;
+        if (wrongTextOriginal == null)
+        {
+            wrongTextOriginal = label.text;
+            wrongTextOriginalColor = label.color;
+        }
+        label.text = message ?? wrongTextOriginal;
+        label.color = message != null ? RevealColor : wrongTextOriginalColor;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -693,6 +787,7 @@ public class DraggableTimelineCard : MonoBehaviour, IPointerDownHandler, IPointe
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (controller != null && controller.IsRevealingAnswer) return;
         isDragging = true;
         transform.SetAsLastSibling();
 

@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
-/// Mini-Game 1: "Tebak Bayangan Artifak".
+/// Mini-Game 1: "Teka Artifak".
 /// Inherits from BaseGame.
 /// All UI references, buttons, panels, and silhouette material are assigned via the Inspector or auto-resolved.
 /// </summary>
@@ -74,7 +74,21 @@ public class Game1GuessName : BaseGame
     private Dictionary<Renderer, Material[]> originalMaterialsMap = new Dictionary<Renderer, Material[]>();
 
     private string selectedAnswerName = "";
+    private Button selectedAnswerButton;
     private List<GameObject> spawnedDynamicButtons = new List<GameObject>();
+
+    // Two wrong guesses on a round reveal the answer; the first one only rules that option out.
+    private const int MaxWrongAttempts = 2;
+    private const string TryAgainMessage = "Salah! Cuba sekali lagi.";
+    private static readonly Color TryAgainColor = new Color(0.9f, 0.35f, 0.35f);
+    private static readonly Color EliminatedOptionColor = new Color(0.30f, 0.31f, 0.28f, 0.45f);
+    private int wrongAttempts = 0;
+    private readonly HashSet<Button> eliminatedOptions = new HashSet<Button>();
+    private Color taskTextDefaultColor = Color.white;
+    private bool taskTextColorCached = false;
+    // After a failed round the continue button reads "Seterusnya" instead of its usual label.
+    private const string FailedNextLabel = "Seterusnya";
+    private string lanjutLabelOriginal;
 
     // ─────────────────────────────────────────────────────────────────────────
     // BaseGame Overrides & Unity Lifecycle
@@ -127,6 +141,9 @@ public class Game1GuessName : BaseGame
     private void StartRound(int roundIndex)
     {
         selectedAnswerName = "";
+        selectedAnswerButton = null;
+        wrongAttempts = 0;
+        eliminatedOptions.Clear();
 
         // Reset panel states
         if (guessPanel != null) guessPanel.SetActive(true);
@@ -145,7 +162,9 @@ public class Game1GuessName : BaseGame
 
         if (taskText != null)
         {
+            if (!taskTextColorCached) { taskTextDefaultColor = taskText.color; taskTextColorCached = true; }
             taskText.text = "Seret untuk Putar Model";
+            taskText.color = taskTextDefaultColor;
         }
 
         // 1. Pick a random target artifact with a 3D model
@@ -160,7 +179,10 @@ public class Game1GuessName : BaseGame
 
     private void OnOptionSelected(string optionName, Button clickedButton)
     {
+        if (clickedButton != null && eliminatedOptions.Contains(clickedButton)) return;
+
         selectedAnswerName = optionName;
+        selectedAnswerButton = clickedButton;
 
         // Highlight selection state across spawned buttons
         foreach (GameObject btnObj in spawnedDynamicButtons)
@@ -168,7 +190,7 @@ public class Game1GuessName : BaseGame
             if (btnObj == null) continue;
             Button btn = btnObj.GetComponent<Button>();
             Image img = btnObj.GetComponent<Image>();
-            if (img != null && btn != null)
+            if (img != null && btn != null && !eliminatedOptions.Contains(btn))
             {
                 img.color = (btn == clickedButton)
                     ? new Color(0.784f, 0.765f, 0.353f, 1f) // Selected (Khaki)
@@ -189,6 +211,12 @@ public class Game1GuessName : BaseGame
 
         bool isCorrect = (currentTargetArtifact != null && selectedAnswerName == currentTargetArtifact.artifactName);
         if (isCorrect) score++;
+
+        if (!isCorrect && ++wrongAttempts < MaxWrongAttempts)
+        {
+            RuleOutSelectedOption();
+            return;
+        }
 
         // 1. Reveal true 3D model textures
         RevealModelTextures();
@@ -211,6 +239,43 @@ public class Game1GuessName : BaseGame
         {
             answerText.text = currentTargetArtifact != null ? currentTargetArtifact.artifactName : "";
         }
+
+        SetLanjutLabel(isCorrect ? null : FailedNextLabel);
+    }
+
+    /// <summary>Sets the continue button's label; null restores its original wording.</summary>
+    private void SetLanjutLabel(string label)
+    {
+        if (lanjutButton == null) return;
+        TMP_Text text = lanjutButton.GetComponentInChildren<TMP_Text>(true);
+        if (text == null) return;
+        if (lanjutLabelOriginal == null) lanjutLabelOriginal = text.text;
+        text.text = label ?? lanjutLabelOriginal;
+    }
+
+    /// <summary>
+    /// First wrong guess: dim and disable the chosen option, clear the selection and ask the
+    /// player to try again. The answer is revealed only on the second wrong guess.
+    /// </summary>
+    private void RuleOutSelectedOption()
+    {
+        if (selectedAnswerButton != null)
+        {
+            eliminatedOptions.Add(selectedAnswerButton);
+            selectedAnswerButton.interactable = false;
+            Image img = selectedAnswerButton.GetComponent<Image>();
+            if (img != null) img.color = EliminatedOptionColor;
+        }
+
+        selectedAnswerName = "";
+        selectedAnswerButton = null;
+        if (checkAnswerButton != null) checkAnswerButton.interactable = false;
+
+        if (taskText != null)
+        {
+            taskText.text = TryAgainMessage;
+            taskText.color = TryAgainColor;
+        }
     }
 
     private void OnLanjutPressed()
@@ -224,7 +289,7 @@ public class Game1GuessName : BaseGame
         {
             // 5 rounds finished -> Show Game 1 Leaderboard with player completion time!
             Debug.Log($"Game 1 Complete! Final score: {score}/{totalRounds}");
-            FinishGameAndShowLeaderboard("game_1", "Teka Bayang Artifak");
+            FinishGameAndShowLeaderboard("game_1", "Teka Artifak");
         }
     }
 
@@ -623,14 +688,19 @@ public class Game1GuessName : BaseGame
 
         Button btn = obj.GetComponent<Button>() ?? obj.AddComponent<Button>();
         btn.onClick.RemoveAllListeners();
-        btn.onClick.AddListener(action);
         if (btn.targetGraphic != null) btn.targetGraphic.raycastTarget = true;
 
+        // One click source only: the XR button fires on pinch-down and the UGUI Button on release,
+        // so wiring both ran each action twice per pinch (two wrong checks, or Lanjut skipping a round).
         XRButtonSelection xr = obj.GetComponent<XRButtonSelection>();
         if (xr != null)
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(action);
+        }
+        else
+        {
+            btn.onClick.AddListener(action);
         }
 
         if (obj.GetComponent<UIButtonAudio>() == null)
