@@ -1035,9 +1035,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   games:
   - gameId: game_1
-    displayName: Tebak Bayangan Artifak
+    displayName: Teka Artifak
   - gameId: game_2
-    displayName: Susun Langkah & Kisah
+    displayName: Langkah & Kisah
   selectedGameIndex: 0
   menuCanvas: {fileID: 1083230952534068829}
   startButton: {fileID: 2022287696072165064}

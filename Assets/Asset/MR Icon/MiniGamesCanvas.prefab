@@ -11470,10 +11470,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   games:
   - gameID: game_1
-    gameName: Tebak Bayangan Artifak
+    gameName: Teka Artifak
     gamePanel: {fileID: 602808586536804850}
   - gameID: game_2
-    gameName: Susun Langkah & Kisah
+    gameName: Langkah & Kisah
     gamePanel: {fileID: 3556533972147743326}
   gameTitle: {fileID: 256432784995702340}
   previousButton: {fileID: 1657930456495653822}

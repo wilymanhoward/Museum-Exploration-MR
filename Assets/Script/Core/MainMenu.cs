@@ -631,7 +631,7 @@ public class MainMenu : MonoBehaviour
             buttonSize,
             ThemeManager.Instance.GetOrCreateMoonIconSprite(),
             new Color(0.92f, 0.95f, 1.0f, 1.0f), // Soft luminous silver-white
-            "Mode Gelap",
+            "Mod Gelap",
             new Color(0.18f, 0.19f, 0.22f, 0.80f), // Normal dark grey with subtle transparency
             new Color(0.35f, 0.38f, 0.42f, 0.75f), // Minimal matching edge definition
             font,
@@ -646,7 +646,7 @@ public class MainMenu : MonoBehaviour
             buttonSize,
             ThemeManager.Instance.GetOrCreateSunIconSprite(),
             new Color(1.0f, 0.88f, 0.38f, 1.0f), // Warm golden radiant sun
-            "Mode Terang",
+            "Mod Cerah",
             new Color(0.55f, 0.59f, 0.48f, 0.82f), // Authentic light olive with subtle transparency
             new Color(0.70f, 0.74f, 0.62f, 0.75f), // Minimal matching edge definition
             font,
