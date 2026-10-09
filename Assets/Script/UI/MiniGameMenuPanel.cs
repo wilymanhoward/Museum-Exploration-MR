@@ -30,8 +30,8 @@ public class MiniGameMenuPanel : MonoBehaviour
     [Header("Games")]
     public GameEntry[] games = new GameEntry[]
     {
-        new GameEntry { gameID = "game_1", gameName = "Teka Bayang Artifak" },
-        new GameEntry { gameID = "game_2", gameName = "Susun Langkah & Kisah" }
+        new GameEntry { gameID = "game_1", gameName = "Teka Artifak" },
+        new GameEntry { gameID = "game_2", gameName = "Langkah & Kisah" }
     };
 
     // ─────────────────────────────────────────────────────────────────────────
