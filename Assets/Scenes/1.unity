@@ -10615,9 +10615,8 @@ MonoBehaviour:
   instructionText: 'PICIT dan TAHAN artifak untuk digerakkan. Terus gerak sehingga
     bar penuh!
 
-    <size=80%><i>PINCH and HOLD
-    the artifact to move it. Keep moving until the bar is
-    full!</i></size>'
+    <size=80%><i>PINCH and HOLD the artifact to move it. Keep moving
+    until the bar is full!</i></size>'
   narrationClip: {fileID: 8300000, guid: a39bf9f6391cd3245b3468829614373c, type: 3}
   artifactResourcePath: Models/model_artifact_keris
   requiredRotationDegrees: 540
@@ -16355,6 +16354,7 @@ MonoBehaviour:
   videoPlayer: {fileID: 33566340}
   skipButtonXR: {fileID: 1574385021}
   skipButton: {fileID: 1574385022}
+  themeSelectionPanel: {fileID: 0}
   fadeDuration: 0.8
   wristMenuSystem: {fileID: 1985681180}
   nameErrorLabel: {fileID: 365763138}
@@ -20883,6 +20883,13 @@ MonoBehaviour:
   rightController: {fileID: 1693594441}
   leftHand: {fileID: 1693594440}
   rightHand: {fileID: 1693594439}
+  handLostGracePeriod: 0.25
+  controllerIdleDelay: 0.2
+  autoDetectModality: 1
+  debugLogging: 0
+  controllerVisualScale: {x: 0.01, y: 0.01, z: 0.01}
+  controllerVisualPositionOffset: {x: 0, y: 0, z: 0}
+  controllerVisualRotationOffset: {x: 0, y: 0, z: 0}
 --- !u!1 &1694179821
 GameObject:
   m_ObjectHideFlags: 0
@@ -21762,21 +21769,6 @@ MonoBehaviour:
   artifactPanelPrefab: {fileID: 6529188949796289641, guid: 11cd1d5ac36309645b34fb7b19802332,
     type: 3}
   selectedArtifact: {fileID: 0}
---- !u!114 &1779311624
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1779311620}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 32338e04627c8a946a0db8c5aedaac0b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  historyDatabase: []
-  historyListPanel: {fileID: 655254543}
-  historyDetailPanel: {fileID: 1893831452}
 --- !u!114 &1779311622
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -21819,6 +21811,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1779311624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779311620}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32338e04627c8a946a0db8c5aedaac0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  historyDatabase: []
+  historyListPanel: {fileID: 655254543}
+  historyDetailPanel: {fileID: 1893831452}
 --- !u!1 &1786981441
 GameObject:
   m_ObjectHideFlags: 0
@@ -25308,6 +25315,7 @@ MonoBehaviour:
   gamesPanel: {fileID: 1893142003}
   exploreRow: {fileID: 843097875}
   roomListPanel: {fileID: 1211192188}
+  themeRow: {fileID: 0}
   attachRoomListToWrist: 1
   roomListWristOffset: {x: 0, y: 0.12, z: 0.02}
   roomListWristEuler: {x: 0, y: 0, z: 0}
@@ -25317,6 +25325,14 @@ MonoBehaviour:
   fixedWatchScale: {x: 1, y: 1, z: 1}
   forceHidden: 0
   toggleDebounce: 0.3
+  enableThumbsUpGesture: 1
+  thumbsUpHoldDuration: 0.3
+  thumbsUpCooldown: 1.2
+  thumbCurlThreshold: 0.35
+  fingerCurlThreshold: 0.55
+  thumbUpAlignmentThreshold: 0.6
+  toggleMenuWithThumbsUp: 0
+  debugLogGesture: 1
   freezeReachDistance: 0.18
 --- !u!224 &1985681182
 RectTransform:
