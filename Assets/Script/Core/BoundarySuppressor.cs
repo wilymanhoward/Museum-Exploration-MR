@@ -17,10 +17,13 @@ using UnityEngine.XR;
 /// Foundation's Meta OpenXR camera feature, so this script only drives the boundary
 /// request; it does not touch passthrough itself.
 ///
-/// The project doesn't otherwise use OVRManager (rendering/passthrough go through AR
-/// Foundation, not the classic OVRCameraRig), so this bootstraps a minimal, persistent
-/// one purely to run the boundary-suppression request every frame - OVRManager's own
-/// Update loop is what actually syncs the request to the OS. Self-installing via
+/// Uses Meta's Boundary API ("contextual boundaryless"): the boundary is suppressed only once
+/// exploration has started (MULAI pressed, background faded to passthrough) and restored while
+/// the black intro/main menu is showing, when the player can't see the room. Requires
+/// com.oculus.permission.BOUNDARY_VISIBILITY (manifest) and Boundary Visibility Support in the
+/// OVR project config. The request goes straight to OVRPlugin: OVRManager only forwards it when
+/// its own Insight passthrough is enabled, but this app's passthrough runs through AR
+/// Foundation, so OVRManager's path never sent it. Self-installing via
 /// RuntimeInitializeOnLoadMethod, so no scene wiring is needed and it survives scene loads.
 /// </summary>
 public class BoundarySuppressor : MonoBehaviour
@@ -31,7 +34,7 @@ public class BoundarySuppressor : MonoBehaviour
 #if UNITY_EDITOR
         // Mirrors EditorMRUKGuard's own guard: without a live OVR/OpenXR session (no Quest
         // Link, no Meta XR Simulator), there is nothing to suppress the boundary on and
-        // spinning up an OVRManager here would just risk the same "no XR session" log spam
+        // calling into OVRPlugin here would just risk the same "no XR session" log spam
         // MRUK has in that situation.
         if (!XRSettings.isDeviceActive) return;
 #endif
@@ -42,26 +45,42 @@ public class BoundarySuppressor : MonoBehaviour
         go.AddComponent<BoundarySuppressor>();
     }
 
-    private OVRManager ovrManager;
+    // How often to retry while the system state doesn't match the desired state yet
+    // (e.g. passthrough not composited yet right after the fade, or the request was refused).
+    private const float RetryInterval = 0.5f;
 
-    private void Awake()
-    {
-        ovrManager = FindObjectOfType<OVRManager>();
-        if (ovrManager == null)
-        {
-            GameObject ovrGo = new GameObject("OVRManager (Boundary Suppression)");
-            ovrGo.transform.SetParent(transform, false);
-            ovrManager = ovrGo.AddComponent<OVRManager>();
-        }
-    }
+    private float nextRequestTime;
+    private bool? lastAppliedSuppressed;
+    private OVRPlugin.Result lastLoggedResult;
 
     private void Update()
     {
-        // Cheap to re-assert every frame; OVRManager's own Update is what re-checks this
-        // against the live passthrough/system state each frame and syncs it to the OS.
-        if (ovrManager != null)
+        if (Time.unscaledTime < nextRequestTime) return;
+        nextRequestTime = Time.unscaledTime + RetryInterval;
+
+        bool wantSuppressed = MainMenu.IsExplorationStarted;
+        if (lastAppliedSuppressed == wantSuppressed) return;
+
+        OVRPlugin.Result result = OVRPlugin.RequestBoundaryVisibility(wantSuppressed
+            ? OVRPlugin.BoundaryVisibility.Suppressed
+            : OVRPlugin.BoundaryVisibility.NotSuppressed);
+
+        if (result == OVRPlugin.Result.Success)
         {
-            ovrManager.shouldBoundaryVisibilityBeSuppressed = true;
+            lastAppliedSuppressed = wantSuppressed;
+            Debug.Log($"BoundarySuppressor: boundary {(wantSuppressed ? "suppressed" : "restored")}.");
+        }
+        else if (result == OVRPlugin.Result.Failure_Unsupported || result == OVRPlugin.Result.Failure_NotYetImplemented)
+        {
+            // Runtime/OS without the Boundary API - nothing to retry.
+            Debug.LogWarning($"BoundarySuppressor: Boundary API unavailable ({result}).");
+            enabled = false;
+        }
+        else if (result != lastLoggedResult)
+        {
+            // Warning_BoundaryVisibilitySuppressionNotAllowed = the OS didn't see passthrough yet; keep retrying.
+            lastLoggedResult = result;
+            Debug.LogWarning($"BoundarySuppressor: request refused ({result}), retrying.");
         }
     }
 }
