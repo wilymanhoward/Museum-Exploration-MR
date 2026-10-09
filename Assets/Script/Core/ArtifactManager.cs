@@ -380,8 +380,32 @@ public class ArtifactManager : MonoBehaviour
             {
                 RoomManager.Instance.SetScanStatus($"Artifak Diimbas: {artifactMatch.artifactName}", new Color(0.1f, 0.75f, 0.2f));
             }
-            SpawnArtifactDetailPanel(artifactMatch, pose);
+            SpawnArtifactDetailPanel(artifactMatch, FacePlayer(pose));
         }
+    }
+
+    /// <summary>
+    /// Keeps the scanned QR code's position but turns the panel upright to face the player.
+    /// MRUK reports a QR trackable with its forward axis pointing out of the code towards the
+    /// viewer, while a world-space canvas reads correctly only when its forward points away
+    /// from the viewer - so copying the QR rotation showed the panel mirrored (and tilted when
+    /// the code lay on a table).
+    /// </summary>
+    private Pose FacePlayer(Pose qrPose)
+    {
+        Transform cam = WallPlacementHelper.ResolveCameraTransform(playerTransform);
+        if (cam == null) return qrPose;
+
+        Vector3 away = qrPose.position - cam.position;
+        away.y = 0f;
+        if (away.sqrMagnitude < 0.0001f)
+        {
+            away = cam.forward;
+            away.y = 0f;
+        }
+        if (away.sqrMagnitude < 0.0001f) return qrPose;
+
+        return new Pose(qrPose.position, Quaternion.LookRotation(away.normalized, Vector3.up));
     }
 
     private ArtifactData FindArtifactInProject(string id)
