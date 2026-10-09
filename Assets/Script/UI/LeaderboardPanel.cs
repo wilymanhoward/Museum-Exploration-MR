@@ -101,6 +101,10 @@ public class LeaderboardPanel : MonoBehaviour
     private static string pendingPlayerName = null;
     private static int pendingScoreSeconds = 0;
 
+    // The run that just finished (captured before the post clears the pending score), checked
+    // against the final merged ranking to celebrate a new 1st place.
+    private int celebrateSeconds = 0;
+
     /// <summary>
     /// Opens and loads the leaderboard for the specified game.
     /// </summary>
@@ -131,6 +135,9 @@ public class LeaderboardPanel : MonoBehaviour
         {
             DisplayLeaderboard(localDisplayEntries);
         }
+
+        // Only a leaderboard opened right after finishing a game can celebrate.
+        celebrateSeconds = (!string.IsNullOrEmpty(pendingGameId) && pendingGameId == currentGameId) ? pendingScoreSeconds : 0;
 
         // 4. Start Post & Fetch coroutine (StopAllCoroutines runs BEFORE starting the post, so it is never aborted!)
         StopAllCoroutines();
@@ -383,6 +390,23 @@ public class LeaderboardPanel : MonoBehaviour
         // Sort by fastest completion time ascending (lowest score/time = 1st place)
         finalEntries.Sort((a, b) => a.timeSeconds.CompareTo(b.timeSeconds));
         DisplayLeaderboard(finalEntries);
+        CelebrateIfFirstPlace(finalEntries);
+    }
+
+    /// <summary>
+    /// Plays the confetti celebration when the run that was just finished is the fastest time on
+    /// the merged (Firestore + local) ranking. Ties count as 1st place.
+    /// </summary>
+    private void CelebrateIfFirstPlace(List<LeaderboardEntry> rankedEntries)
+    {
+        int finishedSeconds = celebrateSeconds;
+        celebrateSeconds = 0;
+        if (finishedSeconds <= 0 || rankedEntries == null || rankedEntries.Count == 0 || rankedEntries[0] == null) return;
+
+        if (finishedSeconds <= Mathf.RoundToInt(rankedEntries[0].timeSeconds))
+        {
+            CelebrationEffect.Play(transform as RectTransform, "Tahniah! Anda No. 1!", "Masa terpantas untuk permainan ini");
+        }
     }
 
     private void DisplayLeaderboard(List<LeaderboardEntry> entries)
