@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using TMPro;
 
 /// <summary>
-/// Mini-Game 2: "Susun Langkah & Kisah" (Combined Mini-Game with 5 questions).
+/// Mini-Game 2: "Langkah & Kisah" (Combined Mini-Game with 5 questions).
 /// Inherits from BaseGame.
 /// 
 /// Question 1 (1/5): "Proses Pembuatan Batik" (5 illustration cards: 1 1.png .. 5 1.png).
@@ -159,6 +159,22 @@ public class Game2OrderProcess : BaseGame
     private Vector3[] bottomBankLocalPositions = new Vector3[5];
     private DraggableProcessCard[] slotAssignments = new DraggableProcessCard[5];
 
+    // Three wrong checks on a question reveal the correct order; the Check button then reads
+    // "Seterusnya" and the player presses it to continue.
+    private const int MaxWrongAttempts = 3;
+    private const string RevealMessage = "Ini susunan yang betul";
+    private const string NextButtonLabel = "Seterusnya";
+    private string checkLabelOriginal;
+    private int wrongAttempts = 0;
+    private bool revealingAnswer = false;
+    private string wrongTextOriginal;
+    private Color wrongTextOriginalColor;
+    // Same green as Game 1's "Benar" result.
+    private static readonly Color RevealColor = new Color(0.4f, 0.85f, 0.4f);
+
+    /// <summary>True while the correct order is shown (until "Seterusnya"); cards ignore drags meanwhile.</summary>
+    public bool IsRevealingAnswer => revealingAnswer;
+
     private Sprite darkTextCardSprite = null;
     private Sprite lightTextCardSprite = null;
 
@@ -276,6 +292,10 @@ public class Game2OrderProcess : BaseGame
 
     private void LoadQuestion(int roundIdx)
     {
+        wrongAttempts = 0;
+        revealingAnswer = false;
+        SetWrongTextMessage(null);
+        SetCheckButtonLabel(null);
         if (wrongText != null) wrongText.SetActive(false);
         if (checkAnswerButton != null) checkAnswerButton.interactable = true;
 
@@ -808,14 +828,19 @@ public class Game2OrderProcess : BaseGame
         if (checkAnswerButton == null) return;
 
         checkAnswerButton.onClick.RemoveAllListeners();
-        checkAnswerButton.onClick.AddListener(OnCheckAnswerPressed);
         if (checkAnswerButton.targetGraphic != null) checkAnswerButton.targetGraphic.raycastTarget = true;
 
+        // One click source only: the XR button fires on pinch-down and the UGUI Button on release,
+        // so wiring both counted one pinch as two checks (two wrong attempts at once).
         XRButtonSelection xr = checkAnswerButton.GetComponent<XRButtonSelection>();
         if (xr != null)
         {
             xr.onClick.RemoveAllListeners();
             xr.onClick.AddListener(OnCheckAnswerPressed);
+        }
+        else
+        {
+            checkAnswerButton.onClick.AddListener(OnCheckAnswerPressed);
         }
 
         if (checkAnswerButton.GetComponent<UIButtonAudio>() == null)
@@ -947,6 +972,13 @@ public class Game2OrderProcess : BaseGame
 
     public void OnCheckAnswerPressed()
     {
+        // While the correct order is shown the button reads "Seterusnya": continue.
+        if (revealingAnswer)
+        {
+            revealingAnswer = false;
+            AdvanceToNextQuestion();
+            return;
+        }
         int count = cards.Count;
         if (count == 0) return;
 
@@ -975,28 +1007,91 @@ public class Game2OrderProcess : BaseGame
             Debug.Log($"Game2OrderProcess: Question {currentQ}/{totalQ} CORRECT!");
 
             if (wrongText != null) wrongText.SetActive(false);
-
-            if (currentRoundIndex + 1 < totalQ)
-            {
-                // Advance to next question in the sequence
-                currentRoundIndex++;
-                LoadQuestion(currentRoundIndex);
-            }
-            else
-            {
-                // Completed all questions! Show Game 2 Leaderboard with player completion time
-                Debug.Log("Game2OrderProcess: All 5 questions completed! Showing Leaderboard.");
-                FinishGameAndShowLeaderboard("game_2", "Susun Langkah & Kisah");
-            }
+            AdvanceToNextQuestion();
         }
         else
         {
             Debug.Log("Game2OrderProcess: Player guessed WRONG. Displaying wrong text.");
-            if (wrongText != null)
+            wrongAttempts++;
+            if (wrongAttempts >= MaxWrongAttempts)
+            {
+                RevealAnswer();
+            }
+            else if (wrongText != null)
             {
                 wrongText.SetActive(true);
             }
         }
+    }
+
+    private void AdvanceToNextQuestion()
+    {
+        int totalQ = questions != null ? questions.Length : 5;
+        if (currentRoundIndex + 1 < totalQ)
+        {
+            // Advance to next question in the sequence
+            currentRoundIndex++;
+            LoadQuestion(currentRoundIndex);
+        }
+        else
+        {
+            // Completed all questions! Show Game 2 Leaderboard with player completion time
+            Debug.Log("Game2OrderProcess: All 5 questions completed! Showing Leaderboard.");
+            FinishGameAndShowLeaderboard("game_2", "Langkah & Kisah");
+        }
+    }
+
+    /// <summary>
+    /// Shows the correct order by moving every card into its own slot and turns the Check button
+    /// into "Seterusnya"; pressing it continues to the next question (or the leaderboard).
+    /// </summary>
+    private void RevealAnswer()
+    {
+        revealingAnswer = true;
+        if (checkAnswerButton != null) checkAnswerButton.interactable = true;
+        SetCheckButtonLabel(NextButtonLabel);
+
+        for (int i = 0; i < slotAssignments.Length; i++) slotAssignments[i] = null;
+        foreach (DraggableProcessCard card in cards)
+        {
+            if (card == null) continue;
+            int slot = card.CorrectStepIndex;
+            if (slot < 0 || slot >= slotLocalPositions.Length) continue;
+            slotAssignments[slot] = card;
+            card.AssignedSlotIndex = slot;
+            card.TargetLocalPosition = slotLocalPositions[slot];
+        }
+
+        SetWrongTextMessage(RevealMessage);
+        if (wrongText != null) wrongText.SetActive(true);
+    }
+
+    /// <summary>Sets the Check button's label; null restores its original wording.</summary>
+    private void SetCheckButtonLabel(string label)
+    {
+        if (checkAnswerButton == null) return;
+        TMP_Text text = checkAnswerButton.GetComponentInChildren<TMP_Text>(true);
+        if (text == null) return;
+        if (checkLabelOriginal == null) checkLabelOriginal = text.text;
+        text.text = label ?? checkLabelOriginal;
+    }
+
+    /// <summary>
+    /// Swaps the wrong-answer label text (shown in green for the revealed answer);
+    /// null restores the original wording and colour.
+    /// </summary>
+    private void SetWrongTextMessage(string message)
+    {
+        if (wrongText == null) return;
+        TMP_Text label = wrongText.GetComponentInChildren<TMP_Text>(true);
+        if (label == null) return;
+        if (wrongTextOriginal == null)
+        {
+            wrongTextOriginal = label.text;
+            wrongTextOriginalColor = label.color;
+        }
+        label.text = message ?? wrongTextOriginal;
+        label.color = message != null ? RevealColor : wrongTextOriginalColor;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1071,6 +1166,7 @@ public class DraggableProcessCard : MonoBehaviour, IPointerDownHandler, IPointer
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (controller != null && controller.IsRevealingAnswer) return;
         isDragging = true;
         transform.SetAsLastSibling();
 
