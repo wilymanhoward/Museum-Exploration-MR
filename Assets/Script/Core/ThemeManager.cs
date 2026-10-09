@@ -1278,10 +1278,19 @@ public class ThemeManager : MonoBehaviour
                     }
                 }
             }
+            // Narration Play/Pause: round accent button. It used the sliced pill below, whose borders
+            // are larger than this small button, so it rendered as a stretched capsule.
+            else if (n.Contains("playbutton"))
+            {
+                img.sprite = GetOrCreateLightActionCircleBtnSprite();
+                img.type = Image.Type.Simple;
+                img.color = Color.white;
+                img.material = null;
+            }
             // Action buttons (e.g. 10.png, CheckButton, StartButton, ContinueButton, ReturnToMenuButton, MulaiButton, ActionPill)
             else if (sprName == "10" || n.Contains("checkbutton") || n.Contains("startbutton") ||
                      n.Contains("continuebutton") || n.Contains("returntomenu") || n.Contains("mulaibutton") ||
-                     n.Contains("actionpill") || n.Contains("playbutton"))
+                     n.Contains("actionpill"))
             {
                 img.sprite = activeBtnSprite;
                 img.type = Image.Type.Sliced;

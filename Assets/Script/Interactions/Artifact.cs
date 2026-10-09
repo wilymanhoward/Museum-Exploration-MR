@@ -77,6 +77,11 @@ public class Artifact : MonoBehaviour
     // narrating so a newly-opened/played panel can silence the previous one.
     private static Artifact s_activeNarration;
     private ScrollRect descriptionScrollRect;
+
+    // "Tahniah! Anda Berjaya" once per shown artifact, when its description is scrolled to the end.
+    private bool descriptionReadCelebrated;
+    private bool descriptionScrollHooked;
+    private float descriptionPopulatedTime;
     private static Sprite cachedRoundedRectSprite;
     private bool currentViewIs2D = true;
 
@@ -175,6 +180,12 @@ public class Artifact : MonoBehaviour
             }
         }
 
+        // The scene's PlayButton stretches between anchors with a large extra height, so its rect
+        // is a tall strip: in light mode the button background filled that strip (a tall capsule)
+        // and the invisible strip also overlapped the description card. Make it a square.
+        MakeRectSquare(playButton != null ? playButton.transform as RectTransform
+                                          : playButtonXR != null ? playButtonXR.transform as RectTransform : null);
+
         // Hook audio buttons
         HookButton(playButton, playButtonXR, OnPlayPauseClicked);
         HookButton(restartButton, restartButtonXR, RestartNarration);
@@ -184,6 +195,25 @@ public class Artifact : MonoBehaviour
     // Hooks ONE click source per button. The XR button fires on pinch-down and the UGUI Button
     // fires on release, so wiring both made a single pinch fire twice (e.g. Play/Pause paused
     // while held and resumed on release). Prefer the XR one; the plain Button is the fallback.
+    /// <summary>
+    /// Turns a stretched rect into a square of its current width, centred on the same pivot.
+    /// Anchors collapse to the point they currently reference, so anchoredPosition stays valid.
+    /// </summary>
+    private static void MakeRectSquare(RectTransform rt)
+    {
+        if (rt == null) return;
+        Rect r = rt.rect;
+        if (r.width <= 0f || Mathf.Abs(r.width - r.height) < 1f) return;
+
+        Vector2 anchorPoint = new Vector2(
+            Mathf.Lerp(rt.anchorMin.x, rt.anchorMax.x, rt.pivot.x),
+            Mathf.Lerp(rt.anchorMin.y, rt.anchorMax.y, rt.pivot.y));
+        Vector2 pos = rt.anchoredPosition;
+        rt.anchorMin = rt.anchorMax = anchorPoint;
+        rt.sizeDelta = new Vector2(r.width, r.width);
+        rt.anchoredPosition = pos;
+    }
+
     private static void HookButton(Button button, XRButtonSelection xrButton, UnityEngine.Events.UnityAction action)
     {
         if (xrButton != null) xrButton.onClick.AddListener(action);
@@ -2645,7 +2675,37 @@ public class Artifact : MonoBehaviour
             }
         }
 
+        descriptionReadCelebrated = false;
+        descriptionPopulatedTime = Time.unscaledTime;
+        if (descriptionScrollRect != null && !descriptionScrollHooked)
+        {
+            descriptionScrollRect.onValueChanged.AddListener(OnDescriptionScrolled);
+            descriptionScrollHooked = true;
+        }
+
         TidyTentangCard();
+    }
+
+    /// <summary>
+    /// Celebrates once when the player scrolls the description to the very end. Ignores the first
+    /// half second after the text is filled (layout settling) and descriptions short enough to
+    /// fit without scrolling.
+    /// </summary>
+    private void OnDescriptionScrolled(Vector2 position)
+    {
+        if (descriptionReadCelebrated || descriptionScrollRect == null) return;
+        if (Time.unscaledTime - descriptionPopulatedTime < 0.5f) return;
+
+        RectTransform content = descriptionScrollRect.content;
+        RectTransform viewport = descriptionScrollRect.viewport != null
+            ? descriptionScrollRect.viewport
+            : descriptionScrollRect.transform as RectTransform;
+        if (content == null || viewport == null || content.rect.height <= viewport.rect.height + 10f) return;
+
+        if (position.y > 0.02f) return; // 0 = bottom of the text
+
+        descriptionReadCelebrated = true;
+        CelebrationEffect.Play(transform as RectTransform, "Tahniah! Anda Berjaya", "Anda telah selesai membaca tentang artifak ini.");
     }
 
     private void NormalizeMalaysianMalayUI()
