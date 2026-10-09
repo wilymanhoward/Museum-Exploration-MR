@@ -127,25 +127,8 @@ public class Artifact : MonoBehaviour
         EnsureGrabbablePanel();
 
         // Hook view toggle buttons
-        if (imagesButton != null)
-        {
-            imagesButton.onClick.AddListener(() => SetViewMode(true));
-        }
-        if (imagesButtonXR != null)
-        {
-            imagesButtonXR.onClick.AddListener(() => SetViewMode(true));
-        }
-
-        if (threeDViewButton != null)
-        {
-            threeDViewButton.onClick.AddListener(() => SetViewMode(false));
-            threeDViewButton.onClick.AddListener(On3DViewButtonClicked);
-        }
-        if (threeDViewButtonXR != null)
-        {
-            threeDViewButtonXR.onClick.AddListener(() => SetViewMode(false));
-            threeDViewButtonXR.onClick.AddListener(On3DViewButtonClicked);
-        }
+        HookButton(imagesButton, imagesButtonXR, () => SetViewMode(true));
+        HookButton(threeDViewButton, threeDViewButtonXR, On3DViewButtonClicked);
 
         // Hook close button click to hide the canvas
         if (closeButton != null)
@@ -193,15 +176,15 @@ public class Artifact : MonoBehaviour
         }
 
         // Hook audio buttons
-        HookAudioButton(playButton, playButtonXR, OnPlayPauseClicked);
-        HookAudioButton(restartButton, restartButtonXR, RestartNarration);
-        HookAudioButton(playInstrumentButton, playInstrumentButtonXR, PlayInstrumentAudio);
+        HookButton(playButton, playButtonXR, OnPlayPauseClicked);
+        HookButton(restartButton, restartButtonXR, RestartNarration);
+        HookButton(playInstrumentButton, playInstrumentButtonXR, PlayInstrumentAudio);
     }
 
     // Hooks ONE click source per button. The XR button fires on pinch-down and the UGUI Button
-    // fires on release, so wiring both made a single pinch toggle Play/Pause twice (paused while
-    // held, resumed on release). Prefer the XR one; the plain Button is the fallback.
-    private static void HookAudioButton(Button button, XRButtonSelection xrButton, UnityEngine.Events.UnityAction action)
+    // fires on release, so wiring both made a single pinch fire twice (e.g. Play/Pause paused
+    // while held and resumed on release). Prefer the XR one; the plain Button is the fallback.
+    private static void HookButton(Button button, XRButtonSelection xrButton, UnityEngine.Events.UnityAction action)
     {
         if (xrButton != null) xrButton.onClick.AddListener(action);
         else if (button != null) button.onClick.AddListener(action);
@@ -372,13 +355,7 @@ public class Artifact : MonoBehaviour
                 threeDViewButtonXR = btnT.GetComponent<XRButtonSelection>();
 
                 // Hook listeners if resolved dynamically
-                threeDViewButton.onClick.AddListener(() => SetViewMode(false));
-                threeDViewButton.onClick.AddListener(On3DViewButtonClicked);
-                if (threeDViewButtonXR != null)
-                {
-                    threeDViewButtonXR.onClick.AddListener(() => SetViewMode(false));
-                    threeDViewButtonXR.onClick.AddListener(On3DViewButtonClicked);
-                }
+                HookButton(threeDViewButton, threeDViewButtonXR, On3DViewButtonClicked);
             }
         }
 
@@ -493,7 +470,10 @@ public class Artifact : MonoBehaviour
     public void On3DViewButtonClicked()
     {
         Debug.Log("[ArtifactPanel] 3D View Button Clicked / Pinched!");
-        ClearSpawnedModel();
+        SetViewMode(false);
+        // Silent clear: ClearSpawnedModel() restores the photo view, which put the gallery
+        // back behind the model.
+        ClearSpawnedModelSilently();
         OnSpawnModelClicked();
     }
 
@@ -816,6 +796,9 @@ public class Artifact : MonoBehaviour
     {
         ClearSpawnedModelSilently();
 
+        // In 3D view nothing else should appear, so only refresh the photos in photo view.
+        if (!currentViewIs2D) return;
+
         // Restore the photo view when the 3D model is cleared. Use UpdateImageUI so it shows the
         // photo XOR the "no images" text - never both. (Previously this force-activated BOTH the
         // image and noImagesText, so "No Images Available" showed on top of a valid photo.)
@@ -990,11 +973,7 @@ public class Artifact : MonoBehaviour
                 if (imagesButton == null) imagesButton = btnT.gameObject.AddComponent<Button>();
                 imagesButtonXR = btnT.GetComponent<XRButtonSelection>();
 
-                imagesButton.onClick.AddListener(() => SetViewMode(true));
-                if (imagesButtonXR != null)
-                {
-                    imagesButtonXR.onClick.AddListener(() => SetViewMode(true));
-                }
+                HookButton(imagesButton, imagesButtonXR, () => SetViewMode(true));
             }
         }
 
@@ -1746,11 +1725,7 @@ public class Artifact : MonoBehaviour
         // Configure 3D View button visibility (hide if no 3D model)
         Refresh3DViewButtonState();
 
-        // Automatically spawn the 3D model if present
-        if (data != null && data.modelPrefab != null)
-        {
-            OnSpawnModelClicked();
-        }
+        // The panel opens in photo view; the 3D model is spawned only when the 3D button is pressed.
 
         // Auto-play the narration when the artifact is shown.
         PlayNarrationOnShow();
@@ -1793,7 +1768,12 @@ public class Artifact : MonoBehaviour
 
     private void SetViewMode(bool show2D)
     {
+        // Set first so anything refreshed below (UpdateImageUI, ClearSpawnedModel) sees the new mode.
+        currentViewIs2D = show2D;
         bool hasImages = HasValidImages(artifactData);
+
+        // Photo view shows only the photos: remove the 3D model.
+        if (show2D) ClearSpawnedModelSilently();
         if (twoDViewPanel != null)
         {
             twoDViewPanel.SetActive(show2D && hasImages);
