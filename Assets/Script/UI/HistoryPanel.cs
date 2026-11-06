@@ -112,6 +112,11 @@ public class HistoryPanel : MonoBehaviour
     private int currentImageIndex = 0;
     private GameObject builtGalleryNavRoot;
     private ScrollRect descriptionScrollRect;
+
+    // "Tahniah! Anda Berjaya" once per shown topic, when its description is scrolled to the end.
+    private bool descriptionReadCelebrated;
+    private bool descriptionScrollHooked;
+    private float descriptionPopulatedTime;
     private ScrollRect photoScrollRect;
     private RectTransform photoContentRect;
     private PhotoSnapScroller photoSnapScroller;
@@ -1379,6 +1384,28 @@ public class HistoryPanel : MonoBehaviour
     /// <summary>
     /// Populate the HistoryPanel UI using the provided HistoryData ScriptableObject.
     /// </summary>
+    /// <summary>
+    /// Celebrates once when the player scrolls the history description to the very end. Ignores
+    /// the first half second after the text is filled (layout settling) and descriptions short
+    /// enough to fit without scrolling.
+    /// </summary>
+    private void OnDescriptionScrolled(Vector2 position)
+    {
+        if (descriptionReadCelebrated || descriptionScrollRect == null) return;
+        if (Time.unscaledTime - descriptionPopulatedTime < 0.5f) return;
+
+        RectTransform content = descriptionScrollRect.content;
+        RectTransform viewport = descriptionScrollRect.viewport != null
+            ? descriptionScrollRect.viewport
+            : descriptionScrollRect.transform as RectTransform;
+        if (content == null || viewport == null || content.rect.height <= viewport.rect.height + 10f) return;
+
+        if (position.y > 0.02f) return; // 0 = bottom of the text
+
+        descriptionReadCelebrated = true;
+        CelebrationEffect.Play(transform as RectTransform, "Tahniah! Anda Berjaya", "Anda telah selesai membaca sejarah ini.");
+    }
+
     public void Setup(HistoryData data, Action onClose = null)
     {
         activeHistoryData = data;
@@ -1468,6 +1495,14 @@ public class HistoryPanel : MonoBehaviour
             if (descriptionScrollRect != null)
             {
                 descriptionScrollRect.verticalNormalizedPosition = 1f; // Always reset to top when changing topics
+            }
+
+            descriptionReadCelebrated = false;
+            descriptionPopulatedTime = Time.unscaledTime;
+            if (descriptionScrollRect != null && !descriptionScrollHooked)
+            {
+                descriptionScrollRect.onValueChanged.AddListener(OnDescriptionScrolled);
+                descriptionScrollHooked = true;
             }
         }
 

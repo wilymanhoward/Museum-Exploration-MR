@@ -33,6 +33,14 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
 
     private bool isPinching = false;
     private bool isMoving = false;
+
+    // Controller of the hand/ray that started the current pinch. The move loop polls its live
+    // select/UI-press state so the panel is dropped on release even when the release event
+    // never reaches this panel (it can land on a child button or text, or the dragger can be
+    // disabled mid-drag) - which previously left the panel stuck following the hand.
+    private XRBaseController grabbingController;
+    private float releasedFor;
+    private const float ReleaseConfirmSeconds = 0.1f; // ignore single-frame hand-tracking pinch flicker
     private bool isUserMoved = false;
     private bool isSnappedToWall = false;
     private Coroutine holdCoroutine;
@@ -117,6 +125,13 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
     {
         base.OnSelectExited(args);
         StopPinchHold();
+    }
+
+    protected override void OnDisable()
+    {
+        // Artifact disables the dragger in 3D view; drop any grab so it can't resume stuck.
+        StopPinchHold();
+        base.OnDisable();
     }
 
     #region UI Pointer Handlers (For Graphic Raycasting via TrackedDeviceGraphicRaycaster)
@@ -234,13 +249,37 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
         }
 
         isPinching = true;
+        releasedFor = 0f;
+        grabbingController = ResolveController(interactorTransform);
         if (holdCoroutine != null) StopCoroutine(holdCoroutine);
         holdCoroutine = StartCoroutine(ProcessPinchHold(interactorTransform));
+    }
+
+    private static XRBaseController ResolveController(Transform interactorTransform)
+    {
+        if (interactorTransform == null) return null;
+        XRBaseControllerInteractor interactor = interactorTransform.GetComponent<XRBaseControllerInteractor>()
+                                               ?? interactorTransform.GetComponentInParent<XRBaseControllerInteractor>();
+        return interactor != null ? interactor.xrController : null;
+    }
+
+    /// <summary>
+    /// True while the grabbing hand/controller is still pinching (select or UI press held).
+    /// Unknown controller -> true, falling back to the release events alone.
+    /// </summary>
+    private bool IsGrabStillHeld()
+    {
+        if (grabbingController == null) return true;
+
+        bool held = grabbingController.selectInteractionState.active || grabbingController.uiPressInteractionState.active;
+        releasedFor = held ? 0f : releasedFor + Time.deltaTime;
+        return releasedFor < ReleaseConfirmSeconds;
     }
 
     private void StopPinchHold()
     {
         isPinching = false;
+        grabbingController = null;
         if (holdCoroutine != null)
         {
             StopCoroutine(holdCoroutine);
@@ -260,6 +299,11 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
             if (rotator != null && rotator.IsBeingRotated)
             {
                 Debug.Log("[ArtifactPanelDragger] 3D artifact model rotation active during hold! Aborting panel drag.");
+                isPinching = false;
+                yield break;
+            }
+            if (!IsGrabStillHeld())
+            {
                 isPinching = false;
                 yield break;
             }
@@ -288,6 +332,12 @@ public class ArtifactPanelDragger : XRSimpleInteractable, IPointerDownHandler, I
 
                 while (isPinching)
                 {
+                    if (!IsGrabStillHeld())
+                    {
+                        isPinching = false;
+                        break;
+                    }
+
                     if (interactorTransform == null)
                     {
                         interactorTransform = FindActiveInteractorTransform();

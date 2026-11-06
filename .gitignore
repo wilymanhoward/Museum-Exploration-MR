@@ -48,3 +48,6 @@ crashlytics-build.properties
 [Dd]s_[Ss]tore
 .DS_Store
 Thumbs.db
+
+# Local AI tool config
+.codex/

@@ -243,7 +243,7 @@ public class ArtifactManager : MonoBehaviour
         {
             Pose placementPose = WallPlacementHelper.CalculatePlacementPose(
                 playerTransform,
-                activePanelInstances.Count,
+                FindFreePanelSlot(playerTransform),
                 0.60f,
                 out isWallMounted,
                 preferFloating: true // Spawns directly in front of the player at eye level (~0.90m)
@@ -359,7 +359,34 @@ public class ArtifactManager : MonoBehaviour
     private Pose CalculateDefaultPose()
     {
         Transform referenceTransform = WallPlacementHelper.ResolveCameraTransform(playerTransform);
-        return WallPlacementHelper.CalculatePlacementPose(referenceTransform, activePanelInstances.Count, 0.60f, out _, preferFloating: true);
+        return WallPlacementHelper.CalculatePlacementPose(referenceTransform, FindFreePanelSlot(referenceTransform), 0.60f, out _, preferFloating: true);
+    }
+
+    /// <summary>
+    /// Picks the placement slot for a new panel: slot 0 (straight ahead) unless a visible panel
+    /// already sits there, then the alternating side slots. Previously the slot was the number of
+    /// panels in the list, so with one panel open anywhere (even moved across the room) the next
+    /// always opened 0.6 m to the side instead of in front of the player.
+    /// </summary>
+    private int FindFreePanelSlot(Transform reference)
+    {
+        const int maxSlots = 7;
+        const float occupiedRadius = 0.45f;
+
+        for (int slot = 0; slot < maxSlots; slot++)
+        {
+            Pose candidate = WallPlacementHelper.CalculatePlacementPose(reference, slot, 0.60f, out _, preferFloating: true);
+            bool occupied = false;
+            foreach (GameObject panel in activePanelInstances)
+            {
+                if (panel == null || !panel.activeInHierarchy) continue;
+                Vector3 offset = panel.transform.position - candidate.position;
+                offset.y = 0f;
+                if (offset.magnitude < occupiedRadius) { occupied = true; break; }
+            }
+            if (!occupied) return slot;
+        }
+        return 0;
     }
 
     /// <summary>

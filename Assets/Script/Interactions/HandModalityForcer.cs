@@ -108,6 +108,82 @@ public class HandModalityForcer : MonoBehaviour
         EvaluateModality(false);
     }
 
+    /// <summary>
+    /// The project has no Input System settings asset, so the default background behaviour
+    /// (ResetAndDisableNonBackgroundDevices) applied: opening the Horizon menu removes app focus,
+    /// which disabled and reset the hand/controller devices - and on Quest they did not always
+    /// come back, leaving the ray cursor frozen. XR apps should ignore focus (the OpenXR runtime
+    /// itself stops feeding input while the system menu has focus).
+    /// </summary>
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void ConfigureInputFocusBehavior()
+    {
+        if (Application.isEditor) return;
+        UnityEngine.InputSystem.InputSystem.settings.backgroundBehavior =
+            UnityEngine.InputSystem.InputSettings.BackgroundBehavior.IgnoreFocus;
+    }
+
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus) RecoverInputAfterResume();
+    }
+
+    private void OnApplicationPause(bool paused)
+    {
+        if (!paused) RecoverInputAfterResume();
+    }
+
+    private Coroutine resumeRecovery;
+
+    private void RecoverInputAfterResume()
+    {
+        if (!isActiveAndEnabled) return;
+        if (resumeRecovery != null) StopCoroutine(resumeRecovery);
+        resumeRecovery = StartCoroutine(RecoverInputRoutine());
+    }
+
+    /// <summary>
+    /// Returning from the Horizon menu: re-enable any input device left disabled, pick up a
+    /// restarted hand subsystem, and cycle the active hand/controller rigs so their interactors
+    /// and input actions re-bind. Runs again a moment later because the runtime can restore
+    /// tracking a few frames after focus returns.
+    /// </summary>
+    private System.Collections.IEnumerator RecoverInputRoutine()
+    {
+        yield return null;
+        RecoverInputNow();
+        yield return new WaitForSecondsRealtime(0.5f);
+        RecoverInputNow();
+        resumeRecovery = null;
+    }
+
+    private void RecoverInputNow()
+    {
+        foreach (UnityEngine.InputSystem.InputDevice device in UnityEngine.InputSystem.InputSystem.devices)
+        {
+            if (!device.enabled) UnityEngine.InputSystem.InputSystem.EnableDevice(device);
+        }
+
+        handSubsystem = null;
+        FindHandSubsystem();
+        lastLeftPos = Vector3.zero;
+        lastRightPos = Vector3.zero;
+
+        bool hands = CurrentModality != Modality.Controllers;
+        CycleActive(hands ? leftHand : leftController);
+        CycleActive(hands ? rightHand : rightController);
+
+        EvaluateModality(true);
+        if (debugLogging) Debug.Log($"[HandModalityForcer] Input recovered after resume ({CurrentModality}).");
+    }
+
+    private static void CycleActive(GameObject obj)
+    {
+        if (obj == null || !obj.activeSelf) return;
+        obj.SetActive(false);
+        obj.SetActive(true);
+    }
+
     private void LateUpdate()
     {
         if (CurrentModality == Modality.Controllers)
